@@ -1,24 +1,24 @@
 import { StudyCount } from "@/types/yearApi";
-import { useQuery } from "@tanstack/react-query"
-import axios from "axios"
-
-
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 
 export const useGetYears = () => {
-    const query = useQuery<StudyCount[], Error>({
-        queryKey: ["year"],
-        queryFn: async () => {
-           const response = await axios.get("api/year")
+  const query = useQuery<StudyCount[], Error>({
+    queryKey: ["year"],
+    queryFn: async () => {
+      const response = await axios.get(
+        "https://AlgorithmXComp.pythonanywhere.com/api/yearly-study-count/"
+      );
 
-            if(response.status === 500) {
-                throw new Error("Failed to fetch study list")
-            }
+      if (response.status === 500) {
+        throw new Error("Failed to fetch study list");
+      }
 
-            // console.log(response);
- 
-            return response.data;
-        },
-    });
+      // console.log(response);
 
-    return query;
-}
+      return response.data;
+    },
+  });
+
+  return query;
+};
