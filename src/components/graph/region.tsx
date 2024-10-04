@@ -1,8 +1,14 @@
-
 import React, { useEffect, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Bar,BarChart, LabelList, XAxis } from "recharts";
+import {
+  CartesianGrid,
+  Bar,
+  BarChart,
+  LabelList,
+  XAxis,
+  Legend,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -18,14 +24,13 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useGetRegion } from "@/hooks/use-get-region";
-
-
+import AbbreviationLegend from "../ui/abbreviation-legend";
 
 const RegionalStudyCount: React.FC = () => {
-    const { data: year, isLoading, isError } = useGetRegion();
+  const { data: year, isLoading, isError } = useGetRegion();
 
   const chartData = year?.map((data) => ({
-    regionName: data.research_regions__name,
+    countries__name: data.countries__name,
     study_count: data.study_count,
   }));
 
@@ -40,7 +45,7 @@ const RegionalStudyCount: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Regional Study-count</CardTitle>
-        <CardDescription>Number of Publications </CardDescription>
+        <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
@@ -51,9 +56,19 @@ const RegionalStudyCount: React.FC = () => {
               top: 20,
             }}
           >
+            <Legend
+              verticalAlign="bottom"
+              content={
+                <AbbreviationLegend
+                  data={(year ?? []).map((val) => ({
+                    name: val.countries__name,
+                  }))}
+                />
+              }
+            />
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="regionName"
+              dataKey="countries__name"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
@@ -87,10 +102,3 @@ const RegionalStudyCount: React.FC = () => {
 };
 
 export default RegionalStudyCount;
-
-
-
-
-
-
-

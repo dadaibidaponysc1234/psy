@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, XAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -21,12 +21,14 @@ import {
 import { Bar, BarChart, LabelList } from "recharts";
 import { useGetDisorder } from "@/hooks/use-get-disorder";
 import { useGetBiological } from "@/hooks/use-get-biological";
+import AbbreviationLegend from "../ui/abbreviation-legend";
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetBiological();
 
   const chartData = year?.map((data) => ({
-    disorder: data.biological_modularity,
+    biological_modalities__modality_name:
+      data.biological_modalities__modality_name,
     study_count: data.study_count,
   }));
 
@@ -51,9 +53,19 @@ const BiologicalStudyCount: React.FC = () => {
               top: 20,
             }}
           >
+            <Legend
+              verticalAlign="bottom"
+              content={
+                <AbbreviationLegend
+                  data={(year ?? []).map((val) => ({
+                    name: val.biological_modalities__modality_name,
+                  }))}
+                />
+              }
+            />
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="disorder"
+              dataKey="biological_modalities__modality_name"
               tickLine={false}
               tickMargin={10}
               axisLine={false}

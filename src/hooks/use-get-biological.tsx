@@ -1,9 +1,9 @@
-import { Region } from "../types/biological";
+import { BiologicalRecord } from "../types/biological";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
 export const useGetBiological = () => {
-  const query = useQuery<Region[], Error>({
+  const query = useQuery<BiologicalRecord[], Error>({
     queryKey: ["region"],
     queryFn: async () => {
       const response = await axios.get(

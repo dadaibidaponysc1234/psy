@@ -1,4 +1,4 @@
-export interface Region {
-  biological_modularity: String;
-    study_count: number;
-  }
+export interface BiologicalRecord {
+  biological_modalities__modality_name: string;
+  study_count: number;
+}

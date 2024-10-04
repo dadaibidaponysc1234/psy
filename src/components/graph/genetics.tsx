@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, XAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -22,12 +22,14 @@ import { Bar, BarChart, LabelList } from "recharts";
 import { useGetDisorder } from "@/hooks/use-get-disorder";
 import { useGetBiological } from "@/hooks/use-get-biological";
 import { useGetGenetics } from "@/hooks/use-get-genetics";
+import AbbreviationLegend from "../ui/abbreviation-legend";
 
 const GeneticsStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetGenetics();
 
   const chartData = year?.map((data) => ({
-    disorder: data.source,
+    genetic_source_materials__material_type:
+      data.genetic_source_materials__material_type,
     study_count: data.study_count,
   }));
 
@@ -52,9 +54,19 @@ const GeneticsStudyCount: React.FC = () => {
               top: 20,
             }}
           >
+            <Legend
+              verticalAlign="bottom"
+              content={
+                <AbbreviationLegend
+                  data={(year ?? []).map((val) => ({
+                    name: val.genetic_source_materials__material_type,
+                  }))}
+                />
+              }
+            />
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="disorder"
+              dataKey="genetic_source_materials__material_type"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
