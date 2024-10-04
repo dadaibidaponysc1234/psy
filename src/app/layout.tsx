@@ -20,14 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en ">
-      <body
-        className={cn("min-h-screen antialiased", syne.className)}
-      >
+      <body className={cn("min-h-screen antialiased", syne.className)}>
         <Providers>
           <NavBar />
-          <div className="flex flex-col min-h-screen mx-auto">
-            {children}
-          </div>
+          <div className="flex flex-col min-h-screen">{children}</div>
           <Footer />
         </Providers>
       </body>

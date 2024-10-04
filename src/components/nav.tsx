@@ -4,23 +4,21 @@ import { buttonVariants } from "./ui/button";
 import MobileNav from "./MobileNav";
 import Image from "next/image";
 
-
 const NavBar = () => {
   return (
-    <nav className="sticky top-0 z-40 flex items-center mx-auto w-full px-2.5 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className=" flex justify-center items-center h-14">
-
+    <nav className="sticky top-0 z-40 flex items-center mx-auto w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex w-full items-center h-14 max-w-[1440px] mx-auto px-2.5 md:px-6">
         <Link href="/" className="flex items-center space-x-2 ">
           {/* <div className="text-primary text-lg font-bold ">
             Psychgen_Portal
           </div> */}
           <Image
-              src="/logo.png"
-              alt=""
-              width={100}
-              height={100}
-              className="w-16 h-16 rounded-lg  object-cover object-center "
-            />
+            src="/logo.png"
+            alt=""
+            width={100}
+            height={100}
+            className="w-16 h-16 rounded-lg  object-cover object-center "
+          />
         </Link>
 
         <div className="hidden lg:flex items-center gap-6 pl-6">
@@ -46,7 +44,7 @@ const NavBar = () => {
         </div>
       </div>
 
-      <div className="hidden ml-auto lg:flex items-center justify-between space-x-2 ">
+      {/* <div className="hidden ml-auto lg:flex items-center justify-between space-x-2 ">
         <div className="flex items-center space-x-4">
           <Link
             href="/SignUp"
@@ -71,7 +69,7 @@ const NavBar = () => {
             </div>
           </Link>
         </div>
-      </div>
+      </div> */}
 
       {/* mobile nav */}
       <div className="lg:hidden ml-auto">

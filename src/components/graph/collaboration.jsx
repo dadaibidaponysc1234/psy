@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import * as d3 from "d3";
+import { Card, CardContent } from "../ui/card";
 
 const Chord = () => {
   useEffect(() => {
@@ -411,16 +412,14 @@ const Chord = () => {
   }, []); // Empty dependency array ensures this effect runs only once on mount
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <div id="legendContainer" style={{ padding: "20px" }}></div>
-      <div id="svgContainer" style={{ flex: 1 }}></div>
-    </div>
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex justify-between lg:flex-row flex-col-reverse">
+          <div id="legendContainer" style={{ padding: "20px" }}></div>
+          <div id="svgContainer"></div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

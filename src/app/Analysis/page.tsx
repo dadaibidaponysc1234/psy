@@ -9,31 +9,38 @@ import Chord from "@/components/graph/collaboration";
 
 const Analysis = () => {
   return (
-    <div>
-      <div className="p-10 space-y-8">
-        <h1 className="text-3xl pt-6 lg:text-6xl font-semibold text-[#5A3A31]">
+    <div className="max-w-[1024px] mx-auto w-full">
+      <div className="p-10 space-y-5">
+        <h1 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
           Dive Deep into Africa’s Genomic Landscape
         </h1>
-        <p className="text-2xl lg:text-3xl font-bold ">
+        <p className="text-2xl lg:text-2 font-bold ">
           Uncover Regional Insights and Research Trends
         </p>
       </div>
-      <div className="p-10 w-full space-y-6 ">
-        <h1 className="text-2xl lg:text-3xl font-bold ">Visualize by:</h1>
-        <Tabs
-          defaultValue="collaboration"
-          className="lg:w-[70vw] mx-auto space-y-10"
-        >
-          <div className="p-1 border-none lg:border-y-[1px] lg:border-x-[1px]">
+      <div className="p-10 space-y-4">
+        <h1 className="text-2xl lg:text-[28px] font-bold ">Visualize by:</h1>
+        <Tabs defaultValue="collaboration" className="space-y-10">
+          <div className="p-2 border rounded-md">
             <TabsList className="flex">
-              <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
-              <TabsTrigger value="year">Year</TabsTrigger>
-              <TabsTrigger value="region">Region</TabsTrigger>
-              <TabsTrigger value="disorder">Disorder</TabsTrigger>
-              <TabsTrigger value="biologicalModality">
+              <TabsTrigger value="collaboration" className="w-full">
+                Collaboration
+              </TabsTrigger>
+              <TabsTrigger value="year" className="w-full">
+                Year
+              </TabsTrigger>
+              <TabsTrigger value="region" className="w-full">
+                Region
+              </TabsTrigger>
+              <TabsTrigger value="disorder" className="w-full">
+                Disorder
+              </TabsTrigger>
+              <TabsTrigger value="biologicalModality" className="w-full">
                 Biological Mod..
               </TabsTrigger>
-              <TabsTrigger value="geneticSource">Genetic Source</TabsTrigger>
+              <TabsTrigger value="geneticSource" className="w-full">
+                Genetic Source
+              </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="year">
