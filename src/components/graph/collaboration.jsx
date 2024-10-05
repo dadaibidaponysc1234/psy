@@ -1,3 +1,5 @@
+// eslint
+
 import React, { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { Card, CardContent } from "../ui/card";
@@ -239,7 +241,7 @@ const Chord = () => {
       });
     });
 
-    setLoading(true);
+    // setLoading(true);
 
     fetch(
       "https://algorithmxcomp.pythonanywhere.com/api/country-collaboration/"
@@ -415,7 +417,7 @@ const Chord = () => {
         console.error("Error fetching data:", error);
       })
       .finally(() => {
-        if (isLoading) setLoading(false);
+        // if (isLoading) setLoading(false);
       });
   }, []); // Empty dependency array ensures this effect runs only once on mount
 

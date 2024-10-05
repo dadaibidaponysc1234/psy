@@ -93,7 +93,7 @@ const AdvancedSearch = ({
     if (!!clearFilters) {
       form.reset();
     }
-  }, [clearFilters]);
+  }, [clearFilters, form]);
 
   return (
     <Form {...form}>
