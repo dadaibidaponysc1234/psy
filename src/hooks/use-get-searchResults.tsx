@@ -10,7 +10,12 @@ export const useGetSearchResult = (
 ) => {
   const { searchTerm, region, article } = filters;
   const query = useQuery<ApiResponse, Error>({
-    queryKey: ["searchResults", debouncedSearchTerm, ...Object.values(filters)],
+    queryKey: [
+      "searchResults",
+      debouncedSearchTerm,
+      pageNum,
+      ...Object.values(filters),
+    ],
     queryFn: async () => {
       const response = await axios.get(`api/search-study`, {
         params: {
