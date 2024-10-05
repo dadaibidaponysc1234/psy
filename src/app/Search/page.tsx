@@ -115,35 +115,48 @@ const SearchPage = () => {
   const [page, setPage] = useState<number>(1);
   // const [activeIndex, setActiveIndex] = useState<null | number>(null)
   const [filter, setFilter] = useState<DocumentState>({
-    searchTerm: "",
-    region: "",
+    title: "",
+    research_regions: "",
     keyword: "",
-    article: "",
+    article_type: "",
     year: "",
     year_min: "",
     year_max: "",
     disorder: "",
     impact_factor_min: "",
     impact_factor_max: "",
-    genetic_source: "",
-    modalities: "",
+    genetic_source_materials: "",
+    biological_modalities: "",
   });
-
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
+  const [clearFilters, setClearFilters] = useState(false);
+  const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700);
 
-  const debouncedSearchTerm = useDebounce(filter.searchTerm, 400);
+  const sanitizedFilters = {
+    title: debouncedSearchTerm || undefined,
+    journal_name: filter.journal_name || undefined,
+    keyword: filter.keyword || undefined,
+    impact_factor_min: filter.impact_factor_min || undefined,
+    impact_factor_max: filter.impact_factor_max || undefined,
+    year: filter.year || undefined,
+    year_min: filter.year_min || undefined,
+    year_max: filter.year_max || undefined,
+    research_regions: filter.research_regions || undefined,
+    disorder: filter.disorder || undefined,
+    article_type: filter.article_type || undefined,
+    biological_modalities: filter.biological_modalities || undefined,
+    genetic_source_materials: filter.genetic_source_materials || undefined,
+    page: filter.page || "1",
+  };
 
-  const { export: exportSearch, ...searchOnlyFilters } = filter;
   const {
     data: searches,
     isLoading,
     isError,
-  } = useGetSearchResult(debouncedSearchTerm, page, searchOnlyFilters);
+  } = useGetSearchResult(sanitizedFilters);
 
-  const { data: suggestion } = useGetSuggestion(filter.searchTerm);
-
-  console.log("suggestion", suggestion);
+  const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "");
 
   const nextPage = () => setPage((prevPage) => prevPage + 1);
   const prevPage = () => setPage((prevPage) => Math.max(prevPage - 1, 1));
@@ -161,7 +174,8 @@ const SearchPage = () => {
     }));
   };
 
-  const clearFilters = () => {
+  const handleClearFilters = () => {
+    setClearFilters(true);
     setFilter((prev) => {
       const newFilters = { ...prev };
       Object.keys(newFilters).forEach((key) => {
@@ -174,10 +188,7 @@ const SearchPage = () => {
   const handleDownload = () => {
     // Create an object to hold only defined and non-empty parameters
     const params = {
-      title: filter.searchTerm || undefined,
-      research_regions: filter.region || undefined,
-      article_type: filter.article || undefined,
-      page: page ? page.toString() : undefined,
+      ...sanitizedFilters,
       export: "csv",
     };
 
@@ -221,7 +232,7 @@ const SearchPage = () => {
   useOnClickOutside(suggestionRef, () => setIsSuggestionVisible(false));
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilter({ ...filter, searchTerm: e.target.value });
+    setFilter({ ...filter, title: e.target.value });
     setIsSuggestionVisible(true); // Show the suggestion list when input changes
   };
 
@@ -238,7 +249,7 @@ const SearchPage = () => {
             aria-hidden="true"
           />
           <Input
-            value={filter.searchTerm}
+            value={filter.title}
             onChange={handleInputChange}
             className="border-0 dark:text-white dark:placeholder:text-white"
             placeholder="Search for disorders"
@@ -273,7 +284,8 @@ const SearchPage = () => {
           <AdvancedSearch
             filters={filter}
             setFilters={setFilter}
-            clearFilters={Object.values(filter).every((v) => v !== "")}
+            clearFilters={clearFilters}
+            setClearFilters={setClearFilters}
           />
         )}
 
@@ -287,7 +299,7 @@ const SearchPage = () => {
                 key={disorder.id}
                 className="p-2 hover:bg-gray-200"
                 onClick={() =>
-                  setFilter({ ...filter, searchTerm: disorder.disorder_name })
+                  setFilter({ ...filter, disorder: disorder.disorder_name })
                 }
               >
                 <span className="font-medium tracking-tight text-balance">
@@ -307,7 +319,7 @@ const SearchPage = () => {
         >
           <CardHeader>
             <CardTitle>Yearly Study-Count</CardTitle>
-            <CardDescription>Number of Publications </CardDescription>
+            <CardDescription>Number of Publications</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -350,7 +362,7 @@ const SearchPage = () => {
             <FilterButton
               name="Clear Filters"
               type="ghost"
-              onClick={clearFilters}
+              onClick={handleClearFilters}
             />
             <FilterButton name="Save Filters" type="outline" />
           </div>
@@ -402,11 +414,11 @@ const SearchPage = () => {
                       id={`region-${optionIdx}`}
                       onChange={() => {
                         applyStringFilter({
-                          category: "region",
+                          category: "research_regions",
                           value: option.value,
                         });
                       }}
-                      checked={filter.region === option.value}
+                      checked={filter.research_regions === option.value}
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label
@@ -489,11 +501,11 @@ const SearchPage = () => {
                       id={`article-${optionIdx}`}
                       onChange={() => {
                         applyStringFilter({
-                          category: "article",
+                          category: "article_type",
                           value: option.value,
                         });
                       }}
-                      checked={filter.article === option.value}
+                      checked={filter.article_type === option.value}
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label
@@ -546,7 +558,7 @@ const SearchPage = () => {
                         <FilterButton
                           name="Clear Filters"
                           type="ghost"
-                          onClick={clearFilters}
+                          onClick={handleClearFilters}
                         />
                         <FilterButton name="Save Filters" type="outline" />
                       </div>
@@ -599,11 +611,11 @@ const SearchPage = () => {
                               id={`region-${optionIdx}`}
                               onChange={() => {
                                 applyStringFilter({
-                                  category: "region",
+                                  category: "research_regions",
                                   value: option.value,
                                 });
                               }}
-                              checked={filter.region === option.value}
+                              checked={filter.research_regions === option.value}
                               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
                             <label
@@ -686,11 +698,11 @@ const SearchPage = () => {
                               id={`article-${optionIdx}`}
                               onChange={() => {
                                 applyStringFilter({
-                                  category: "article",
+                                  category: "article_type",
                                   value: option.value,
                                 });
                               }}
-                              checked={filter.article === option.value}
+                              checked={filter.article_type === option.value}
                               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
                             <label
@@ -727,7 +739,7 @@ const SearchPage = () => {
                 <StudyList key={i} study={study} />
               ))
             ) : (
-              <NotFound searchTerm={filter.searchTerm} />
+              <NotFound searchTerm={filter.title ?? ""} />
             )}
           </div>
 

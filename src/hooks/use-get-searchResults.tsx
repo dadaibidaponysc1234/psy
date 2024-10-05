@@ -4,28 +4,12 @@ import { ApiResponse } from "@/types/studyViewList";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
-export const useGetSearchResult = (
-  debouncedSearchTerm: string,
-  pageNum: number,
-  filters: DocumentState
-) => {
-  const { searchTerm, region, article } = filters;
+export const useGetSearchResult = (filters: DocumentState) => {
   const query = useQuery<ApiResponse, Error>({
-    queryKey: [
-      "searchResults",
-      debouncedSearchTerm,
-      pageNum,
-      ...Object.values(filters),
-    ],
+    queryKey: ["searchResults", ...Object.values(filters)],
     queryFn: async () => {
-      const response = await axios.get(`api/search-study`, {
-        params: {
-          ...filters,
-          title: searchTerm,
-          research_regions: region,
-          article_type: article,
-          page: pageNum,
-        },
+      const response = await axios.get(`${BASE_URL}/studies`, {
+        params: filters,
       });
 
       if (response.status === 500) {

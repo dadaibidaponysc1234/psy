@@ -30,8 +30,10 @@ const AdvancedSearch = ({
   filters,
   setFilters,
   clearFilters,
+  setClearFilters,
 }: {
   setFilters: React.Dispatch<SetStateAction<DocumentState>>;
+  setClearFilters: React.Dispatch<SetStateAction<boolean>>;
   filters: DocumentState;
   clearFilters: boolean;
 }) => {
@@ -46,6 +48,7 @@ const AdvancedSearch = ({
       const response = await axios.get(`${BASE_URL}/countries`);
       return response.data;
     },
+    refetchOnMount: false,
   });
 
   const { data: disorders, isLoading: isDisorderLoading } = useQuery({
@@ -54,14 +57,16 @@ const AdvancedSearch = ({
       const response = await axios.get(`${BASE_URL}/disorders`);
       return response.data;
     },
+    refetchOnMount: false,
   });
 
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
     queryKey: ["article-types"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/articletypes`);
+      const response = await axios.get(`${BASE_URL}/article-types`);
       return response.data;
     },
+    refetchOnMount: false,
   });
 
   const {
@@ -73,6 +78,7 @@ const AdvancedSearch = ({
       const response = await axios.get(`${BASE_URL}/biological-modalities`);
       return response.data;
     },
+    refetchOnMount: false,
   });
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
@@ -84,6 +90,7 @@ const AdvancedSearch = ({
         );
         return response.data;
       },
+      refetchOnMount: false,
     }
   );
 
@@ -94,6 +101,7 @@ const AdvancedSearch = ({
   useEffect(() => {
     if (!!clearFilters) {
       form.reset();
+      setClearFilters(false);
     }
   }, [clearFilters, form]);
 
@@ -118,7 +126,7 @@ const AdvancedSearch = ({
         />
         <FormField
           control={form.control}
-          name="article"
+          name="article_type"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="">Article Type</FormLabel>
@@ -151,7 +159,7 @@ const AdvancedSearch = ({
         />
         <FormField
           control={form.control}
-          name="region"
+          name="research_regions"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="">Region</FormLabel>
@@ -252,7 +260,7 @@ const AdvancedSearch = ({
         />
         <FormField
           control={form.control}
-          name="genetic_source"
+          name="genetic_source_materials"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="">Genetic Source</FormLabel>
@@ -285,7 +293,7 @@ const AdvancedSearch = ({
         />
         <FormField
           control={form.control}
-          name="modalities"
+          name="biological_modalities"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="">Biological Mordalities</FormLabel>
@@ -296,7 +304,10 @@ const AdvancedSearch = ({
                   value={field.value}
                 >
                   <SelectTrigger aria-label="Select a biological modality">
-                    <SelectValue placeholder="Select biological modality" />
+                    <SelectValue
+                      defaultValue={""}
+                      placeholder="Select biological modality"
+                    />
                   </SelectTrigger>
                   <SelectContent align="end" className="rounded-xl">
                     {(biologicalModilities ?? []).map(

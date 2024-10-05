@@ -1,19 +1,20 @@
 import { z } from "zod";
 
 export const DocumentFilterValidator = z.object({
-  searchTerm: z.string(),
-  region: z.string(),
-  keyword: z.string(),
-  article: z.string(),
-  year: z.string(),
-  year_min: z.string(),
-  year_max: z.string(),
-  disorder: z.string(),
-  impact_factor_min: z.string(),
-  impact_factor_max: z.string(),
-  genetic_source: z.string(),
-  modalities: z.string(),
-  export: z.string().optional(),
+  title: z.string().optional(),
+  journal_name: z.string().optional(),
+  keyword: z.string().optional(),
+  impact_factor_min: z.string().optional(),
+  impact_factor_max: z.string().optional(),
+  year: z.string().optional(),
+  year_min: z.string().optional(),
+  year_max: z.string().optional(),
+  research_regions: z.string().optional(),
+  disorder: z.string().optional(),
+  article_type: z.string().optional(),
+  biological_modalities: z.string().optional(),
+  genetic_source_materials: z.string().optional(),
+  page: z.string().optional(),
 });
 
 export type DocumentState = z.infer<typeof DocumentFilterValidator>;
