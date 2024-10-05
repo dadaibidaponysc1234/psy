@@ -6,18 +6,18 @@ import Image from "next/image";
 
 const NavBar = () => {
   return (
-    <nav className="sticky top-0 z-40 flex items-center mx-auto w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex w-full items-center h-14 max-w-[1440px] mx-auto px-2.5 md:px-6">
+    <nav className="sticky top-0 z-40 flex mx-auto max-w-[1440px] itemce w-full justify-between h-14 py-1 p-2.5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center">
         <Link href="/" className="flex items-center space-x-2 ">
           {/* <div className="text-primary text-lg font-bold ">
             Psychgen_Portal
           </div> */}
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt=""
             width={100}
             height={100}
-            className="w-16 h-16 rounded-lg  object-cover object-center "
+            className="w-16 h-16 rounded-lg object-cover object-center"
           />
         </Link>
 
@@ -42,6 +42,9 @@ const NavBar = () => {
             About
           </Link>
         </div>
+      </div>
+      <div className="lg:hidden">
+        <MobileNav />
       </div>
 
       {/* <div className="hidden ml-auto lg:flex items-center justify-between space-x-2 ">
@@ -70,11 +73,6 @@ const NavBar = () => {
           </Link>
         </div>
       </div> */}
-
-      {/* mobile nav */}
-      <div className="lg:hidden ml-auto">
-        <MobileNav />
-      </div>
     </nav>
   );
 };

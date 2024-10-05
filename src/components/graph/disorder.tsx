@@ -1,19 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import {
-  CartesianGrid,
-  Label,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Sector,
-  XAxis,
-} from "recharts";
+import { Label, Pie, PieChart, Sector, XAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -28,9 +18,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Bar, BarChart, LabelList } from "recharts";
 import { useGetDisorder } from "@/hooks/use-get-disorder";
-import AbbreviationLegend from "../ui/abbreviation-legend";
 import {
   Select,
   SelectContent,
@@ -38,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import genetics from "./genetics";
 import { getRandomColor } from "@/lib/utils";
 import { PieSectorDataItem } from "recharts/types/polar/Pie";
 
@@ -46,12 +33,15 @@ const DisorderStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetDisorder();
   const [activeDisorder, setActiveDisorder] = useState("");
 
-  const chartData =
-    year?.map((data) => ({
-      disorder: data.disorder__disorder_name,
-      study_count: data.study_count,
-      fill: getRandomColor(),
-    })) ?? [];
+  const chartData = useMemo(
+    () =>
+      year?.map((data) => ({
+        disorder: data.disorder__disorder_name,
+        study_count: data.study_count,
+        fill: getRandomColor(),
+      })) ?? [],
+    [year]
+  );
 
   const activeIndex = chartData.findIndex(
     (item) => item.disorder === activeDisorder

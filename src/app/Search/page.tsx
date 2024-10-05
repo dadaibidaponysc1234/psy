@@ -4,8 +4,14 @@ import FilterButton from "@/components/filterBtn";
 import StudySkeleton from "@/components/studies/study-skeleton";
 import StudyList from "@/components/studies/StudyList";
 import { DocumentState } from "@/lib/validators/document-validator";
-import { ChevronDown, Filter, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+  ChevronDown,
+  CloudDownloadIcon,
+  Filter,
+  Loader2Icon,
+  Search,
+} from "lucide-react";
+import React, { useRef, useState } from "react";
 import { useGetSearchResult } from "@/hooks/use-get-searchResults";
 import { Input } from "@/components/ui/input";
 import useDebounce from "@/hooks/useDebounce";
@@ -22,6 +28,8 @@ import AdvancedSearch from "@/components/AdvancedSearch";
 import { useGetSuggestion } from "@/hooks/use-get-suggestion";
 import Link from "next/link";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
+import { Button } from "@/components/ui/button";
+import { useMutation } from "@tanstack/react-query";
 
 const REGIONS = {
   id: "region",
@@ -95,14 +103,14 @@ const SearchPage = () => {
   const [filter, setFilter] = useState<DocumentState>({
     searchTerm: "",
     region: "",
-    keywords: "",
+    keyword: "",
     article: "",
     year: "",
     year_min: "",
     year_max: "",
     disorder: "",
-    country: "",
-    impact_factor: "",
+    impact_factor_min: "",
+    impact_factor_max: "",
     genetic_source: "",
     modalities: "",
   });
@@ -111,11 +119,15 @@ const SearchPage = () => {
 
   const debouncedSearchTerm = useDebounce(filter.searchTerm, 400);
 
+  const { export: exportSearch, ...searchOnlyFilters } = filter;
   const {
     data: searches,
     isLoading,
     isError,
-  } = useGetSearchResult(debouncedSearchTerm, page, filter);
+  } = useGetSearchResult(debouncedSearchTerm, page, searchOnlyFilters);
+
+  const {} = useGetSearchResult("", page, filter);
+
   const { data: suggestion } = useGetSuggestion(filter.searchTerm);
 
   console.log("suggestion", suggestion);
@@ -161,10 +173,10 @@ const SearchPage = () => {
   };
 
   return (
-    <div className="w-full relative flex flex-col mx-auto mb-10">
+    <div className="w-full relative flex flex-col mx-auto mb-10 px-4 lg:px-10">
       <div
-        className={`w-3/5 lg:max-w-2xl flex flex-col p-10 mx-auto mt-10 lg:mt-16 ${
-          isAdvanceFilterOpen ? "border" : "border-none"
+        className={`sm:w-4/5 w-full lg:max-w-2xl flex flex-col p-10 mx-auto mt-10 lg:mt-16 ${
+          isAdvanceFilterOpen ? "border rounded-xl" : "border-none"
         }`}
       >
         <div className="flex items-center justify-center ring-1 ring-gray-500 focus-within:ring-gray-400 rounded-md">
@@ -191,7 +203,7 @@ const SearchPage = () => {
               : "Use Advanced Search"}
           </p>
           <ChevronDown
-            strokeWidth={3}
+            strokeWidth={2}
             className={`ml-1 text-[#6666E7] transition-transform duration-300 size-4 ${
               isAdvanceFilterOpen ? "rotate-180" : ""
             }`}
@@ -199,7 +211,11 @@ const SearchPage = () => {
         </div>
 
         {isAdvanceFilterOpen && (
-          <AdvancedSearch filters={filter} setFilters={setFilter} />
+          <AdvancedSearch
+            filters={filter}
+            setFilters={setFilter}
+            clearFilters={Object.values(filter).every((v) => v !== "")}
+          />
         )}
 
         {isSuggestionVisible && suggestion?.disorders?.at(1) ? (
@@ -224,7 +240,7 @@ const SearchPage = () => {
         ) : null}
       </div>
 
-      <div className="flex gap-6 mx-4 lg:mx-10 mt-20">
+      <div className="flex gap-6 mt-10">
         <div className="hidden md:flex md:flex-col lg:w-80 h-fit shrink sticky top-0 z-30 space-y-10">
           <h2 className="text-4xl font-semibold">Filter by:</h2>
           <div className="flex gap-4 lg:gap-6">
@@ -392,15 +408,24 @@ const SearchPage = () => {
 
         <div className="w-full flex flex-col">
           <div className="flex items-center justify-between">
-            <div>
-              {isLoading ? (
-                <div></div>
-              ) : searches?.results && searches?.results.length > 0 ? (
+            {isLoading ? (
+              ""
+            ) : searches?.results && searches?.results.length > 0 ? (
+              <>
                 <h1 className="text-2xl lg:text-2xl font-bold">
                   {searches?.count} Results
                 </h1>
-              ) : null}
-            </div>
+                <Button
+                  className="gap-2 text-white"
+                  onClick={() =>
+                    applyStringFilter({ category: "export", value: "csv" })
+                  }
+                >
+                  <CloudDownloadIcon strokeWidth={2} />
+                  <span>Download Search Result</span>
+                </Button>
+              </>
+            ) : null}
 
             <div className="flex flex-col md:hidden">
               <Sheet>

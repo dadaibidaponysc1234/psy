@@ -1,9 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Legend, Line, LineChart, XAxis } from "recharts";
+import { CartesianGrid, Legend, XAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -13,14 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, LabelList } from "recharts";
-import { useGetDisorder } from "@/hooks/use-get-disorder";
-import { useGetBiological } from "@/hooks/use-get-biological";
 import { useGetGenetics } from "@/hooks/use-get-genetics";
 import AbbreviationLegend from "../ui/abbreviation-legend";
 
