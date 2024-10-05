@@ -31,6 +31,19 @@ import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { BASE_URL } from "@/static";
+import GraphSkeleton from "@/components/skeletons/graph-skeleton";
+import {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { CartesianGrid, XAxis, Line, LineChart } from "recharts";
 
 const REGIONS = {
   id: "region",
@@ -117,6 +130,7 @@ const SearchPage = () => {
   });
 
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
+  const [isGraphOpen, setIsGraphOpen] = useState(false);
 
   const debouncedSearchTerm = useDebounce(filter.searchTerm, 400);
 
@@ -186,6 +200,17 @@ const SearchPage = () => {
     return null;
   };
 
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+    mobile: {
+      label: "Desktop",
+      color: "hsl(var(--chart-5))",
+    },
+  };
+
   // State to handle the visibility of the suggestion list
   const [isSuggestionVisible, setIsSuggestionVisible] = useState(true);
 
@@ -203,7 +228,7 @@ const SearchPage = () => {
   return (
     <div className="w-full relative flex flex-col mx-auto mb-10 px-4 lg:px-10">
       <div
-        className={`sm:w-4/5 w-full lg:max-w-2xl flex flex-col p-10 mx-auto mt-10 lg:mt-16 ${
+        className={`sm:w-4/5 w-full relative lg:max-w-2xl flex flex-col p-10 mx-auto mt-10 lg:mt-16 ${
           isAdvanceFilterOpen ? "border rounded-xl" : "border-none"
         }`}
       >
@@ -237,6 +262,12 @@ const SearchPage = () => {
             }`}
           />
         </div>
+        <Button
+          className="h-14 w-[200px] mb-8 text-base mx-auto"
+          onClick={() => setIsGraphOpen((prev) => !prev)}
+        >
+          {isGraphOpen ? "Close visuals" : "Visualize"}
+        </Button>
 
         {isAdvanceFilterOpen && (
           <AdvancedSearch
@@ -268,7 +299,51 @@ const SearchPage = () => {
         ) : null}
       </div>
 
-      <div className="flex gap-6 mt-10">
+      {isGraphOpen && (
+        <div
+          className={`sm:w-4/5 w-full relative lg:max-w-2xl flex flex-col p-3 mx-auto border rounded-xl ${
+            isAdvanceFilterOpen ? "mt-10" : ""
+          }`}
+        >
+          <CardHeader>
+            <CardTitle>Yearly Study-Count</CardTitle>
+            <CardDescription>Number of Publications </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <GraphSkeleton />
+            ) : (
+              <ChartContainer config={chartConfig}>
+                <LineChart
+                  data={searches?.yearly_study_counts ?? []}
+                  margin={{ left: 12, right: 12 }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="year"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Line
+                    dataKey="study_count"
+                    type="linear"
+                    stroke="var(--color-mobile)"
+                    strokeWidth={2}
+                    dot={true}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </div>
+      )}
+
+      <div className="flex gap-6 mt-14">
         <div className="hidden md:flex md:flex-col lg:w-80 h-fit shrink sticky top-0 z-30 space-y-10">
           <h2 className="text-4xl font-semibold">Filter by:</h2>
           <div className="flex gap-4 lg:gap-6">
