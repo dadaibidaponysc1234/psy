@@ -22,6 +22,7 @@ import { Bar, BarChart, LabelList } from "recharts";
 import { useGetDisorder } from "@/hooks/use-get-disorder";
 import { useGetBiological } from "@/hooks/use-get-biological";
 import AbbreviationLegend from "../ui/abbreviation-legend";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetBiological();
@@ -45,46 +46,50 @@ const BiologicalStudyCount: React.FC = () => {
         <CardDescription>Number of Publications </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              top: 20,
-            }}
-          >
-            <Legend
-              verticalAlign="bottom"
-              content={
-                <AbbreviationLegend
-                  data={(year ?? []).map((val) => ({
-                    name: val.biological_modalities__modality_name,
-                  }))}
-                />
-              }
-            />
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="biological_modalities__modality_name"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-              <LabelList
-                position="top"
-                offset={12}
-                className="fill-foreground"
-                fontSize={12}
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(year ?? []).map((val) => ({
+                      name: val.biological_modalities__modality_name,
+                    }))}
+                  />
+                }
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="biological_modalities__modality_name"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

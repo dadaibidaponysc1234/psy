@@ -4,7 +4,7 @@ import axios from "axios";
 
 export const useGetBiological = () => {
   const query = useQuery<BiologicalRecord[], Error>({
-    queryKey: ["region"],
+    queryKey: ["biological"],
     queryFn: async () => {
       const response = await axios.get(
         "https://algorithmxcomp.pythonanywhere.com/api/biological-modality-study-count/"

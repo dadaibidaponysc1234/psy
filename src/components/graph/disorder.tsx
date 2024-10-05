@@ -28,6 +28,7 @@ import {
 } from "../ui/select";
 import { getRandomColor } from "@/lib/utils";
 import { PieSectorDataItem } from "recharts/types/polar/Pie";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 const DisorderStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetDisorder();
@@ -88,68 +89,80 @@ const DisorderStudyCount: React.FC = () => {
         </Select>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+        {isLoading ? (
+          <div className="flex justify-center items-center size-full">
+            <GraphSkeleton
+              pie={{
+                className: "",
+              }}
             />
-            <Pie
-              data={chartData}
-              dataKey="study_count"
-              nameKey="disorder" //  Change here to use 'genetic' as the name key
-              innerRadius={60}
-              strokeWidth={5}
-              activeIndex={chartData.findIndex(
-                (item) => item.disorder === activeDisorder
-              )}
-              activeShape={({
-                outerRadius = 0,
-                ...props
-              }: PieSectorDataItem) => (
-                <g>
-                  <Sector {...props} outerRadius={outerRadius + 10} />
-                  <Sector
-                    {...props}
-                    outerRadius={outerRadius + 25}
-                    innerRadius={outerRadius + 12}
-                  />
-                </g>
-              )}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        // className="text-lg font-medium"
-                      >
-                        <tspan
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <PieChart>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Pie
+                data={chartData}
+                dataKey="study_count"
+                nameKey="disorder" //  Change here to use 'genetic' as the name key
+                innerRadius={60}
+                strokeWidth={5}
+                activeIndex={chartData.findIndex(
+                  (item) => item.disorder === activeDisorder
+                )}
+                activeShape={({
+                  outerRadius = 0,
+                  ...props
+                }: PieSectorDataItem) => (
+                  <g>
+                    <Sector {...props} outerRadius={outerRadius + 10} />
+                    <Sector
+                      {...props}
+                      outerRadius={outerRadius + 25}
+                      innerRadius={outerRadius + 12}
+                    />
+                  </g>
+                )}
+              >
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          // className="text-lg font-medium"
                         >
-                          {chartData[activeIndex]?.study_count.toLocaleString()}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
-                        >
-                          {chartData[activeIndex]?.disorder}{" "}
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {chartData[
+                              activeIndex
+                            ]?.study_count.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground"
+                          >
+                            {chartData[activeIndex]?.disorder}{" "}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                />
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+        )}
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

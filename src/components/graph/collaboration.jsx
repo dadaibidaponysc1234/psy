@@ -1,8 +1,10 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { Card, CardContent } from "../ui/card";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 const Chord = () => {
+  const [isLoading, setLoading] = useState(false);
   useEffect(() => {
     // console.log("Chord component is rendering");
     // Clear the svg container before rendering to prevent multiple renders
@@ -237,6 +239,8 @@ const Chord = () => {
       });
     });
 
+    setLoading(true);
+
     fetch(
       "https://algorithmxcomp.pythonanywhere.com/api/country-collaboration/"
       // "http://127.0.0.1:8000/api/country-collaboration/"
@@ -405,19 +409,27 @@ const Chord = () => {
           .attr("y", 12)
           .text((d) => d)
           .style("font-size", "12px"); // Adjust font size for better readability
+        setLoading(false);
       })
       .catch((error) => {
         console.error("Error fetching data:", error);
+      })
+      .finally(() => {
+        if (isLoading) setLoading(false);
       });
   }, []); // Empty dependency array ensures this effect runs only once on mount
 
   return (
     <Card>
       <CardContent className="p-5">
-        <div className="flex justify-between lg:flex-row flex-col-reverse">
-          <div id="legendContainer" style={{ padding: "20px" }}></div>
-          <div id="svgContainer"></div>
-        </div>
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <div className="flex justify-between lg:flex-row flex-col-reverse">
+            <div id="legendContainer" style={{ padding: "20px" }}></div>
+            <div id="svgContainer"></div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

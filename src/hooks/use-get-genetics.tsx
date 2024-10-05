@@ -4,7 +4,7 @@ import axios from "axios";
 
 export const useGetGenetics = () => {
   const query = useQuery<Region[], Error>({
-    queryKey: ["region"],
+    queryKey: ["genetics"],
     queryFn: async () => {
       const response = await axios.get(
         "https://algorithmxcomp.pythonanywhere.com/api/genetic-source-material-study-count/"

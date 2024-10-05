@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/chart";
 import { useGetRegion } from "@/hooks/use-get-region";
 import AbbreviationLegend from "../ui/abbreviation-legend";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 const RegionalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetRegion();
@@ -48,46 +49,50 @@ const RegionalStudyCount: React.FC = () => {
         <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              top: 20,
-            }}
-          >
-            <Legend
-              verticalAlign="bottom"
-              content={
-                <AbbreviationLegend
-                  data={(year ?? []).map((val) => ({
-                    name: val.countries__name,
-                  }))}
-                />
-              }
-            />
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="countries__name"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-              <LabelList
-                position="top"
-                offset={12}
-                className="fill-foreground"
-                fontSize={12}
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(year ?? []).map((val) => ({
+                      name: val.countries__name,
+                    }))}
+                  />
+                }
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="countries__name"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

@@ -18,6 +18,7 @@ import {
 import { Bar, BarChart, LabelList } from "recharts";
 import { useGetGenetics } from "@/hooks/use-get-genetics";
 import AbbreviationLegend from "../ui/abbreviation-legend";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 const GeneticsStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetGenetics();
@@ -41,46 +42,50 @@ const GeneticsStudyCount: React.FC = () => {
         <CardDescription>Number of Publications </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <BarChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              top: 20,
-            }}
-          >
-            <Legend
-              verticalAlign="bottom"
-              content={
-                <AbbreviationLegend
-                  data={(year ?? []).map((val) => ({
-                    name: val.genetic_source_materials__material_type,
-                  }))}
-                />
-              }
-            />
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="genetic_source_materials__material_type"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-              <LabelList
-                position="top"
-                offset={12}
-                className="fill-foreground"
-                fontSize={12}
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(year ?? []).map((val) => ({
+                      name: val.genetic_source_materials__material_type,
+                    }))}
+                  />
+                }
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="genetic_source_materials__material_type"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

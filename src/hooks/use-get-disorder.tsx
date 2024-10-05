@@ -4,7 +4,7 @@ import axios from "axios";
 
 export const useGetDisorder = () => {
   const query = useQuery<Region[], Error>({
-    queryKey: ["region"],
+    queryKey: ["disorders"],
     queryFn: async () => {
       const response = await axios.get(
         "https://algorithmxcomp.pythonanywhere.com/api/disorder-study-count/"

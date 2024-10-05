@@ -1,12 +1,17 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { buttonVariants } from "./ui/button";
 import MobileNav from "./MobileNav";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { navItems } from "@/static";
 
 const NavBar = () => {
+  const pathname = usePathname();
   return (
-    <nav className="sticky top-0 z-40 flex mx-auto max-w-[1440px] itemce w-full justify-between h-14 py-1 p-2.5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-40 flex mx-auto max-w-[1440px] items-center w-full justify-between h-14 py-1 p-2.5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center">
         <Link href="/" className="flex items-center space-x-2 ">
           {/* <div className="text-primary text-lg font-bold ">
@@ -22,25 +27,17 @@ const NavBar = () => {
         </Link>
 
         <div className="hidden lg:flex items-center gap-6 pl-6">
-          <Link
-            href="/Search"
-            className="transition-colors hover:text-primary font-medium"
-          >
-            Search
-          </Link>
-
-          <Link
-            href="/Analysis"
-            className="transition-colors hover:text-primary font-medium"
-          >
-            Analysis
-          </Link>
-          <Link
-            href="/About"
-            className="transition-colors hover:text-primary font-medium"
-          >
-            About
-          </Link>
+          {navItems.map((item, index) => (
+            <Link
+              key={index}
+              href={item.path}
+              className={`transition-colors hover:text-primary font-medium ${
+                item.path === pathname ? "text-primary" : ""
+              }`}
+            >
+              {item.name}
+            </Link>
+          ))}
         </div>
       </div>
       <div className="lg:hidden">
