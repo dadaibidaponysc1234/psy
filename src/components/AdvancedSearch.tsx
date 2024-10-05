@@ -70,7 +70,7 @@ const AdvancedSearch = ({
   } = useQuery({
     queryKey: ["biological-modalities"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/biologicalmodalities`);
+      const response = await axios.get(`${BASE_URL}/biological-modalities`);
       return response.data;
     },
   });
@@ -79,7 +79,9 @@ const AdvancedSearch = ({
     {
       queryKey: ["genetic-sources"],
       queryFn: async () => {
-        const response = await axios.get(`${BASE_URL}/geneticsourcematerials`);
+        const response = await axios.get(
+          `${BASE_URL}/genetic-source-materials`
+        );
         return response.data;
       },
     }

@@ -158,16 +158,28 @@ const SearchPage = () => {
   };
 
   const handleDownload = () => {
-    const exportUrl = `${BASE_URL}/studies?${new URLSearchParams({
-      ...filter,
-      title: filter.searchTerm,
-      research_regions: filter.region,
-      article_type: filter.article ?? undefined,
-      page: page.toString() ?? undefined,
+    // Create an object to hold only defined and non-empty parameters
+    const params = {
+      title: filter.searchTerm || undefined,
+      research_regions: filter.region || undefined,
+      article_type: filter.article || undefined,
+      page: page ? page.toString() : undefined,
       export: "csv",
-    }).toString()}`;
+    };
 
-    // Navigate to the new page for download
+    // Filter out undefined or empty string parameters
+    const filteredParams = Object.fromEntries(
+      Object.entries(params).filter(
+        ([_, value]) => value !== undefined && value !== ""
+      )
+    );
+
+    // Construct the export URL with the filtered parameters
+    const exportUrl = `${BASE_URL}/studies?${new URLSearchParams(
+      filteredParams as Record<string, string>
+    ).toString()}`;
+
+    // Open the export URL in a new tab
     window.open(exportUrl, "_blank");
 
     // Return a placeholder to satisfy the function's return type
