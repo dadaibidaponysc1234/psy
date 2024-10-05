@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
+import { BASE_URL } from "@/static";
 
 const REGIONS = {
   id: "region",
@@ -126,8 +127,6 @@ const SearchPage = () => {
     isError,
   } = useGetSearchResult(debouncedSearchTerm, page, searchOnlyFilters);
 
-  const {} = useGetSearchResult("", page, filter);
-
   const { data: suggestion } = useGetSuggestion(filter.searchTerm);
 
   console.log("suggestion", suggestion);
@@ -156,6 +155,23 @@ const SearchPage = () => {
       });
       return newFilters;
     });
+  };
+
+  const handleDownload = () => {
+    const exportUrl = `${BASE_URL}/studies?${new URLSearchParams({
+      ...filter,
+      title: filter.searchTerm,
+      research_regions: filter.region,
+      article_type: filter.article ?? undefined,
+      page: page.toString() ?? undefined,
+      export: "csv",
+    }).toString()}`;
+
+    // Navigate to the new page for download
+    window.open(exportUrl, "_blank");
+
+    // Return a placeholder to satisfy the function's return type
+    return null;
   };
 
   // State to handle the visibility of the suggestion list
@@ -417,9 +433,7 @@ const SearchPage = () => {
                 </h1>
                 <Button
                   className="gap-2 text-white"
-                  onClick={() =>
-                    applyStringFilter({ category: "export", value: "csv" })
-                  }
+                  onClick={() => handleDownload()}
                 >
                   <CloudDownloadIcon strokeWidth={2} />
                   <span>Download Search Result</span>

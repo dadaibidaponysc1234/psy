@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       searchParams.get("biological_modalities") || undefined;
     const genetic_source_materials =
       searchParams.get("genetic_source_materials") || undefined;
-    const exportSearch = searchParams.get("export") || undefined;
+    // const exportSearch = searchParams.get("export") || undefined;
     const page = searchParams.get("page") || undefined;
 
     const url = `https://algorithmxcomp.pythonanywhere.com/api/studies`;
@@ -42,25 +42,13 @@ export async function GET(req: NextRequest) {
         article_type,
         biological_modalities,
         genetic_source_materials,
-        export: exportSearch,
         page,
       },
-      responseType: exportSearch ? "blob" : "json",
     });
-    const contentType = response.headers["content-type"];
-    if (contentType === "text/csv") {
-      const csvFileName = `exported_studies.csv`;
-      return new NextResponse(response.data, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/csv",
-          "Content-Disposition": `attachment; filename="${csvFileName}"`,
-        },
-      });
-    }
 
     return NextResponse.json(response.data);
   } catch (error) {
+    console.error("Error fetching search results:", error);
     return new Response("Error fetching search results", { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { DocumentState } from "@/lib/validators/document-validator";
+import { BASE_URL } from "@/static";
 import { ApiResponse } from "@/types/studyViewList";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
