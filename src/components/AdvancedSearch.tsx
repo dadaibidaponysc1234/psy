@@ -52,7 +52,7 @@ const AdvancedSearch = ({
   });
 
   const { data: disorders, isLoading: isDisorderLoading } = useQuery({
-    queryKey: ["disorders"],
+    queryKey: ["search-disorders"],
     queryFn: async () => {
       const response = await axios.get(`${BASE_URL}/disorders`);
       return response.data;
@@ -61,7 +61,7 @@ const AdvancedSearch = ({
   });
 
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
-    queryKey: ["article-types"],
+    queryKey: ["search-article-types"],
     queryFn: async () => {
       const response = await axios.get(`${BASE_URL}/article-types`);
       return response.data;
@@ -73,7 +73,7 @@ const AdvancedSearch = ({
     data: biologicalModilities,
     isLoading: isBiologicalModalitiesLoading,
   } = useQuery({
-    queryKey: ["biological-modalities"],
+    queryKey: ["search-biological-modalities"],
     queryFn: async () => {
       const response = await axios.get(`${BASE_URL}/biological-modalities`);
       return response.data;
@@ -83,7 +83,7 @@ const AdvancedSearch = ({
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
     {
-      queryKey: ["genetic-sources"],
+      queryKey: ["search-genetic-sources"],
       queryFn: async () => {
         const response = await axios.get(
           `${BASE_URL}/genetic-source-materials`
@@ -129,7 +129,7 @@ const AdvancedSearch = ({
           name="article_type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="">Article Type</FormLabel>
+              <FormLabel>Article Type</FormLabel>
               <FormControl>
                 <Select
                   {...field}
@@ -142,11 +142,14 @@ const AdvancedSearch = ({
                   <SelectContent align="end" className="rounded-xl">
                     {(articleTypes ?? []).map(
                       (
-                        disorder: { id: number; article_name: string },
+                        articleType: { id: number; article_name: string },
                         index: number
                       ) => (
-                        <SelectItem key={index} value={disorder.article_name}>
-                          {disorder.article_name}
+                        <SelectItem
+                          key={index}
+                          value={articleType.article_name}
+                        >
+                          {articleType.article_name}
                         </SelectItem>
                       )
                     )}
@@ -276,11 +279,11 @@ const AdvancedSearch = ({
                   <SelectContent align="end" className="rounded-xl">
                     {(geneticSources ?? []).map(
                       (
-                        disorder: { id: number; material_type: string },
+                        source: { id: number; material_type: string },
                         index: number
                       ) => (
-                        <SelectItem key={index} value={disorder.material_type}>
-                          {disorder.material_type}
+                        <SelectItem key={index} value={source.material_type}>
+                          {source.material_type}
                         </SelectItem>
                       )
                     )}

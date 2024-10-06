@@ -29,7 +29,7 @@ import { useGetSuggestion } from "@/hooks/use-get-suggestion";
 import Link from "next/link";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { BASE_URL } from "@/static";
 import GraphSkeleton from "@/components/skeletons/graph-skeleton";
 import {
@@ -44,75 +44,9 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { CartesianGrid, XAxis, Line, LineChart } from "recharts";
-
-const REGIONS = {
-  id: "region",
-  name: "region",
-  options: [
-    { value: "European", label: "European" },
-    { value: "Northern Africa", label: "Northern Africa" },
-    { value: "Southern Africa", label: "Southern Africa" },
-    { value: "Eastern Africa", label: "Eastern Africa" },
-    { value: "Western Africa", label: "Western Africa" },
-    { value: "Central", label: "Central" },
-  ] as const,
-};
-
-const GENOMIC_CATEGORY = {
-  id: "Genomic Category",
-  name: "Genomic Category",
-  options: [
-    { value: "GWAS", label: "GWAS" },
-    { value: "Candidate Gene", label: "Candidate Gene" },
-    { value: "Familial Linkage", label: "Familial Linkage" },
-    { value: "Epigenetics", label: "Epigenetics" },
-    { value: "Expression", label: "Expression" },
-    { value: "Microbiome", label: "Microbiome" },
-    { value: "Others", label: "Others" },
-    { value: "Undefined", label: "Undefined" },
-  ] as const,
-};
-
-const DISORDERS = {
-  id: "disorder",
-  name: "Disorder",
-  options: [
-    { value: "Mood", label: "Mood" },
-    { value: "Pyschotic", label: "Pyschotic" },
-    { value: "Substance", label: "Substance" },
-    { value: "Depression", label: "Depression" },
-    { value: "Anxiety", label: "Anxiety" },
-    { value: "PTSD", label: "PTSD" },
-    { value: "Neurodevelopmental", label: "Neurodevelopmental" },
-    { value: "Suicide", label: "Suicide" },
-    { value: "Others", label: "Others" },
-  ] as const,
-};
-
-const ARTICLE = {
-  id: "article",
-  name: "Article",
-  options: [
-    { value: "Case Report", label: "Case Report" },
-    { value: "Research Study", label: "Research Study" },
-    { value: "Systematic Review", label: "Systematic Review" },
-  ] as const,
-};
-
-const YEAR = {
-  id: "year",
-  name: "Year",
-  options: [
-    { value: "2024", label: "2024" },
-    { value: "2023", label: "2023" },
-    { value: "2022", label: "2022" },
-    { value: "2021", label: "2021" },
-    { value: "2020", label: "2020" },
-  ] as const,
-};
+import axios from "axios";
 
 const SearchPage = () => {
-  // const [activeIndex, setActiveIndex] = useState<null | number>(null)
   const [filter, setFilter] = useState<DocumentState>({
     title: "",
     research_regions: "",
@@ -131,7 +65,15 @@ const SearchPage = () => {
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [clearFilters, setClearFilters] = useState(false);
+  const [yearsDisplayed, setYearsDisplayed] = useState(5);
   const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700);
+
+  const currentYear = new Date().getFullYear();
+  // Generate an array of years starting from the current year
+  const allYears = Array.from(
+    { length: yearsDisplayed },
+    (_, i) => currentYear - i
+  );
 
   const sanitizedFilters = {
     title: debouncedSearchTerm || undefined,
@@ -158,14 +100,49 @@ const SearchPage = () => {
 
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "");
 
-  // const nextPage = () => setPage((prevPage) => prevPage + 1);
+  const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
+    {
+      queryKey: ["search-genetic-sources"],
+      queryFn: async () => {
+        const response = await axios.get(
+          `${BASE_URL}/genetic-source-materials`
+        );
+        return response.data;
+      },
+      refetchOnMount: false,
+    }
+  );
+
+  const { data: disorders, isLoading: isDisorderLoading } = useQuery({
+    queryKey: ["search-disorders"],
+    queryFn: async () => {
+      const response = await axios.get(`${BASE_URL}/disorders`);
+      return response.data;
+    },
+    refetchOnMount: false,
+  });
+
+  const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
+    queryKey: ["search-article-types"],
+    queryFn: async () => {
+      const response = await axios.get(`${BASE_URL}/article-types`);
+      return response.data;
+    },
+    refetchOnMount: false,
+  });
+
   const nextPage = () =>
     setFilter((prev) => ({ ...prev, page: `${(Number(prev.page) || 1) + 1}` }));
+
   const prevPage = () =>
     setFilter((prev) => ({
       ...prev,
       page: `${Math.max((Number(prev.page) || 1) - 1, 1)}`,
     }));
+
+  const handleShowMoreYears = () => {
+    setYearsDisplayed((prev) => prev + 3);
+  };
 
   const applyStringFilter = ({
     category,
@@ -377,121 +354,118 @@ const SearchPage = () => {
             <h3 className="font-medium">Year(s)</h3>
             <div className="pt-6">
               <ul className="space-y-4">
-                {YEAR.options.map((option, optionIdx) => (
-                  <li key={option.value} className="flex items-center">
+                {allYears.map((year, index) => (
+                  <li key={index} className="flex items-center">
                     <input
                       type="radio"
-                      id={`year-${optionIdx}`}
+                      id={`year-${index + 1}`}
                       onChange={() => {
                         applyStringFilter({
                           category: "year",
-                          value: option.value,
+                          value: `${year}`,
                         });
                       }}
-                      checked={filter.year === option.value}
+                      checked={filter.year === `${year}`}
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label
-                      htmlFor={`year-${optionIdx}`}
+                      htmlFor={`year-${index + 1}`}
                       className="ml-3 text-sm text-gray-600"
                     >
-                      {option.label}
+                      {year}
                     </label>
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center mt-4 group cursor-pointer">
+              <button
+                className="flex items-center mt-4 group cursor-pointer"
+                onClick={() => handleShowMoreYears()}
+              >
                 <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                   show more
                 </p>
                 <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-              </div>
+              </button>
             </div>
           </div>
 
           <div>
-            <h3 className="font-medium">Region(s)</h3>
+            <h3 className="font-medium">Genetic Sources(s)</h3>
             <div className="pt-6">
               <ul className="space-y-4">
-                {REGIONS.options.map((option, optionIdx) => (
-                  <li key={option.value} className="flex items-center">
-                    <input
-                      type="radio"
-                      id={`region-${optionIdx}`}
-                      onChange={() => {
-                        applyStringFilter({
-                          category: "research_regions",
-                          value: option.value,
-                        });
-                      }}
-                      checked={filter.research_regions === option.value}
-                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <label
-                      htmlFor={`region-${optionIdx}`}
-                      className="ml-3 text-sm text-gray-600"
-                    >
-                      {option.label}
-                    </label>
-                  </li>
-                ))}
+                {isGeneticSourcesLoading ? (
+                  <>
+                    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                  </>
+                ) : (
+                  (geneticSources ?? []).map(
+                    (
+                      source: { id: number; material_type: string },
+                      index: number
+                    ) => (
+                      <li key={source.id} className="flex items-center">
+                        <input
+                          type="radio"
+                          id={`region-${index + 1}`}
+                          onChange={() => {
+                            applyStringFilter({
+                              category: "genetic_source_materials",
+                              value: source.material_type,
+                            });
+                          }}
+                          checked={
+                            filter.research_regions === source.material_type
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <label
+                          htmlFor={`region-${index + 1}`}
+                          className="ml-3 text-sm text-gray-600"
+                        >
+                          {source.material_type}
+                        </label>
+                      </li>
+                    )
+                  )
+                )}
               </ul>
             </div>
           </div>
-
-          {/* <div>
-            <h3 className='font-medium'>Genomic Category</h3>
-            <div className='pt-6'>
-              <ul className='space-y-4'>{GENOMIC_CATEGORY.options.map((option, optionIdx) => (
-                <li key={option.value} className='flex items-center'>
-                  <input
-                    type='radio'
-                    id={`genomic-${optionIdx}`}
-                    onChange={() => {
-                      applyStringFilter({
-                        category: "genomic",
-                        value: option.value
-                      })
-                    }}
-                    checked={filter.genomic === option.value}
-                    className='h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500'
-                  />
-                  <label
-                    htmlFor={`genomic-${optionIdx}`}
-                    className='ml-3 text-sm text-gray-600'>
-                    {option.label}
-                  </label>
-                </li>
-              ))}</ul>
-            </div>
-          </div> */}
 
           <div>
             <h3 className="font-medium">Disorder(s)</h3>
             <div className="pt-6">
               <ul className="space-y-4">
-                {DISORDERS.options.map((option, optionIdx) => (
-                  <li key={option.value} className="flex items-center">
-                    <input
-                      type="radio"
-                      id={`disorder-${optionIdx}`}
-                      onChange={() => {
-                        applyStringFilter({
-                          category: "disorder",
-                          value: option.value,
-                        });
-                      }}
-                      checked={filter.disorder === option.value}
-                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <label
-                      htmlFor={`disorder-${optionIdx}`}
-                      className="ml-3 text-sm text-gray-600"
-                    >
-                      {option.label}
-                    </label>
-                  </li>
-                ))}
+                {isDisorderLoading
+                  ? FilterSkeleton
+                  : (disorders ?? []).map(
+                      (
+                        disorder: { id: number; disorder_name: string },
+                        index: number
+                      ) => (
+                        <li key={disorder.id} className="flex items-center">
+                          <input
+                            type="radio"
+                            id={`disorder-${index + 1}`}
+                            onChange={() => {
+                              applyStringFilter({
+                                category: "disorder",
+                                value: disorder.disorder_name,
+                              });
+                            }}
+                            checked={filter.disorder === disorder.disorder_name}
+                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <label
+                            htmlFor={`disorder-${index + 1}`}
+                            className="ml-3 text-sm text-gray-600"
+                          >
+                            {disorder.disorder_name}
+                          </label>
+                        </li>
+                      )
+                    )}
               </ul>
             </div>
           </div>
@@ -500,28 +474,42 @@ const SearchPage = () => {
             <h3 className="font-medium">Article Type</h3>
             <div className="pt-6">
               <ul className="space-y-4">
-                {ARTICLE.options.map((option, optionIdx) => (
-                  <li key={option.value} className="flex items-center">
-                    <input
-                      type="radio"
-                      id={`article-${optionIdx}`}
-                      onChange={() => {
-                        applyStringFilter({
-                          category: "article_type",
-                          value: option.value,
-                        });
-                      }}
-                      checked={filter.article_type === option.value}
-                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <label
-                      htmlFor={`article-${optionIdx}`}
-                      className="ml-3 text-sm text-gray-600"
-                    >
-                      {option.label}
-                    </label>
-                  </li>
-                ))}
+                {isArticleTypesLoading ? (
+                  <>
+                    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                  </>
+                ) : (
+                  (articleTypes ?? []).map(
+                    (
+                      articleType: { id: number; article_name: string },
+                      index: number
+                    ) => (
+                      <li key={articleType.id} className="flex items-center">
+                        <input
+                          type="radio"
+                          id={`article-${index + 1}`}
+                          onChange={() => {
+                            applyStringFilter({
+                              category: "article_type",
+                              value: articleType.article_name,
+                            });
+                          }}
+                          checked={
+                            filter.article_type === articleType.article_name
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <label
+                          htmlFor={`article-${index + 1}`}
+                          className="ml-3 text-sm text-gray-600"
+                        >
+                          {articleType.article_name}
+                        </label>
+                      </li>
+                    )
+                  )
+                )}
               </ul>
             </div>
           </div>
@@ -574,121 +562,122 @@ const SearchPage = () => {
                     <h3 className="font-medium">Year(s)</h3>
                     <div className="pt-6">
                       <ul className="space-y-4">
-                        {YEAR.options.map((option, optionIdx) => (
-                          <li key={option.value} className="flex items-center">
+                        {allYears.map((year, index) => (
+                          <li key={index} className="flex items-center">
                             <input
                               type="radio"
-                              id={`year-${optionIdx}`}
+                              id={`year-${index + 1}`}
                               onChange={() => {
                                 applyStringFilter({
                                   category: "year",
-                                  value: option.value,
+                                  value: `${year}`,
                                 });
                               }}
-                              checked={filter.year === option.value}
+                              checked={filter.year === `${year}`}
                               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
                             <label
-                              htmlFor={`year-${optionIdx}`}
+                              htmlFor={`year-${index + 1}`}
                               className="ml-3 text-sm text-gray-600"
                             >
-                              {option.label}
+                              {year}
                             </label>
                           </li>
                         ))}
                       </ul>
-                      <div className="flex items-center mt-4 group cursor-pointer">
+                      <button
+                        className="flex items-center mt-4 group cursor-pointer"
+                        onClick={() => handleShowMoreYears()}
+                      >
                         <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                           show more
                         </p>
                         <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-                      </div>
+                      </button>
                     </div>
                   </div>
 
                   <div>
-                    <h3 className="font-medium">Region(s)</h3>
+                    <h3 className="font-medium">Genetic Sources(s)</h3>
                     <div className="pt-6">
                       <ul className="space-y-4">
-                        {REGIONS.options.map((option, optionIdx) => (
-                          <li key={option.value} className="flex items-center">
-                            <input
-                              type="radio"
-                              id={`region-${optionIdx}`}
-                              onChange={() => {
-                                applyStringFilter({
-                                  category: "research_regions",
-                                  value: option.value,
-                                });
-                              }}
-                              checked={filter.research_regions === option.value}
-                              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                            />
-                            <label
-                              htmlFor={`region-${optionIdx}`}
-                              className="ml-3 text-sm text-gray-600"
-                            >
-                              {option.label}
-                            </label>
-                          </li>
-                        ))}
+                        {isGeneticSourcesLoading
+                          ? FilterSkeleton
+                          : (geneticSources ?? []).map(
+                              (
+                                source: { id: number; material_type: string },
+                                index: number
+                              ) => (
+                                <li
+                                  key={source.id}
+                                  className="flex items-center"
+                                >
+                                  <input
+                                    type="radio"
+                                    id={`region-${index + 1}`}
+                                    onChange={() => {
+                                      applyStringFilter({
+                                        category: "genetic_source_materials",
+                                        value: source.material_type,
+                                      });
+                                    }}
+                                    checked={
+                                      filter.research_regions ===
+                                      source.material_type
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                  />
+                                  <label
+                                    htmlFor={`region-${index + 1}`}
+                                    className="ml-3 text-sm text-gray-600"
+                                  >
+                                    {source.material_type}
+                                  </label>
+                                </li>
+                              )
+                            )}
                       </ul>
                     </div>
                   </div>
-                  {/* 
-                  <div>
-                    <h3 className='font-medium'>Genomic Category</h3>
-                    <div className='pt-6'>
-                      <ul className='space-y-4'>{GENOMIC_CATEGORY.options.map((option, optionIdx) => (
-                        <li key={option.value} className='flex items-center'>
-                          <input
-                            type='radio'
-                            id={`genomic-${optionIdx}`}
-                            onChange={() => {
-                              applyStringFilter({
-                                category: "genomic",
-                                value: option.value
-                              })
-                            }}
-                            checked={filter.genomic === option.value}
-                            className='h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500'
-                          />
-                          <label
-                            htmlFor={`genomic-${optionIdx}`}
-                            className='ml-3 text-sm text-gray-600'>
-                            {option.label}
-                          </label>
-                        </li>
-                      ))}</ul>
-                    </div>
-                  </div> */}
 
                   <div>
                     <h3 className="font-medium">Disorder(s)</h3>
                     <div className="pt-6">
                       <ul className="space-y-4">
-                        {DISORDERS.options.map((option, optionIdx) => (
-                          <li key={option.value} className="flex items-center">
-                            <input
-                              type="radio"
-                              id={`disorder-${optionIdx}`}
-                              onChange={() => {
-                                applyStringFilter({
-                                  category: "disorder",
-                                  value: option.value,
-                                });
-                              }}
-                              checked={filter.disorder === option.value}
-                              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                            />
-                            <label
-                              htmlFor={`disorder-${optionIdx}`}
-                              className="ml-3 text-sm text-gray-600"
-                            >
-                              {option.label}
-                            </label>
-                          </li>
-                        ))}
+                        {isDisorderLoading
+                          ? FilterSkeleton
+                          : (disorders ?? []).map(
+                              (
+                                disorder: { id: number; disorder_name: string },
+                                index: number
+                              ) => (
+                                <li
+                                  key={disorder.id}
+                                  className="flex items-center"
+                                >
+                                  <input
+                                    type="radio"
+                                    id={`disorder-${index + 1}`}
+                                    onChange={() => {
+                                      applyStringFilter({
+                                        category: "disorder",
+                                        value: disorder.disorder_name,
+                                      });
+                                    }}
+                                    checked={
+                                      filter.disorder === disorder.disorder_name
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                  />
+                                  <label
+                                    htmlFor={`disorder-${index + 1}`}
+                                    className="ml-3 text-sm text-gray-600"
+                                  >
+                                    {disorder.disorder_name}
+                                  </label>
+                                </li>
+                              )
+                            )}
                       </ul>
                     </div>
                   </div>
@@ -697,28 +686,44 @@ const SearchPage = () => {
                     <h3 className="font-medium">Article Type</h3>
                     <div className="pt-6">
                       <ul className="space-y-4">
-                        {ARTICLE.options.map((option, optionIdx) => (
-                          <li key={option.value} className="flex items-center">
-                            <input
-                              type="radio"
-                              id={`article-${optionIdx}`}
-                              onChange={() => {
-                                applyStringFilter({
-                                  category: "article_type",
-                                  value: option.value,
-                                });
-                              }}
-                              checked={filter.article_type === option.value}
-                              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                            />
-                            <label
-                              htmlFor={`article-${optionIdx}`}
-                              className="ml-3 text-sm text-gray-600"
-                            >
-                              {option.label}
-                            </label>
-                          </li>
-                        ))}
+                        {isArticleTypesLoading
+                          ? FilterSkeleton
+                          : (articleTypes ?? []).map(
+                              (
+                                articleType: {
+                                  id: number;
+                                  article_name: string;
+                                },
+                                index: number
+                              ) => (
+                                <li
+                                  key={articleType.id}
+                                  className="flex items-center"
+                                >
+                                  <input
+                                    type="radio"
+                                    id={`article-${index + 1}`}
+                                    onChange={() => {
+                                      applyStringFilter({
+                                        category: "article_type",
+                                        value: articleType.article_name,
+                                      });
+                                    }}
+                                    checked={
+                                      filter.article_type ===
+                                      articleType.article_name
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                  />
+                                  <label
+                                    htmlFor={`article-${index + 1}`}
+                                    className="ml-3 text-sm text-gray-600"
+                                  >
+                                    {articleType.article_name}
+                                  </label>
+                                </li>
+                              )
+                            )}
                       </ul>
                     </div>
                   </div>
@@ -766,5 +771,12 @@ const SearchPage = () => {
     </div>
   );
 };
+
+const FilterSkeleton = (
+  <>
+    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+  </>
+);
 
 export default SearchPage;
