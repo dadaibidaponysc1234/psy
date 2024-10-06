@@ -112,7 +112,6 @@ const YEAR = {
 };
 
 const SearchPage = () => {
-  const [page, setPage] = useState<number>(1);
   // const [activeIndex, setActiveIndex] = useState<null | number>(null)
   const [filter, setFilter] = useState<DocumentState>({
     title: "",
@@ -127,6 +126,7 @@ const SearchPage = () => {
     impact_factor_max: "",
     genetic_source_materials: "",
     biological_modalities: "",
+    page: "1",
   });
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
@@ -158,8 +158,14 @@ const SearchPage = () => {
 
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "");
 
-  const nextPage = () => setPage((prevPage) => prevPage + 1);
-  const prevPage = () => setPage((prevPage) => Math.max(prevPage - 1, 1));
+  // const nextPage = () => setPage((prevPage) => prevPage + 1);
+  const nextPage = () =>
+    setFilter((prev) => ({ ...prev, page: `${(Number(prev.page) || 1) + 1}` }));
+  const prevPage = () =>
+    setFilter((prev) => ({
+      ...prev,
+      page: `${Math.max((Number(prev.page) || 1) - 1, 1)}`,
+    }));
 
   const applyStringFilter = ({
     category,
@@ -749,7 +755,7 @@ const SearchPage = () => {
               <PaginationControls
                 prevPage={prevPage}
                 nextPage={nextPage}
-                page={page}
+                page={Number(filter.page) || 1}
                 count={searches?.count}
                 isLoading={isLoading}
               />
