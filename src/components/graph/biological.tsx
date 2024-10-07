@@ -73,7 +73,7 @@ const BiologicalStudyCount: React.FC = () => {
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
-                tickFormatter={(value) => value.slice(0, 3)}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
               />
               <ChartTooltip
                 cursor={false}
