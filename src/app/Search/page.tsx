@@ -4,13 +4,7 @@ import FilterButton from "@/components/filterBtn";
 import StudySkeleton from "@/components/skeletons/study-skeleton";
 import StudyList from "@/components/studies/StudyList";
 import { DocumentState } from "@/lib/validators/document-validator";
-import {
-  ChevronDown,
-  CloudDownloadIcon,
-  Filter,
-  Loader2Icon,
-  Search,
-} from "lucide-react";
+import { ChevronDown, CloudDownloadIcon, Filter, Search } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useGetSearchResult } from "@/hooks/use-get-searchResults";
 import { Input } from "@/components/ui/input";
@@ -26,17 +20,16 @@ import {
 import PaginationControls from "@/components/PaginationControls";
 import AdvancedSearch from "@/components/AdvancedSearch";
 import { useGetSuggestion } from "@/hooks/use-get-suggestion";
-import Link from "next/link";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { Button } from "@/components/ui/button";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { BASE_URL } from "@/static";
 import GraphSkeleton from "@/components/skeletons/graph-skeleton";
 import {
-  CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
+  CardHeader,
 } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -113,14 +106,14 @@ const SearchPage = () => {
     }
   );
 
-  const { data: disorders, isLoading: isDisorderLoading } = useQuery({
-    queryKey: ["search-disorders"],
-    queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/disorders`);
-      return response.data;
-    },
-    refetchOnMount: false,
-  });
+  // const { data: disorders, isLoading: isDisorderLoading } = useQuery({
+  //   queryKey: ["search-disorders"],
+  //   queryFn: async () => {
+  //     const response = await axios.get(`${BASE_URL}/disorders`);
+  //     return response.data;
+  //   },
+  //   refetchOnMount: false,
+  // });
 
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
     queryKey: ["search-article-types"],
@@ -434,43 +427,6 @@ const SearchPage = () => {
           </div>
 
           <div>
-            <h3 className="font-medium">Disorder(s)</h3>
-            <div className="pt-6">
-              <ul className="space-y-4">
-                {isDisorderLoading
-                  ? FilterSkeleton
-                  : (disorders ?? []).map(
-                      (
-                        disorder: { id: number; disorder_name: string },
-                        index: number
-                      ) => (
-                        <li key={disorder.id} className="flex items-center">
-                          <input
-                            type="radio"
-                            id={`disorder-${index + 1}`}
-                            onChange={() => {
-                              applyStringFilter({
-                                category: "disorder",
-                                value: disorder.disorder_name,
-                              });
-                            }}
-                            checked={filter.disorder === disorder.disorder_name}
-                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                          />
-                          <label
-                            htmlFor={`disorder-${index + 1}`}
-                            className="ml-3 text-sm text-gray-600"
-                          >
-                            {disorder.disorder_name}
-                          </label>
-                        </li>
-                      )
-                    )}
-              </ul>
-            </div>
-          </div>
-
-          <div>
             <h3 className="font-medium">Article Type</h3>
             <div className="pt-6">
               <ul className="space-y-4">
@@ -632,48 +588,6 @@ const SearchPage = () => {
                                     className="ml-3 text-sm text-gray-600"
                                   >
                                     {source.material_type}
-                                  </label>
-                                </li>
-                              )
-                            )}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium">Disorder(s)</h3>
-                    <div className="pt-6">
-                      <ul className="space-y-4">
-                        {isDisorderLoading
-                          ? FilterSkeleton
-                          : (disorders ?? []).map(
-                              (
-                                disorder: { id: number; disorder_name: string },
-                                index: number
-                              ) => (
-                                <li
-                                  key={disorder.id}
-                                  className="flex items-center"
-                                >
-                                  <input
-                                    type="radio"
-                                    id={`disorder-${index + 1}`}
-                                    onChange={() => {
-                                      applyStringFilter({
-                                        category: "disorder",
-                                        value: disorder.disorder_name,
-                                      });
-                                    }}
-                                    checked={
-                                      filter.disorder === disorder.disorder_name
-                                    }
-                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                  />
-                                  <label
-                                    htmlFor={`disorder-${index + 1}`}
-                                    className="ml-3 text-sm text-gray-600"
-                                  >
-                                    {disorder.disorder_name}
                                   </label>
                                 </li>
                               )
