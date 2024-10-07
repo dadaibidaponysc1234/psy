@@ -340,7 +340,7 @@ const SearchPage = () => {
               type="ghost"
               onClick={handleClearFilters}
             />
-            <FilterButton name="Save Filters" type="outline" />
+            {/* <FilterButton name="Save Filters" type="outline" /> */}
           </div>
 
           <div>
@@ -510,7 +510,7 @@ const SearchPage = () => {
                           type="ghost"
                           onClick={handleClearFilters}
                         />
-                        <FilterButton name="Save Filters" type="outline" />
+                        {/* <FilterButton name="Save Filters" type="outline" /> */}
                       </div>
                     </SheetTitle>
                   </SheetHeader>
