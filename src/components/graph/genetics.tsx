@@ -19,7 +19,7 @@ import { Bar, BarChart, LabelList } from "recharts";
 import { useGetGenetics } from "@/hooks/use-get-genetics";
 import AbbreviationLegend from "../ui/abbreviation-legend";
 import GraphSkeleton from "../skeletons/graph-skeleton";
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { useState } from "react";
 import Search from "../Search";
 
@@ -104,11 +104,18 @@ const GeneticsStudyCount: React.FC = () => {
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
-          {/* <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-          </DialogHeader> */}
-          <Search genetic_source_materials={clickedGenetics || ""} />
+        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-auto max-h-screen">
+          <DialogHeader>
+            <DialogTitle>
+              Search Results for "{clickedGenetics}" genetic source
+            </DialogTitle>
+          </DialogHeader>
+          <Search
+            genetic_source_materials={clickedGenetics || ""}
+            showFilters={false}
+            showSearchBar={false}
+            showVisualize={false}
+          />
         </DialogContent>
       </Dialog>
     </Card>

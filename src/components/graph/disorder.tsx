@@ -29,7 +29,7 @@ import {
 import { getRandomColor } from "@/lib/utils";
 import { PieSectorDataItem } from "recharts/types/polar/Pie";
 import GraphSkeleton from "../skeletons/graph-skeleton";
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Search from "../Search";
 
 const DisorderStudyCount: React.FC = () => {
@@ -187,10 +187,17 @@ const DisorderStudyCount: React.FC = () => {
         onOpenChange={(open) => !open && setClickedDisorder(null)}
       >
         <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
-          {/* <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-          </DialogHeader> */}
-          <Search disorder={clickedDisorder || ""} />
+          <DialogHeader>
+            <DialogTitle>
+              Search Results for "{clickedDisorder}" disorder
+            </DialogTitle>
+          </DialogHeader>
+          <Search
+            disorder={clickedDisorder || ""}
+            showFilters={false}
+            showSearchBar={false}
+            showVisualize={false}
+          />
         </DialogContent>
       </Dialog>
     </Card>

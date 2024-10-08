@@ -117,10 +117,17 @@ const RegionalStudyCount: React.FC = () => {
         onOpenChange={(open) => !open && setClickedRegion(null)}
       >
         <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
-          {/* <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-          </DialogHeader> */}
-          <Search research_regions={clickedRegion || ""} />
+          <DialogHeader>
+            <DialogTitle>
+              Search Results for "{clickedRegion}" region
+            </DialogTitle>
+          </DialogHeader>
+          <Search
+            research_regions={clickedRegion || ""}
+            showFilters={false}
+            showSearchBar={false}
+            showVisualize={false}
+          />
         </DialogContent>
       </Dialog>
     </Card>

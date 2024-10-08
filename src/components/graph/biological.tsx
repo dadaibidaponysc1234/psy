@@ -23,7 +23,7 @@ import { useGetDisorder } from "@/hooks/use-get-disorder";
 import { useGetBiological } from "@/hooks/use-get-biological";
 import AbbreviationLegend from "../ui/abbreviation-legend";
 import GraphSkeleton from "../skeletons/graph-skeleton";
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Search from "../Search";
 
 const BiologicalStudyCount: React.FC = () => {
@@ -112,10 +112,18 @@ const BiologicalStudyCount: React.FC = () => {
         onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
       >
         <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
-          {/* <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-          </DialogHeader> */}
-          <Search biological_modalities={clickedBiologicalModality || ""} />
+          <DialogHeader>
+            <DialogTitle>
+              Search Results for "{clickedBiologicalModality}" biological
+              modality
+            </DialogTitle>
+          </DialogHeader>
+          <Search
+            biological_modalities={clickedBiologicalModality || ""}
+            showFilters={false}
+            showSearchBar={false}
+            showVisualize={false}
+          />
         </DialogContent>
       </Dialog>
     </Card>
