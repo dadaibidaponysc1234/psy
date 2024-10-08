@@ -102,14 +102,7 @@ const DisorderStudyCount: React.FC = () => {
           </div>
         ) : (
           <ChartContainer config={chartConfig}>
-            <PieChart
-              onClick={(state) => {
-                console.log(state);
-                setClickedDisorder(
-                  state.activePayload?.[0]?.payload?.disorder ?? null
-                );
-              }}
-            >
+            <PieChart>
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
@@ -123,6 +116,10 @@ const DisorderStudyCount: React.FC = () => {
                 activeIndex={chartData.findIndex(
                   (item) => item.disorder === activeDisorder
                 )}
+                onClick={(state) => {
+                  console.log(state);
+                  setClickedDisorder(state.disorderx ?? null);
+                }}
                 activeShape={({
                   outerRadius = 0,
                   ...props

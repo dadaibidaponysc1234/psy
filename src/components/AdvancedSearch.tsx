@@ -165,15 +165,15 @@ const AdvancedSearch = ({
           name="research_regions"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="">Region</FormLabel>
+              <FormLabel className="">Country</FormLabel>
               <FormControl>
                 <Select
                   {...field}
                   onValueChange={field.onChange}
                   value={field.value}
                 >
-                  <SelectTrigger aria-label="Select a region">
-                    <SelectValue placeholder="Select region" />
+                  <SelectTrigger aria-label="Select a country">
+                    <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent align="end" className="rounded-xl">
                     {(countries ?? []).map(
