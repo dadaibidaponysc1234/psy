@@ -107,7 +107,7 @@ const GeneticsStudyCount: React.FC = () => {
         <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-auto max-h-screen">
           <DialogHeader>
             <DialogTitle>
-              Search Results for "{clickedGenetics}" genetic source
+              Search Results for &quot;{clickedGenetics}&quot; genetic source
             </DialogTitle>
           </DialogHeader>
           <Search

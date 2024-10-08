@@ -189,7 +189,7 @@ const DisorderStudyCount: React.FC = () => {
         <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
           <DialogHeader>
             <DialogTitle>
-              Search Results for "{clickedDisorder}" disorder
+              Search Results for &quot;{clickedDisorder}&quot; disorder
             </DialogTitle>
           </DialogHeader>
           <Search
