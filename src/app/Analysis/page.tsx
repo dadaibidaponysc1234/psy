@@ -12,7 +12,7 @@ const Analysis = () => {
     <div className="max-w-[1024px] mx-auto w-full">
       <div className="p-10 lg:space-y-5 space-y-2">
         <h1 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
-          Dive Deep into Africa&aposs Genomic Landscape
+          Dive Deep into Africa&apos;s Genomic Landscape
         </h1>
         <p className="text-xl lg:text-3xl font-bold ">
           Uncover Regional Insights and Research Trends
