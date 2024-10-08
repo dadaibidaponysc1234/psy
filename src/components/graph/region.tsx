@@ -26,9 +26,18 @@ import {
 import { useGetRegion } from "@/hooks/use-get-region";
 import AbbreviationLegend from "../ui/abbreviation-legend";
 import GraphSkeleton from "../skeletons/graph-skeleton";
+import {
+  Dialog,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+} from "../ui/dialog";
+import Search from "../Search";
 
 const RegionalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetRegion();
+  const [clickedRegion, setClickedRegion] = useState<string | null>(null);
 
   const chartData = year?.map((data) => ({
     countries__name: data.countries__name,
@@ -59,6 +68,7 @@ const RegionalStudyCount: React.FC = () => {
               margin={{
                 top: 20,
               }}
+              onClick={(state) => setClickedRegion(state.activeLabel ?? null)}
             >
               <Legend
                 verticalAlign="bottom"
@@ -102,6 +112,17 @@ const RegionalStudyCount: React.FC = () => {
           Showing total visitors for the last 6 months
         </div>
       </CardFooter>
+      <Dialog
+        open={!!clickedRegion}
+        onOpenChange={(open) => !open && setClickedRegion(null)}
+      >
+        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+          {/* <DialogHeader>
+            <DialogTitle>Search</DialogTitle>
+          </DialogHeader> */}
+          <Search research_regions={clickedRegion || ""} />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

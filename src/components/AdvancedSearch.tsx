@@ -103,7 +103,7 @@ const AdvancedSearch = ({
       form.reset();
       setClearFilters(false);
     }
-  }, [clearFilters, form]);
+  }, [clearFilters, form, setClearFilters]);
 
   return (
     <Form {...form}>

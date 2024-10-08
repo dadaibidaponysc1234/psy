@@ -23,9 +23,14 @@ import { useGetDisorder } from "@/hooks/use-get-disorder";
 import { useGetBiological } from "@/hooks/use-get-biological";
 import AbbreviationLegend from "../ui/abbreviation-legend";
 import GraphSkeleton from "../skeletons/graph-skeleton";
+import { Dialog, DialogContent } from "../ui/dialog";
+import Search from "../Search";
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetBiological();
+  const [clickedBiologicalModality, setClickedBiologicalModility] = useState<
+    string | null
+  >(null);
 
   const chartData = year?.map((data) => ({
     biological_modalities__modality_name:
@@ -56,6 +61,9 @@ const BiologicalStudyCount: React.FC = () => {
               margin={{
                 top: 20,
               }}
+              onClick={(state) =>
+                setClickedBiologicalModility(state.activeLabel ?? null)
+              }
             >
               <Legend
                 verticalAlign="bottom"
@@ -99,6 +107,17 @@ const BiologicalStudyCount: React.FC = () => {
           Showing total visitors for the last 6 months
         </div>
       </CardFooter>
+      <Dialog
+        open={!!clickedBiologicalModality}
+        onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
+      >
+        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+          {/* <DialogHeader>
+            <DialogTitle>Search</DialogTitle>
+          </DialogHeader> */}
+          <Search biological_modalities={clickedBiologicalModality || ""} />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

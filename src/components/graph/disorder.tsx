@@ -29,10 +29,13 @@ import {
 import { getRandomColor } from "@/lib/utils";
 import { PieSectorDataItem } from "recharts/types/polar/Pie";
 import GraphSkeleton from "../skeletons/graph-skeleton";
+import { Dialog, DialogContent } from "../ui/dialog";
+import Search from "../Search";
 
 const DisorderStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetDisorder();
   const [activeDisorder, setActiveDisorder] = useState("");
+  const [clickedDisorder, setClickedDisorder] = useState<string | null>(null);
 
   const chartData = useMemo(
     () =>
@@ -99,7 +102,14 @@ const DisorderStudyCount: React.FC = () => {
           </div>
         ) : (
           <ChartContainer config={chartConfig}>
-            <PieChart>
+            <PieChart
+              onClick={(state) => {
+                console.log(state);
+                setClickedDisorder(
+                  state.activePayload?.[0]?.payload?.disorder ?? null
+                );
+              }}
+            >
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
@@ -172,6 +182,17 @@ const DisorderStudyCount: React.FC = () => {
           Showing total visitors for the last 6 months
         </div>
       </CardFooter>
+      <Dialog
+        open={!!clickedDisorder}
+        onOpenChange={(open) => !open && setClickedDisorder(null)}
+      >
+        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+          {/* <DialogHeader>
+            <DialogTitle>Search</DialogTitle>
+          </DialogHeader> */}
+          <Search disorder={clickedDisorder || ""} />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

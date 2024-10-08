@@ -486,6 +486,7 @@ const Chord = () => {
     return () => {
       window.removeEventListener("resize", handleResize);
       if (resizeObserverRef.current && svgContainerRef.current) {
+        // eslint-disable-next-line
         resizeObserverRef.current.unobserve(svgContainerRef.current);
       }
     };
