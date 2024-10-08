@@ -27,11 +27,14 @@ const GeneticsStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetGenetics();
   const [clickedGenetics, setClickedGenetics] = useState<string | null>(null);
 
-  const chartData = year?.map((data) => ({
-    genetic_source_materials__material_type:
-      data.genetic_source_materials__material_type,
-    study_count: data.study_count,
-  }));
+  const chartData =
+    year
+      ?.map((data) => ({
+        genetic_source_materials__material_type:
+          data.genetic_source_materials__material_type,
+        study_count: data.study_count,
+      }))
+      ?.filter((d) => d.genetic_source_materials__material_type !== null) ?? [];
 
   const chartConfig = {
     desktop: {
@@ -62,7 +65,7 @@ const GeneticsStudyCount: React.FC = () => {
                 verticalAlign="bottom"
                 content={
                   <AbbreviationLegend
-                    data={(year ?? []).map((val) => ({
+                    data={(chartData ?? []).map((val) => ({
                       name: val.genetic_source_materials__material_type,
                     }))}
                   />
@@ -104,7 +107,7 @@ const GeneticsStudyCount: React.FC = () => {
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedGenetics}&quot; genetic source

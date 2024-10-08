@@ -74,7 +74,7 @@ const RegionalStudyCount: React.FC = () => {
                 verticalAlign="bottom"
                 content={
                   <AbbreviationLegend
-                    data={(year ?? []).map((val) => ({
+                    data={(chartData ?? []).map((val) => ({
                       name: val.countries__name,
                     }))}
                   />
@@ -116,7 +116,7 @@ const RegionalStudyCount: React.FC = () => {
         open={!!clickedRegion}
         onOpenChange={(open) => !open && setClickedRegion(null)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedRegion}&quot; region

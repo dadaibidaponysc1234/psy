@@ -9,8 +9,9 @@ import {
   CloudDownloadIcon,
   Filter,
   Search as SearchIcon,
+  TrendingUp,
 } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useGetSearchResult } from "@/hooks/use-get-searchResults";
 import { Input } from "@/components/ui/input";
 import useDebounce from "@/hooks/useDebounce";
@@ -35,13 +36,29 @@ import {
   CardDescription,
   CardContent,
   CardHeader,
+  Card,
+  CardFooter,
 } from "@/components/ui/card";
 import {
+  ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { CartesianGrid, XAxis, Line, LineChart } from "recharts";
+import {
+  CartesianGrid,
+  XAxis,
+  Line,
+  LineChart,
+  Bar,
+  LabelList,
+  BarChart,
+  Legend,
+  PieChart,
+  Pie,
+  Sector,
+  Label,
+} from "recharts";
 import axios from "axios";
 import {
   Dialog,
@@ -50,6 +67,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { StudyCount } from "@/types/yearApi";
+import { Region } from "@/types/regionData";
+import AbbreviationLegend from "./ui/abbreviation-legend";
+import { Disorder } from "@/types/disorderData";
+import { getRandomColor } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { PieSectorDataItem } from "recharts/types/polar/Pie";
+import { BiologicalRecord } from "@/types/biological";
+import { Genetics } from "@/types/genetic";
+import Chord from "./graph/chord";
 
 const Search = ({
   title = "",
@@ -222,7 +256,7 @@ const Search = ({
     return null;
   };
 
-  const chartConfig = {
+  const chartConfig: ChartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
@@ -334,12 +368,79 @@ const Search = ({
         open={isGraphOpen && showVisualize}
         onOpenChange={(open) => setIsGraphOpen(open)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent
+          className="max-h-[80%]
+        max-w-screen-md overflow-y-auto opacity-70 backdrop-blur-3xl"
+        >
           <DialogHeader>
-            <DialogTitle>Yearly Study-Count</DialogTitle>
-            <DialogDescription>Number of Publications</DialogDescription>
+            <Tabs defaultValue="collaboration" className="space-y-10 mt-8 mb-6">
+              <div className="p-2 border rounded-md overflow-auto">
+                <TabsList className="flex h-full">
+                  <TabsTrigger value="collaboration" className="w-full">
+                    Collaboration
+                  </TabsTrigger>
+                  <TabsTrigger value="year" className="w-full">
+                    Year
+                  </TabsTrigger>
+                  <TabsTrigger value="region" className="w-full">
+                    Region
+                  </TabsTrigger>
+                  <TabsTrigger value="disorder" className="w-full">
+                    Disorder
+                  </TabsTrigger>
+                  <TabsTrigger value="biologicalModality" className="w-full">
+                    Biological Mod..
+                  </TabsTrigger>
+                  <TabsTrigger value="geneticSource" className="w-full">
+                    Genetic Source
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="year">
+                <YearlyStudyCount
+                  isLoading={isLoading}
+                  chartData={(searches?.yearly_study_counts ?? []).map((c) => ({
+                    year: c.year,
+                    study_count: c.study_count,
+                    citation: c.total_citations,
+                    impact_factor: c.average_impact_factor,
+                  }))}
+                />
+              </TabsContent>
+              <TabsContent value="region">
+                <RegionalStudyCount
+                  isLoading={isLoading}
+                  chartData={searches?.african_study_counts ?? []}
+                />
+              </TabsContent>
+              <TabsContent value="disorder">
+                <DisorderStudyCount
+                  isLoading={isLoading}
+                  data={searches?.disorder_study_counts ?? []}
+                />
+              </TabsContent>
+              <TabsContent value="biologicalModality">
+                <BiologicalStudyCount
+                  isLoading={isLoading}
+                  data={searches?.biological_modality_study_counts ?? []}
+                />
+              </TabsContent>
+              <TabsContent value="geneticSource">
+                <GeneticsStudyCount
+                  isLoading={isLoading}
+                  data={searches?.genetic_source_material_study_counts ?? []}
+                />
+              </TabsContent>
+              <TabsContent value="collaboration">
+                <Chord
+                  data={searches?.collaboration_data}
+                  isLoading={isLoading}
+                  error={isError ? "Something went wrong" : undefined}
+                />
+              </TabsContent>
+            </Tabs>
           </DialogHeader>
-          {isLoading ? (
+          {/* {isLoading ? (
             <GraphSkeleton />
           ) : (
             <ChartContainer config={chartConfig}>
@@ -367,7 +468,7 @@ const Search = ({
                 />
               </LineChart>
             </ChartContainer>
-          )}
+          )} */}
         </DialogContent>
       </Dialog>
 
@@ -732,5 +833,529 @@ const FilterSkeleton = (
     <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
   </>
 );
+
+const YearlyStudyCount = ({
+  isLoading,
+  chartData,
+}: {
+  isLoading: boolean;
+  chartData: StudyCount[];
+}) => {
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+    mobile: {
+      label: "Desktop",
+      color: "hsl(var(--chart-5))",
+    },
+  };
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Yearly Study-Count and Impact factor</CardTitle>
+          <CardDescription>Number of Publications </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <GraphSkeleton />
+          ) : (
+            <ChartContainer config={chartConfig}>
+              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="year"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Line
+                  dataKey="study_count"
+                  type="linear"
+                  stroke="var(--color-mobile)"
+                  strokeWidth={2}
+                  dot={true}
+                />
+                <Line
+                  dataKey="impact_factor"
+                  type="linear"
+                  stroke="var(--color-desktop)"
+                  strokeWidth={2}
+                  dot={true}
+                />
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+        <CardFooter className="flex-col items-start gap-2 text-sm">
+          <div className="flex gap-2 font-medium leading-none">
+            Highlight <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="leading-none text-muted-foreground">
+            The data on African genomics research reveals a clear upward trend
+            from 2007, with a significant surge in publications starting around
+            2014. This growth reflects increasing global interest and investment
+            in the field, peaking at 14 publications in 2022. The consistent
+            activity over the years highlights the growing importance and
+            recognition of African genomics on the global research stage.
+          </div>
+        </CardFooter>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Yearly Citation</CardTitle>
+          <CardDescription>Number of Publications </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <GraphSkeleton />
+          ) : (
+            <ChartContainer config={chartConfig}>
+              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="year"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Line
+                  dataKey="citation"
+                  type="linear"
+                  stroke="var(--color-desktop)"
+                  strokeWidth={2}
+                  dot={true}
+                />
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+        <CardFooter className="flex-col items-start gap-2 text-sm">
+          <div className="flex gap-2 font-medium leading-none">
+            Highlight <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="leading-none text-muted-foreground">
+            The data on African genomics research reveals a clear upward trend
+            from 2007, with a significant surge in publications starting around
+            2014. This growth reflects increasing global interest and investment
+            in the field, peaking at 14 publications in 2022. The consistent
+            activity over the years highlights the growing importance and
+            recognition of African genomics on the global research stage.
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+};
+
+const RegionalStudyCount = ({
+  isLoading,
+  chartData,
+}: {
+  isLoading: boolean;
+  chartData: Region[];
+}) => {
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Regional Study-count</CardTitle>
+        <CardDescription>Number of Publications</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(chartData ?? []).map((val) => ({
+                      name: val.countries__name,
+                    }))}
+                  />
+                }
+              />
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="countries__name"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          Highlight <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing total visitors for the last 6 months
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const DisorderStudyCount = ({
+  isLoading,
+  data,
+}: {
+  isLoading: boolean;
+  data: Disorder[];
+}) => {
+  const [activeDisorder, setActiveDisorder] = useState("");
+  const chartData = useMemo(
+    () =>
+      data
+        ?.map((data) => ({
+          disorder: data.disorder__disorder_name,
+          study_count: data.study_count,
+          fill: getRandomColor(),
+        }))
+        ?.filter((d) => d.disorder !== null) ?? [],
+    [data]
+  );
+
+  const activeIndex = chartData.findIndex(
+    (item) => item.disorder === activeDisorder
+  );
+
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Disorder study-count</CardTitle>
+        <CardDescription>Number of Publications </CardDescription>
+        <Select value={activeDisorder} onValueChange={setActiveDisorder}>
+          <SelectTrigger
+            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            aria-label="Select a disorder"
+          >
+            <SelectValue placeholder="Select disorder" />
+          </SelectTrigger>
+          <SelectContent align="end" className="rounded-xl">
+            {chartData?.map((disorder, index) => (
+              <SelectItem
+                key={index}
+                value={disorder.disorder}
+                className="rounded-lg [&_span]:flex"
+              >
+                <div className="w-48 flex items-center gap-2 text-xs">
+                  <span
+                    className="flex h-3 w-3 shrink-0 rounded-sm"
+                    style={{
+                      backgroundColor: disorder.fill,
+                    }}
+                  />
+                  {disorder.disorder}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center items-center size-full">
+            <GraphSkeleton
+              pie={{
+                className: "",
+              }}
+            />
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <PieChart>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Pie
+                data={chartData}
+                dataKey="study_count"
+                nameKey="disorder" //  Change here to use 'genetic' as the name key
+                innerRadius={60}
+                strokeWidth={5}
+                activeIndex={chartData.findIndex(
+                  (item) => item.disorder === activeDisorder
+                )}
+                activeShape={({
+                  outerRadius = 0,
+                  ...props
+                }: PieSectorDataItem) => (
+                  <g>
+                    <Sector {...props} outerRadius={outerRadius + 10} />
+                    <Sector
+                      {...props}
+                      outerRadius={outerRadius + 25}
+                      innerRadius={outerRadius + 12}
+                    />
+                  </g>
+                )}
+              >
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          // className="text-lg font-medium"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {chartData[
+                              activeIndex
+                            ]?.study_count.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground"
+                          >
+                            {chartData[activeIndex]?.disorder}{" "}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                />
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          Highlight <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing total visitors for the last 6 months
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const BiologicalStudyCount = ({
+  isLoading,
+  data,
+}: {
+  isLoading: boolean;
+  data: BiologicalRecord[];
+}) => {
+  const chartData =
+    data
+      ?.map((d) => ({
+        biological_modalities__modality_name:
+          d.biological_modalities__modality_name,
+        study_count: d.study_count,
+      }))
+      ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [];
+
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Biological modularity Study-count</CardTitle>
+        <CardDescription>Number of Publications </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(chartData ?? []).map((val) => ({
+                      name: val.biological_modalities__modality_name,
+                    }))}
+                  />
+                }
+              />
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="biological_modalities__modality_name"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          Highlight <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing total visitors for the last 6 months
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const GeneticsStudyCount = ({
+  isLoading,
+  data,
+}: {
+  isLoading: boolean;
+  data: Genetics[];
+}) => {
+  const chartData =
+    data
+      ?.map((d) => ({
+        genetic_source_materials__material_type:
+          d.genetic_source_materials__material_type,
+        study_count: d.study_count,
+      }))
+      ?.filter((d) => d.genetic_source_materials__material_type !== null) ?? [];
+
+  const chartConfig = {
+    desktop: {
+      label: "Desktop",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Genetic Source Study-Count</CardTitle>
+        <CardDescription>Number of Publications </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <GraphSkeleton />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <Legend
+                verticalAlign="bottom"
+                content={
+                  <AbbreviationLegend
+                    data={(chartData ?? []).map((val) => ({
+                      name: val.genetic_source_materials__material_type,
+                    }))}
+                  />
+                }
+              />
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="genetic_source_materials__material_type"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          Highlight <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing total visitors for the last 6 months
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
 
 export default Search;

@@ -5,8 +5,30 @@ export interface ApiResponse {
   results: Study[];
   yearly_study_counts: {
     year: number;
-    study_counts: number;
+    study_count: number;
+    average_impact_factor: number;
+    total_citations: number;
   }[];
+  genetic_source_material_study_counts: {
+    genetic_source_materials__material_type: string;
+    study_count: number;
+  }[];
+  disorder_study_counts: {
+    disorder__disorder_name: string;
+    study_count: number;
+  }[];
+  biological_modality_study_counts: {
+    biological_modalities__modality_name: string;
+    study_count: number;
+  }[];
+  african_study_counts: {
+    countries__name: string;
+    study_count: number;
+  }[];
+  collaboration_data: {
+    countries: string[];
+    matrix: number[][];
+  };
 }
 
 export interface Study {

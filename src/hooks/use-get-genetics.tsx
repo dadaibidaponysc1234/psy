@@ -1,9 +1,9 @@
-import { Region } from "../types/genetic";
+import { Genetics } from "../types/genetic";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
 export const useGetGenetics = () => {
-  const query = useQuery<Region[], Error>({
+  const query = useQuery<Genetics[], Error>({
     queryKey: ["genetics"],
     queryFn: async () => {
       const response = await axios.get(

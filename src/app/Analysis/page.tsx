@@ -5,7 +5,7 @@ import RegionalStudyCount from "@/components/graph/region";
 import DisorderStudyCount from "@/components/graph/disorder";
 import BiologicalStudyCount from "@/components/graph/biological";
 import GeneticsStudyCount from "@/components/graph/genetics";
-import Chord from "@/components/graph/collaboration";
+import Collaboration from "@/components/graph/collaboration";
 
 const Analysis = () => {
   return (
@@ -59,7 +59,7 @@ const Analysis = () => {
             <GeneticsStudyCount />
           </TabsContent>
           <TabsContent value="collaboration">
-            <Chord />
+            <Collaboration />
           </TabsContent>
         </Tabs>
       </div>

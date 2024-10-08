@@ -32,11 +32,14 @@ const BiologicalStudyCount: React.FC = () => {
     string | null
   >(null);
 
-  const chartData = year?.map((data) => ({
-    biological_modalities__modality_name:
-      data.biological_modalities__modality_name,
-    study_count: data.study_count,
-  }));
+  const chartData =
+    year
+      ?.map((data) => ({
+        biological_modalities__modality_name:
+          data.biological_modalities__modality_name,
+        study_count: data.study_count,
+      }))
+      ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [];
 
   const chartConfig = {
     desktop: {
@@ -69,7 +72,7 @@ const BiologicalStudyCount: React.FC = () => {
                 verticalAlign="bottom"
                 content={
                   <AbbreviationLegend
-                    data={(year ?? []).map((val) => ({
+                    data={(chartData ?? []).map((val) => ({
                       name: val.biological_modalities__modality_name,
                     }))}
                   />
@@ -111,7 +114,7 @@ const BiologicalStudyCount: React.FC = () => {
         open={!!clickedBiologicalModality}
         onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedBiologicalModality}&quot;

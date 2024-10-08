@@ -39,11 +39,13 @@ const DisorderStudyCount: React.FC = () => {
 
   const chartData = useMemo(
     () =>
-      year?.map((data) => ({
-        disorder: data.disorder__disorder_name,
-        study_count: data.study_count,
-        fill: getRandomColor(),
-      })) ?? [],
+      year
+        ?.map((data) => ({
+          disorder: data.disorder__disorder_name,
+          study_count: data.study_count,
+          fill: getRandomColor(),
+        }))
+        ?.filter((d) => d.disorder !== null) ?? [],
     [year]
   );
 
@@ -118,7 +120,7 @@ const DisorderStudyCount: React.FC = () => {
                 )}
                 onClick={(state) => {
                   console.log(state);
-                  setClickedDisorder(state.disorderx ?? null);
+                  setClickedDisorder(state.disorder ?? null);
                 }}
                 activeShape={({
                   outerRadius = 0,
@@ -183,7 +185,7 @@ const DisorderStudyCount: React.FC = () => {
         open={!!clickedDisorder}
         onOpenChange={(open) => !open && setClickedDisorder(null)}
       >
-        <DialogContent className="lg:max-w-screen-lg max-w-screen-md overflow-y-scroll max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedDisorder}&quot; disorder
