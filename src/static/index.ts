@@ -6,15 +6,15 @@ export const navItems: { name: string; path: string }[] = [
     path: "/",
   },
   {
-    name: "Search",
-    path: "/Search",
+    name: "About",
+    path: "/About",
   },
   {
     name: "Analysis",
     path: "/Analysis",
   },
   {
-    name: "About",
-    path: "/About",
+    name: "Search",
+    path: "/Search",
   },
 ];

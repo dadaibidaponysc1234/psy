@@ -6,6 +6,7 @@ import StudyList from "@/components/studies/StudyList";
 import { DocumentState } from "@/lib/validators/document-validator";
 import {
   ChevronDown,
+  ChevronUp,
   CloudDownloadIcon,
   Filter,
   Search as SearchIcon,
@@ -127,15 +128,7 @@ const Search = ({
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [clearFilters, setClearFilters] = useState(false);
-  const [yearsDisplayed, setYearsDisplayed] = useState(5);
   const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700);
-
-  const currentYear = new Date().getFullYear();
-  // Generate an array of years starting from the current year
-  const allYears = Array.from(
-    { length: yearsDisplayed },
-    (_, i) => currentYear - i
-  );
 
   const sanitizedFilters = {
     title: debouncedSearchTerm || undefined,
@@ -175,14 +168,14 @@ const Search = ({
     }
   );
 
-  // const { data: disorders, isLoading: isDisorderLoading } = useQuery({
-  //   queryKey: ["search-disorders"],
-  //   queryFn: async () => {
-  //     const response = await axios.get(`${BASE_URL}/disorders`);
-  //     return response.data;
-  //   },
-  //   refetchOnMount: false,
-  // });
+  const { data: disorders, isLoading: isDisorderLoading } = useQuery({
+    queryKey: ["search-disorders"],
+    queryFn: async () => {
+      const response = await axios.get(`${BASE_URL}/disorders`);
+      return response.data;
+    },
+    refetchOnMount: false,
+  });
 
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
     queryKey: ["search-article-types"],
@@ -201,10 +194,6 @@ const Search = ({
       ...prev,
       page: `${Math.max((Number(prev.page) || 1) - 1, 1)}`,
     }));
-
-  const handleShowMoreYears = () => {
-    setYearsDisplayed((prev) => prev + 3);
-  };
 
   const applyStringFilter = ({
     category,
@@ -484,132 +473,16 @@ const Search = ({
               />
               {/* <FilterButton name="Save Filters" type="outline" /> */}
             </div>
-
-            <div>
-              <h3 className="font-medium">Year(s)</h3>
-              <div className="pt-6">
-                <ul className="space-y-4">
-                  {allYears.map((year, index) => (
-                    <li key={index} className="flex items-center">
-                      <input
-                        name="year"
-                        type="radio"
-                        id={`year-${index + 1}`}
-                        onChange={() => {
-                          applyStringFilter({
-                            category: "year",
-                            value: `${year}`,
-                          });
-                        }}
-                        value={`${year}`}
-                        className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                      />
-                      <label
-                        htmlFor={`year-${index + 1}`}
-                        className="ml-3 text-sm text-gray-600"
-                      >
-                        {year}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className="flex items-center mt-4 group cursor-pointer"
-                  onClick={() => handleShowMoreYears()}
-                >
-                  <p className="text-sm text-muted-foreground group-hover:text-gray-900">
-                    show more
-                  </p>
-                  <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium">Genetic Sources(s)</h3>
-              <div className="pt-6">
-                <ul className="space-y-4">
-                  {isGeneticSourcesLoading ? (
-                    <>
-                      <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                      <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                    </>
-                  ) : (
-                    (geneticSources ?? []).map(
-                      (
-                        source: { id: number; material_type: string },
-                        index: number
-                      ) => (
-                        <li key={source.id} className="flex items-center">
-                          <input
-                            name="genetic-source"
-                            type="radio"
-                            id={`genetic-source-${index + 1}`}
-                            onChange={() => {
-                              applyStringFilter({
-                                category: "genetic_source_materials",
-                                value: source.material_type,
-                              });
-                            }}
-                            value={source.material_type}
-                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                          />
-                          <label
-                            htmlFor={`genetic-source-${index + 1}`}
-                            className="ml-3 text-sm text-gray-600"
-                          >
-                            {source.material_type}
-                          </label>
-                        </li>
-                      )
-                    )
-                  )}
-                </ul>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium">Article Type</h3>
-              <div className="pt-6">
-                <ul className="space-y-4">
-                  {isArticleTypesLoading ? (
-                    <>
-                      <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                      <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                    </>
-                  ) : (
-                    (articleTypes ?? []).map(
-                      (
-                        articleType: { id: number; article_name: string },
-                        index: number
-                      ) => (
-                        <li key={articleType.id} className="flex items-center">
-                          <input
-                            name="article-type"
-                            type="radio"
-                            id={`article-${index + 1}`}
-                            onChange={() => {
-                              applyStringFilter({
-                                category: "article_type",
-                                value: articleType.article_name,
-                              });
-                            }}
-                            value={articleType.article_name}
-                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                          />
-                          <label
-                            htmlFor={`article-${index + 1}`}
-                            className="ml-3 text-sm text-gray-600"
-                          >
-                            {articleType.article_name}
-                          </label>
-                        </li>
-                      )
-                    )
-                  )}
-                </ul>
-              </div>
-            </div>
+            <SideFilters
+              filter={filter}
+              applyStringFilter={applyStringFilter}
+              isGeneticSourcesLoading={isGeneticSourcesLoading}
+              geneticSources={geneticSources ?? []}
+              isArticleTypesLoading={isArticleTypesLoading}
+              articleTypes={articleTypes ?? []}
+              disorders={disorders ?? []}
+              isDisorderLoading={isDisorderLoading}
+            />
           </div>
         )}
 
@@ -657,130 +530,16 @@ const Search = ({
                         </div>
                       </SheetTitle>
                     </SheetHeader>
-                    <div>
-                      <h3 className="font-medium">Year(s)</h3>
-                      <div className="pt-6">
-                        <ul className="space-y-4">
-                          {allYears.map((year, index) => (
-                            <li key={index} className="flex items-center">
-                              <input
-                                name="year"
-                                type="radio"
-                                id={`year-${index + 1}`}
-                                onChange={() => {
-                                  applyStringFilter({
-                                    category: "year",
-                                    value: `${year}`,
-                                  });
-                                }}
-                                value={`${year}`}
-                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                              />
-                              <label
-                                htmlFor={`year-${index + 1}`}
-                                className="ml-3 text-sm text-gray-600"
-                              >
-                                {year}
-                              </label>
-                            </li>
-                          ))}
-                        </ul>
-                        <button
-                          className="flex items-center mt-4 group cursor-pointer"
-                          onClick={() => handleShowMoreYears()}
-                        >
-                          <p className="text-sm text-muted-foreground group-hover:text-gray-900">
-                            show more
-                          </p>
-                          <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium">Genetic Sources(s)</h3>
-                      <div className="pt-6">
-                        <ul className="space-y-4">
-                          {isGeneticSourcesLoading
-                            ? FilterSkeleton
-                            : (geneticSources ?? []).map(
-                                (
-                                  source: { id: number; material_type: string },
-                                  index: number
-                                ) => (
-                                  <li
-                                    key={source.id}
-                                    className="flex items-center"
-                                  >
-                                    <input
-                                      name="genetic-source"
-                                      type="radio"
-                                      id={`genetic-source-${index + 1}`}
-                                      onChange={(e) => {
-                                        applyStringFilter({
-                                          category: "genetic_source_materials",
-                                          value: e.target.value,
-                                        });
-                                      }}
-                                      value={source.material_type}
-                                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                    />
-                                    <label
-                                      htmlFor={`genetic-source-${index + 1}`}
-                                      className="ml-3 text-sm text-gray-600"
-                                    >
-                                      {source.material_type}
-                                    </label>
-                                  </li>
-                                )
-                              )}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium">Article Type</h3>
-                      <div className="pt-6">
-                        <ul className="space-y-4">
-                          {isArticleTypesLoading
-                            ? FilterSkeleton
-                            : (articleTypes ?? []).map(
-                                (
-                                  articleType: {
-                                    id: number;
-                                    article_name: string;
-                                  },
-                                  index: number
-                                ) => (
-                                  <li
-                                    key={articleType.id}
-                                    className="flex items-center"
-                                  >
-                                    <input
-                                      name="article-type"
-                                      type="radio"
-                                      id={`article-${index + 1}`}
-                                      onChange={() => {
-                                        applyStringFilter({
-                                          category: "article_type",
-                                          value: articleType.article_name,
-                                        });
-                                      }}
-                                      value={articleType.article_name}
-                                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                    />
-                                    <label
-                                      htmlFor={`article-${index + 1}`}
-                                      className="ml-3 text-sm text-gray-600"
-                                    >
-                                      {articleType.article_name}
-                                    </label>
-                                  </li>
-                                )
-                              )}
-                        </ul>
-                      </div>
-                    </div>
+                    <SideFilters
+                      filter={filter}
+                      applyStringFilter={applyStringFilter}
+                      isGeneticSourcesLoading={isGeneticSourcesLoading}
+                      geneticSources={geneticSources ?? []}
+                      isArticleTypesLoading={isArticleTypesLoading}
+                      articleTypes={articleTypes ?? []}
+                      isDisorderLoading={isDisorderLoading}
+                      disorders={disorders ?? []}
+                    />
                   </SheetContent>
                 </Sheet>
               </div>
@@ -1355,6 +1114,310 @@ const GeneticsStudyCount = ({
         </div>
       </CardFooter>
     </Card>
+  );
+};
+
+const SideFilters = ({
+  filter,
+  applyStringFilter,
+  isGeneticSourcesLoading,
+  geneticSources,
+  isArticleTypesLoading,
+  articleTypes,
+  disorders,
+  isDisorderLoading,
+}: {
+  filter: DocumentState;
+  applyStringFilter: ({
+    category,
+    value,
+  }: {
+    category: keyof typeof filter;
+    value: string;
+  }) => void;
+  isGeneticSourcesLoading: boolean;
+  geneticSources: any[];
+  isArticleTypesLoading: boolean;
+  articleTypes: any[];
+  disorders: any[];
+  isDisorderLoading: boolean;
+}) => {
+  const [visibleYears, setVisibleYears] = useState(5);
+  const [visibleDisorders, setVisibleDisorders] = useState(5);
+  const [visibleGeneticSources, setVisibleGeneticSources] = useState(5);
+  const [visibleArticleTypes, setVisibleArticleTypes] = useState(5);
+
+  const currentYear = new Date().getFullYear();
+
+  const allYears = Array.from(
+    { length: visibleYears },
+    (_, i) => currentYear - i
+  );
+
+  const handleShowMoreYears = () => setVisibleYears((prev) => prev + 5);
+  const handleShowLessYears = () => setVisibleYears(5);
+
+  const handleShowMoreDisorders = () => setVisibleDisorders((prev) => prev + 5);
+  const handleShowLessDisorders = () => setVisibleDisorders(5);
+
+  const handleShowMoreGeneticSources = () =>
+    setVisibleGeneticSources((prev) => prev + 5);
+  const handleShowLessGeneticSources = () => setVisibleGeneticSources(5);
+
+  const handleShowMoreArticleTypes = () =>
+    setVisibleArticleTypes((prev) => prev + 5);
+  const handleShowLessArticleTypes = () => setVisibleArticleTypes(5);
+  return (
+    <>
+      <div>
+        <h3 className="font-medium">Year(s)</h3>
+        <div className="pt-6">
+          {allYears.length > 5 && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={() => handleShowLessYears()}
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show Newer Years
+              </p>
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900"></p>
+              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
+          <ul className="space-y-4 my-4">
+            {allYears
+              // .sort((a, b) => a - b)
+              .slice(-5)
+              .map((year, index) => (
+                <li key={index} className="flex items-center">
+                  <input
+                    name="year"
+                    type="radio"
+                    id={`year-${index + 1}`}
+                    onChange={() => {
+                      applyStringFilter({
+                        category: "year",
+                        value: `${year}`,
+                      });
+                    }}
+                    value={`${year}`}
+                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <label
+                    htmlFor={`year-${index + 1}`}
+                    className="ml-3 text-sm text-gray-600"
+                  >
+                    {year}
+                  </label>
+                </li>
+              ))}
+          </ul>
+          <button
+            className="flex items-center mt-4 group cursor-pointer"
+            onClick={handleShowMoreYears}
+          >
+            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+              Show Earlier Years
+            </p>
+            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-medium">Disorders</h3>
+        <div className="pt-6">
+          {disorders.length > 5 && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={handleShowLessDisorders}
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show Less Disorders
+              </p>
+              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
+          <ul className="space-y-4 my-4">
+            {isDisorderLoading ? (
+              <>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+              </>
+            ) : (
+              (disorders ? disorders.slice(visibleDisorders - 5) : []).map(
+                (
+                  disorder: { id: number; disorder_name: string },
+                  index: number
+                ) => (
+                  <li key={disorder.id} className="flex items-center">
+                    <input
+                      name="disorder"
+                      type="radio"
+                      id={`disorder-${index + 1}`}
+                      onChange={() => {
+                        applyStringFilter({
+                          category: "disorder",
+                          value: disorder.disorder_name,
+                        });
+                      }}
+                      value={disorder.disorder_name}
+                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <label
+                      htmlFor={`disorder-${index + 1}`}
+                      className="ml-3 text-sm text-gray-600"
+                    >
+                      {disorder.disorder_name}
+                    </label>
+                  </li>
+                )
+              )
+            )}
+          </ul>
+          <button
+            className="flex items-center mt-4 group cursor-pointer"
+            onClick={handleShowMoreDisorders}
+          >
+            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+              Show More Disorders
+            </p>
+            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+          </button>
+        </div>
+      </div>
+      <div>
+        <h3 className="font-medium">Genetic Sources(s)</h3>
+        <div className="pt-6">
+          {geneticSources.length > 5 && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={handleShowLessGeneticSources}
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show Less Genetic Sources
+              </p>
+              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
+          <ul className="space-y-4 my-4">
+            {isGeneticSourcesLoading ? (
+              <>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+              </>
+            ) : (
+              (geneticSources
+                ? geneticSources.slice(visibleGeneticSources - 5)
+                : []
+              ).map(
+                (
+                  source: { id: number; material_type: string },
+                  index: number
+                ) => (
+                  <li key={source.id} className="flex items-center">
+                    <input
+                      name="genetic-source"
+                      type="radio"
+                      id={`genetic-source-${index + 1}`}
+                      onChange={() => {
+                        applyStringFilter({
+                          category: "genetic_source_materials",
+                          value: source.material_type,
+                        });
+                      }}
+                      value={source.material_type}
+                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <label
+                      htmlFor={`genetic-source-${index + 1}`}
+                      className="ml-3 text-sm text-gray-600"
+                    >
+                      {source.material_type}
+                    </label>
+                  </li>
+                )
+              )
+            )}
+          </ul>
+          <button
+            className="flex items-center mt-4 group cursor-pointer"
+            onClick={handleShowMoreGeneticSources}
+          >
+            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+              Show More Genetic Sources
+            </p>
+            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-medium">Article Type</h3>
+        <div className="pt-6">
+          {articleTypes.length > 5 && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={handleShowLessArticleTypes}
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show Less Article Types
+              </p>
+              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
+          <ul className="space-y-4 my-4">
+            {isArticleTypesLoading ? (
+              <>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+              </>
+            ) : (
+              (articleTypes
+                ? articleTypes.slice(visibleArticleTypes - 5)
+                : []
+              ).map(
+                (
+                  articleType: { id: number; article_name: string },
+                  index: number
+                ) => (
+                  <li key={articleType.id} className="flex items-center">
+                    <input
+                      name="article-type"
+                      type="radio"
+                      id={`article-${index + 1}`}
+                      onChange={() => {
+                        applyStringFilter({
+                          category: "article_type",
+                          value: articleType.article_name,
+                        });
+                      }}
+                      value={articleType.article_name}
+                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <label
+                      htmlFor={`article-${index + 1}`}
+                      className="ml-3 text-sm text-gray-600"
+                    >
+                      {articleType.article_name}
+                    </label>
+                  </li>
+                )
+              )
+            )}
+          </ul>
+          <button
+            className="flex items-center mt-4 group cursor-pointer"
+            onClick={handleShowMoreArticleTypes}
+          >
+            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+              Show More Article Types
+            </p>
+            <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 

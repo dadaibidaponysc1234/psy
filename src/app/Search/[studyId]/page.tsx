@@ -11,9 +11,14 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Details } from "@/types/study_detail";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SharePublication from "@/components/share-publication";
 
 interface pageProps {
   params: {
@@ -37,11 +42,13 @@ const Detail = async ({ params }: pageProps) => {
   });
 
   const date = new Date(detail.date);
-  const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-
+  const formattedDate = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+  });
 
   if (!detail) {
-    return notFound()
+    return notFound();
   }
 
   return (
@@ -56,9 +63,13 @@ const Detail = async ({ params }: pageProps) => {
           <div className="text-primary font-medium">Year</div>
           <p className="text-sm">{detail?.year}</p>
           <div className="text-primary font-medium">Biological Modal</div>
-          <div className="text-sm">{detail?.biological_modalities?.map(modality => (
-            <div key={modality.id} className="text-sm">{modality.modality_name}</div>
-          ))}</div>
+          <div className="text-sm">
+            {detail?.biological_modalities?.map((modality) => (
+              <div key={modality.id} className="text-sm">
+                {modality.modality_name}
+              </div>
+            ))}
+          </div>
           <div className="text-primary font-medium">Biological Risk</div>
           <p className="text-sm">{detail?.biological_risk_factor_studied}</p>
           <div className="text-primary font-medium">Citation</div>
@@ -75,7 +86,7 @@ const Detail = async ({ params }: pageProps) => {
           <p className="text-sm">{detail?.phenotype}</p>
           <div className="text-primary font-medium">Region</div>
           <div>
-            {detail?.countries?.map(country => (
+            {detail?.countries?.map((country) => (
               <div key={country.id} className="text-sm">
                 <p>{country.name}</p>
               </div>
@@ -87,12 +98,16 @@ const Detail = async ({ params }: pageProps) => {
           <p className="text-sm">{detail?.age_range}</p>
           <div className="text-primary font-medium">Gender</div>
           <p className="text-sm">{detail?.male_female_split}</p>
-          <div className="text-primary font-medium">Genetic Source Material</div>
-          <div className="text-sm">{detail?.genetic_source_materials?.map(gsm => (
-            <p key={gsm.id} className="text-sm">
-              {gsm.material_type}
-            </p>
-          ))}</div>
+          <div className="text-primary font-medium">
+            Genetic Source Material
+          </div>
+          <div className="text-sm">
+            {detail?.genetic_source_materials?.map((gsm) => (
+              <p key={gsm.id} className="text-sm">
+                {gsm.material_type}
+              </p>
+            ))}
+          </div>
           <div className="text-primary font-medium">Article Type</div>
           <div>
             {detail?.article_type?.map((article) => (
@@ -107,30 +122,30 @@ const Detail = async ({ params }: pageProps) => {
       </section>
 
       <div className="max-w-4xl flex flex-col justify-center gap-2">
-        <div className='font-semibold space-y-1'>
-          <div className='space-x-1'>
+        <div className="font-semibold space-y-1">
+          <div className="space-x-1">
             <span>{detail.journal_name},</span>{" "}
-            <span>Vol.{detail.volume},</span>{" "}
-            <span>{formattedDate},</span>{" "}
+            <span>Vol.{detail.volume},</span> <span>{formattedDate},</span>{" "}
             <span>pp.{detail.pages}</span>{" "}
           </div>
           <div>
-            <span>ISSN:{" "}{detail.issue}</span>{" "}
+            <span>ISSN: {detail.issue}</span>{" "}
           </div>
           <div>
-            DOI:{" "}<span>{detail.DOI}</span>
+            DOI: <span>{detail.DOI}</span>
           </div>
         </div>
 
-        <h2 className="font-bold text-xl lg:text-3xl tracking-tight">{detail?.title}</h2>
+        <h2 className="font-bold text-xl lg:text-3xl tracking-tight">
+          {detail?.title}
+        </h2>
         {/* <p className="text-muted-foreground underline">{detail?.lead_author}</p> */}
-        <p className="text-blue-700 text-sm">Share publication</p>
+        <SharePublication {...detail} />
         <div className="h-1 w-full bg-slate-500" />
 
         <div>
-
           <div className="w-full flex items-center justify-between">
-            <h2 className='text-primary text-xl mt-4 mb-3'>Authors</h2>
+            <h2 className="text-primary text-xl mt-4 mb-3">Authors</h2>
 
             <div className="flex py-2">
               <DropdownMenu>
@@ -139,27 +154,27 @@ const Detail = async ({ params }: pageProps) => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {detail?.authors_affiliations?.authors?.map((author, i) => (
-                    <div className="text-left w-full  px-4 py-2 text-sm" key={i}>
+                    <div
+                      className="text-left w-full  px-4 py-2 text-sm"
+                      key={i}
+                    >
                       -{author.name}
                     </div>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-
           </div>
 
           <div className="w-full flex flex-col gap-2 md:flex-row lg:gap-10 font-bold ">
             {limitedAuthors?.map((author, index) => (
               <div key={index}>
-
-                {author?.affiliation_numbers
-                  .map((affiliationNumber, index) => (
-                    <sup className='font-medium text-lg' key={affiliationNumber}>
-                      {affiliationNumber}
-                      {index < author.affiliation_numbers.length - 1 && ','}
-                    </sup>
-                  ))}
+                {author?.affiliation_numbers.map((affiliationNumber, index) => (
+                  <sup className="font-medium text-lg" key={affiliationNumber}>
+                    {affiliationNumber}
+                    {index < author.affiliation_numbers.length - 1 && ","}
+                  </sup>
+                ))}
 
                 {author.name}
               </div>
@@ -167,25 +182,23 @@ const Detail = async ({ params }: pageProps) => {
           </div>
 
           <div className="w-full flex flex-col gap-2 my-3">
-            <h2 className='text-primary text-xl mt-4 mb-3'>Affiliations</h2>
+            <h2 className="text-primary text-xl mt-4 mb-3">Affiliations</h2>
 
             {Array.from(limitedAffiliationNumbers).map((key: any) => (
-              <p key={key} className='font-medium'>
-                <sup className='font-medium text-lg'>{key}</sup> {detail?.authors_affiliations?.affiliations[key]}
+              <p key={key} className="font-medium">
+                <sup className="font-medium text-lg">{key}</sup>{" "}
+                {detail?.authors_affiliations?.affiliations[key]}
               </p>
             ))}
           </div>
-
         </div>
 
         <h3 className="text-primary text-xl">Abstract</h3>
-        <p>
-          {detail.abstract}
-        </p>
+        <p>{detail.abstract}</p>
 
-        <div className='font-medium'>
-          <span className='text-primary text-xl'>Keyword</span>:{" "}
-          <span className='font-semibold'>{detail.keyword}</span>
+        <div className="font-medium">
+          <span className="text-primary text-xl">Keyword</span>:{" "}
+          <span className="font-semibold">{detail.keyword}</span>
         </div>
 
         <div className="mx-auto mt-20 space-x-3 lg:hidden">
@@ -195,7 +208,9 @@ const Detail = async ({ params }: pageProps) => {
             </SheetTrigger>
             <SheetContent className="flex flex-col overflow-y-auto">
               <SheetHeader>
-                <SheetTitle className="text-xl font-semibold my-5">Related Search</SheetTitle>
+                <SheetTitle className="text-xl font-semibold my-5">
+                  Related Search
+                </SheetTitle>
                 {/* <SheetDescription>
                   Make changes to your profile here. Click save when you&apos;re
                   done.
@@ -209,7 +224,8 @@ const Detail = async ({ params }: pageProps) => {
                   >
                     <Link
                       href={`/Search/${article.id}`}
-                      className="text-blue-600">
+                      className="text-blue-600"
+                    >
                       {article.title}
                     </Link>
                     <p>{article.lead_author}</p>
@@ -253,7 +269,8 @@ const Detail = async ({ params }: pageProps) => {
             >
               <Link
                 href={`/Search/${article.id}`}
-                className="font-medium text-blue-600">
+                className="font-medium text-blue-600"
+              >
                 {article.title}
               </Link>
               <p className="text-gray-800">{article.lead_author}</p>
