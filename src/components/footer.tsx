@@ -1,3 +1,4 @@
+import { navItems } from "@/static";
 import Link from "next/link";
 // import Search from "@/app/Search/Page";
 
@@ -10,18 +11,11 @@ const Footer = () => {
           initiative of the PGC-Africa working group.
         </div>
         <ul className="space-y-3 lg:space-y-5">
-          <li>
-            <Link href="/">Home</Link>
-          </li>
-          <li>
-            <Link href="/Search">Search</Link>
-          </li>
-          <li>
-            <Link href="/Analysis">Analysis</Link>
-          </li>
-          <li>
-            <Link href="/app/Search/Page">Login / Signup</Link>
-          </li>
+          {navItems.map((item, index) => (
+            <li key={index}>
+              <Link href={item.path}>{item.name}</Link>
+            </li>
+          ))}
         </ul>
         <ul className="space-y-3 lg:space-y-5">
           <li>Terms of use</li>
