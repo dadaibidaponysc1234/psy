@@ -6,6 +6,8 @@ import DisorderStudyCount from "@/components/graph/disorder";
 import BiologicalStudyCount from "@/components/graph/biological";
 import GeneticsStudyCount from "@/components/graph/genetics";
 import Collaboration from "@/components/graph/collaboration";
+import WordCloudAnalysis from "@/components/graph/word-cloud-analysis";
+import MapAnalysis from "@/components/graph/map-analysis";
 
 const Analysis = () => {
   return (
@@ -32,6 +34,12 @@ const Analysis = () => {
               <TabsTrigger value="region" className="w-full">
                 Region
               </TabsTrigger>
+              <TabsTrigger value="map" className="w-full">
+                Map
+              </TabsTrigger>
+              <TabsTrigger value="word-cloud" className="w-full">
+                Word Cloud
+              </TabsTrigger>
               <TabsTrigger value="disorder" className="w-full">
                 Disorder
               </TabsTrigger>
@@ -48,6 +56,12 @@ const Analysis = () => {
           </TabsContent>
           <TabsContent value="region">
             <RegionalStudyCount />
+          </TabsContent>
+          <TabsContent value="map">
+            <MapAnalysis />
+          </TabsContent>
+          <TabsContent value="word-cloud">
+            <WordCloudAnalysis />
           </TabsContent>
           <TabsContent value="disorder">
             <DisorderStudyCount />

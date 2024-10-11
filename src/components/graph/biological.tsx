@@ -1,9 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Legend, Line, LineChart, XAxis } from "recharts";
+import {
+  CartesianGrid,
+  Label,
+  Legend,
+  Pie,
+  PieChart,
+  Sector,
+  XAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -25,21 +33,40 @@ import AbbreviationLegend from "../ui/abbreviation-legend";
 import GraphSkeleton from "../skeletons/graph-skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Search from "../Search";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { getRandomColor } from "@/lib/utils";
+import { PieSectorDataItem } from "recharts/types/polar/Pie";
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetBiological();
+  const [activeBiologicalModality, setActiveBiologicalModality] = useState("");
   const [clickedBiologicalModality, setClickedBiologicalModility] = useState<
     string | null
   >(null);
 
-  const chartData =
-    year
-      ?.map((data) => ({
-        biological_modalities__modality_name:
-          data.biological_modalities__modality_name,
-        study_count: data.study_count,
-      }))
-      ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [];
+  const chartData = useMemo(
+    () =>
+      year
+        ?.map((data) => ({
+          biological_modalities__modality_name:
+            data.biological_modalities__modality_name,
+          study_count: data.study_count,
+          fill: getRandomColor(),
+        }))
+        ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [],
+    [year]
+  );
+
+  const activeIndex = chartData.findIndex(
+    (item) =>
+      item.biological_modalities__modality_name === activeBiologicalModality
+  );
 
   const chartConfig = {
     desktop: {
@@ -52,53 +79,123 @@ const BiologicalStudyCount: React.FC = () => {
       <CardHeader>
         <CardTitle>Biological modularity Study-count</CardTitle>
         <CardDescription>Number of Publications </CardDescription>
+        <Select
+          value={activeBiologicalModality}
+          onValueChange={setActiveBiologicalModality}
+        >
+          <SelectTrigger
+            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            aria-label="Select a disorder"
+          >
+            <SelectValue placeholder="Select disorder" />
+          </SelectTrigger>
+          <SelectContent align="end" className="rounded-xl">
+            {chartData?.map((modality, index) => (
+              <SelectItem
+                key={index}
+                value={modality.biological_modalities__modality_name}
+                className="rounded-lg [&_span]:flex"
+              >
+                <div className="w-48 flex items-center gap-2 text-xs">
+                  <span
+                    className="flex h-3 w-3 shrink-0 rounded-sm"
+                    style={{
+                      backgroundColor: modality.fill,
+                    }}
+                  />
+                  {modality.biological_modalities__modality_name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <GraphSkeleton />
-        ) : (
-          <ChartContainer config={chartConfig}>
-            <BarChart
-              accessibilityLayer
-              data={chartData}
-              margin={{
-                top: 20,
+          <div className="flex justify-center items-center size-full">
+            <GraphSkeleton
+              pie={{
+                className: "",
               }}
-              onClick={(state) =>
-                setClickedBiologicalModility(state.activeLabel ?? null)
-              }
-            >
-              <Legend
-                verticalAlign="bottom"
-                content={
-                  <AbbreviationLegend
-                    data={(chartData ?? []).map((val) => ({
-                      name: val.biological_modalities__modality_name,
-                    }))}
-                  />
-                }
-              />
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="biological_modalities__modality_name"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
-              />
+            />
+          </div>
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="mx-auto aspect-square w-full max-w-[300px]"
+          >
+            <PieChart>
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-                <LabelList
-                  position="top"
-                  offset={12}
-                  className="fill-foreground"
-                  fontSize={12}
+              <Pie
+                data={chartData}
+                dataKey={"study_count"}
+                nameKey={"biological_modalities__modality_name"}
+                innerRadius={60}
+                strokeWidth={5}
+                activeIndex={chartData.findIndex(
+                  (item) =>
+                    item.biological_modalities__modality_name ===
+                    activeBiologicalModality
+                )}
+                onClick={(state) => {
+                  setClickedBiologicalModility(
+                    state.biological_modalities__modality_name ?? null
+                  );
+                }}
+                activeShape={({
+                  outerRadius = 0,
+                  ...props
+                }: PieSectorDataItem) => (
+                  <g>
+                    <Sector {...props} outerRadius={outerRadius + 10} />
+                    <Sector
+                      {...props}
+                      outerRadius={outerRadius + 25}
+                      innerRadius={outerRadius + 12}
+                    />
+                  </g>
+                )}
+              >
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          // className="text-lg font-medium"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {chartData[
+                              activeIndex
+                            ]?.study_count.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground"
+                          >
+                            {
+                              chartData[activeIndex]
+                                ?.biological_modalities__modality_name
+                            }{" "}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
                 />
-              </Bar>
-            </BarChart>
+              </Pie>
+            </PieChart>
           </ChartContainer>
         )}
       </CardContent>
@@ -114,7 +211,7 @@ const BiologicalStudyCount: React.FC = () => {
         open={!!clickedBiologicalModality}
         onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedBiologicalModality}&quot;

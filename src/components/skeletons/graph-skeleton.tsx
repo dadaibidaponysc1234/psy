@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 const GraphSkeleton = ({ pie }: { pie?: { className?: string } }) => {
   return (
     <div className="w-full animate-pulse">
-      {typeof pie !== "undefined" ? (
+      {!!pie ? (
         <div
           className={cn(
             "bg-gray-200 dark:bg-white/30 m-auto backdrop-blur-lg max-w-4xl rounded-full",

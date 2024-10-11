@@ -8,14 +8,17 @@ export default function Home() {
     <main className=" w-full flex flex-col items-center p-2 lg:p-8">
       {/* <NavBar/>
       <LandingPage/> */}
-      <div className="max-w-3xl text-center space-y-20 lg:space-y-32 mt-8">
+      <div className="max-w-3xl text-center space-y-20 lg:space-y-32 h-[calc(100dvh-56px)] flex items-center justify-center flex-col">
         <h1 className="text-5xl lg:text-6xl font-bold ">
-          Explore African Genomics – Your Gateway to Psychiatric Research
+          Explore African Genomics - Your Gateway to Psychiatric Research
         </h1>
         {/* <Button  className="text-2xl p-7">Browse for free</Button> */}
-        <Link className={buttonVariants(
-          {size:'lg', className:""}
-        )} href="/About">Browse for free</Link>
+        <Link
+          className={buttonVariants({ size: "lg", className: "" })}
+          href="/About"
+        >
+          Browse for free
+        </Link>
       </div>
       <section className="max-w-5xl flex flex-col  gap-24 mt-48 ">
         <div className="flex flex-col  lg:flex-row justify-evenly text-center lg:text-start  gap-x-10">
@@ -29,9 +32,7 @@ export default function Home() {
             />
           </div>
           <div className="lg:w-[35vw] flex flex-col justify-center gap-6">
-            <h2
-              className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]"
-            >
+            <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
               Curated for all Researchers and Enthusiasts
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl ">
@@ -50,9 +51,12 @@ export default function Home() {
               psychiatric genomics, organized for your convenience.
             </p>
             <SearchPublication />
-            <Link className={buttonVariants(
-          {size:'lg', className:""}
-        )} href="/Search">Use Advanced search</Link>
+            <Link
+              className={buttonVariants({ size: "lg", className: "" })}
+              href="/Search"
+            >
+              Use Advanced search
+            </Link>
           </div>
           <div className="mx-auto">
             <Image
@@ -82,9 +86,12 @@ export default function Home() {
               Uncover a comprehensive overview of existing studies in African
               psychiatric genomics, organized for your convenience.
             </p>
-            <Link className={buttonVariants(
-          {size:'lg', className:""}
-        )} href="/Analysis">Learn more</Link>
+            <Link
+              className={buttonVariants({ size: "lg", className: "" })}
+              href="/Analysis"
+            >
+              Learn more
+            </Link>
           </div>
         </div>
       </section>

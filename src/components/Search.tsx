@@ -359,7 +359,7 @@ const Search = ({
       >
         <DialogContent
           className="max-h-[80%]
-        max-w-screen-md overflow-y-auto opacity-70 backdrop-blur-3xl"
+        max-w-screen-md overflow-y-auto"
         >
           <DialogHeader>
             <Tabs defaultValue="collaboration" className="space-y-10 mt-8 mb-6">

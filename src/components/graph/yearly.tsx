@@ -18,16 +18,18 @@ import {
 } from "@/components/ui/chart";
 import { useGetYears } from "@/hooks/use-get-yearApi";
 import GraphSkeleton from "../skeletons/graph-skeleton";
+import { StudyCount } from "@/types/yearApi";
 
 const YearlyStudyCount: React.FC = () => {
   const { data: year, isLoading, isError } = useGetYears();
 
-  const chartData = year?.map((data) => ({
-    year: data.year,
-    study_count: data.study_count,
-    impact_factor: data.impact_factor,
-    citation: data.citation,
-  }));
+  const chartData =
+    year?.map((data) => ({
+      year: data.year,
+      study_count: data.study_count,
+      impact_factor: data.impact_factor,
+      citation: data.citation,
+    })) ?? [];
 
   const chartConfig = {
     desktop: {
@@ -39,6 +41,27 @@ const YearlyStudyCount: React.FC = () => {
       color: "hsl(var(--chart-5))",
     },
   };
+
+  const calculateTrendLine = (data: any[], dataKey: string) => {
+    const n = data.length;
+    const sumX = data.reduce((sum, d) => sum + d.year, 0);
+    const sumY = data.reduce((sum, d) => sum + d[dataKey], 0);
+    const sumXY = data.reduce((sum, d) => sum + d.year * d[dataKey], 0);
+    const sumX2 = data.reduce((sum, d) => sum + d.year * d.year, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Attach trend line values to the original data
+    return data.map((d) => ({
+      year: d.year,
+      trend: slope * d.year + intercept,
+    }));
+  };
+
+  const studyCountTrendLine = calculateTrendLine(chartData, "study_count");
+  const impactFactorTrendLine = calculateTrendLine(chartData, "impact_factor");
+  const citationTrendLine = calculateTrendLine(chartData, "citation");
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -78,6 +101,25 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
+                <Line
+                  data={studyCountTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#FF6347"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
+                />
+                {/* Impact Factor Trend Line */}
+                <Line
+                  data={impactFactorTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#4682B4"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
+                />
               </LineChart>
             </ChartContainer>
           )}
@@ -105,7 +147,7 @@ const YearlyStudyCount: React.FC = () => {
           {isLoading ? (
             <GraphSkeleton />
           ) : (
-            <ChartContainer config={chartConfig}>
+            <ChartContainer config={chartConfig} className="h-full">
               <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis
@@ -124,6 +166,15 @@ const YearlyStudyCount: React.FC = () => {
                   stroke="var(--color-desktop)"
                   strokeWidth={2}
                   dot={true}
+                />
+                <Line
+                  data={citationTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#32CD32"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
                 />
               </LineChart>
             </ChartContainer>
