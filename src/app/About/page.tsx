@@ -27,7 +27,7 @@ export default function Home() {
             <p className="font-medium text-muted-foreground md:text-xl text-start ">
               The Psychiatric Genomics Africa Portal (PsychGenAfrica)is a
               pioneering initiative from the PGCAfrica working group, designed
-              to serve as a centralized platform for psychiatric genomics
+              to serve as a centralised platform for psychiatric genomics
               research focused on the African population. By establishing a
               unified metadata repository, PsychGenAfrica enables researchers,
               healthcare professionals, and the public to access vital
@@ -42,7 +42,7 @@ export default function Home() {
               Our Mission
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl ">
-              PsychGenAfrica aims to democratize access to psychiatric genomics
+              PsychGenAfrica aims to democratise access to psychiatric genomics
               data by providing free, open, and curated metadata from studies
               involving African participants or research conducted within the
               continent. The platform seeks to facilitate realtime analysis,
@@ -156,7 +156,7 @@ export default function Home() {
               </div>
             </div>
             <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
-            <Image
+              <Image
                 src="/mdi_magnify.svg"
                 alt=""
                 width={50}
@@ -177,7 +177,7 @@ export default function Home() {
               </div>
             </div>
             <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
-            <Image
+              <Image
                 src="/Vector.svg"
                 alt=""
                 width={50}
@@ -187,13 +187,14 @@ export default function Home() {
                 object-center my-auto mx-auto"
               />
               <div className="col-span-2">
-              <h4 className=" pt-6 lg:text-2xl font-semibold text-[#5A3A31] ">
-                Events and News Hub
-              </h4>
-              <p className="font-medium text-muted-foreground md:text-xl">
-                A platform for the latest news, events, preprints, and
-                publications related to psychiatric genomics research in Africa.
-              </p>
+                <h4 className=" pt-6 lg:text-2xl font-semibold text-[#5A3A31] ">
+                  Events and News Hub
+                </h4>
+                <p className="font-medium text-muted-foreground md:text-xl">
+                  A platform for the latest news, events, preprints, and
+                  publications related to psychiatric genomics research in
+                  Africa.
+                </p>
               </div>
             </div>
           </div>
@@ -225,13 +226,12 @@ export default function Home() {
                 Support researchers in sharing and disseminating new findings.
               </li>
               <li>
-                Centralize events, publications, and news in the African
+                Centralise events, publications, and news in the African
                 psychiatric genomics field.
               </li>
             </ul>
           </div>
         </div>
-        
       </section>
       <div className="max-w-4xl text-center my-32 space-y-10 ">
         <h2 className="text-2xl font-semibold">Technology and Development</h2>

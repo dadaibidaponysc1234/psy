@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -67,7 +67,7 @@ const YearlyStudyCount: React.FC = () => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Yearly Study-Count and Impact factor</CardTitle>
+          <CardTitle>Yearly Study-Count</CardTitle>
           <CardDescription>Number of Publications </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,7 +75,10 @@ const YearlyStudyCount: React.FC = () => {
             <GraphSkeleton />
           ) : (
             <ChartContainer config={chartConfig}>
-              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="year"
@@ -83,6 +86,7 @@ const YearlyStudyCount: React.FC = () => {
                   axisLine={false}
                   tickMargin={8}
                 />
+                <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent hideLabel />}
@@ -95,27 +99,10 @@ const YearlyStudyCount: React.FC = () => {
                   dot={true}
                 />
                 <Line
-                  dataKey="impact_factor"
-                  type="linear"
-                  stroke="var(--color-desktop)"
-                  strokeWidth={2}
-                  dot={true}
-                />
-                <Line
                   data={studyCountTrendLine}
                   dataKey="trend"
                   type="linear"
                   stroke="#FF6347"
-                  strokeWidth={2}
-                  dot={false}
-                  strokeDasharray="3 3"
-                />
-                {/* Impact Factor Trend Line */}
-                <Line
-                  data={impactFactorTrendLine}
-                  dataKey="trend"
-                  type="linear"
-                  stroke="#4682B4"
                   strokeWidth={2}
                   dot={false}
                   strokeDasharray="3 3"
@@ -148,7 +135,10 @@ const YearlyStudyCount: React.FC = () => {
             <GraphSkeleton />
           ) : (
             <ChartContainer config={chartConfig} className="h-full">
-              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="year"
@@ -156,6 +146,7 @@ const YearlyStudyCount: React.FC = () => {
                   axisLine={false}
                   tickMargin={8}
                 />
+                <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent hideLabel />}
@@ -169,6 +160,66 @@ const YearlyStudyCount: React.FC = () => {
                 />
                 <Line
                   data={citationTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#32CD32"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
+                />
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+        <CardFooter className="flex-col items-start gap-2 text-sm">
+          <div className="flex gap-2 font-medium leading-none">
+            Highlight <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="leading-none text-muted-foreground">
+            The data on African genomics research reveals a clear upward trend
+            from 2007, with a significant surge in publications starting around
+            2014. This growth reflects increasing global interest and investment
+            in the field, peaking at 14 publications in 2022. The consistent
+            activity over the years highlights the growing importance and
+            recognition of African genomics on the global research stage.
+          </div>
+        </CardFooter>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Yearly Impact factor</CardTitle>
+          <CardDescription>Number of Publications </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <GraphSkeleton />
+          ) : (
+            <ChartContainer config={chartConfig} className="h-full">
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="year"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
+                <YAxis domain={["auto", "auto"]} />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Line
+                  dataKey="impact_factor"
+                  type="linear"
+                  stroke="var(--color-desktop)"
+                  strokeWidth={2}
+                  dot={true}
+                />
+                <Line
+                  data={impactFactorTrendLine}
                   dataKey="trend"
                   type="linear"
                   stroke="#32CD32"

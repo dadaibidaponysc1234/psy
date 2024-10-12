@@ -48,7 +48,7 @@ export default function Home() {
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl ">
               Uncover a comprehensive overview of existing studies in African
-              psychiatric genomics, organized for your convenience.
+              psychiatric genomics, organised for your convenience.
             </p>
             <SearchPublication />
             <Link
@@ -80,11 +80,11 @@ export default function Home() {
           </div>
           <div className="lg:w-[35vw] flex flex-col justify-center gap-6 ">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
-              Visualize and Analyze Instantly
+              Visualise and Analyse Instantly
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl ">
               Uncover a comprehensive overview of existing studies in African
-              psychiatric genomics, organized for your convenience.
+              psychiatric genomics, organised for your convenience.
             </p>
             <Link
               className={buttonVariants({ size: "lg", className: "" })}

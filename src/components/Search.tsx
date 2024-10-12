@@ -317,7 +317,7 @@ const Search = ({
               className="h-14 w-[200px] mb-8 text-base mx-auto"
               onClick={() => setIsGraphOpen((prev) => !prev)}
             >
-              {isGraphOpen ? "Close visuals" : "Visualize"}
+              {isGraphOpen ? "Close visuals" : "Visualise"}
             </Button>
           )}
 
