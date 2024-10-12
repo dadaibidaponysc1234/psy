@@ -65,7 +65,7 @@ const TopFiveDisorders = () => {
     queryKey: ["top-five-disorders"],
     queryFn: async () => {
       const res = await axios.get(
-        "http://algorithmxcomp.pythonanywhere.com/api/TopFive-Disorders/"
+        "https://algorithmxcomp.pythonanywhere.com/api/TopFive-Disorders/"
       );
       return res.data;
     },
