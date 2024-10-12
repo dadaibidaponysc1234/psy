@@ -7,7 +7,7 @@ const MapAnalysis = () => {
     queryKey: ["map"],
     queryFn: async () => {
       const res = await axios.get(
-        "http://algorithmxcomp.pythonanywhere.com/api/research-region-study-count/"
+        "https://algorithmxcomp.pythonanywhere.com/api/research-region-study-count/"
       );
       return res.data;
     },
