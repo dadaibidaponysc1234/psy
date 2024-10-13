@@ -1,13 +1,12 @@
 import { cn } from "@/lib/utils";
 
-const GraphSkeleton = ({ pie }: { pie?: { className?: string } }) => {
+const GraphSkeleton = ({ pie }: { pie?: boolean }) => {
   return (
-    <div className="w-full animate-pulse">
+    <div className="w-full h-full animate-pulse">
       {!!pie ? (
         <div
           className={cn(
-            "bg-gray-200 dark:bg-white/30 m-auto backdrop-blur-lg max-w-4xl rounded-full",
-            pie.className
+            "bg-gray-200 dark:bg-white/30 backdrop-blur-lg max-w-4xl size-60 m-auto rounded-full"
           )}
         ></div>
       ) : (

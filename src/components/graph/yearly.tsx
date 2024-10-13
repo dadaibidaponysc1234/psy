@@ -82,9 +82,10 @@ const YearlyStudyCount: React.FC = () => {
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="year"
-                  tickLine={false}
                   axisLine={false}
                   tickMargin={8}
+                  // fontSize={10}
+                  // fontWeight={600}
                 />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
@@ -140,12 +141,7 @@ const YearlyStudyCount: React.FC = () => {
                 margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
               >
                 <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="year"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
+                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
@@ -200,12 +196,7 @@ const YearlyStudyCount: React.FC = () => {
                 margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
               >
                 <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="year"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
+                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}

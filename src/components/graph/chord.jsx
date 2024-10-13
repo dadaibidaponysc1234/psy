@@ -369,6 +369,7 @@ const Chord = ({ data, isLoading, error }) => {
       .style("text-anchor", (d) => (d.angle > Math.PI ? "end" : "start"))
       .text((d) => countries[d.index])
       .style("font-size", "10px")
+      .style("font-weight", "bold")
       .style("fill", "#000");
 
     // Draw ribbons

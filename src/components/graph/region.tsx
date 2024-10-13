@@ -54,7 +54,7 @@ const RegionalStudyCount: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Regional Study-count</CardTitle>
+        <CardTitle>Country Study-count</CardTitle>
         <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
       <CardContent>
@@ -83,10 +83,11 @@ const RegionalStudyCount: React.FC = () => {
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="countries__name"
-                tickLine={false}
                 tickMargin={10}
                 axisLine={false}
                 tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                fontSize={14}
+                fontWeight={600}
               />
               <ChartTooltip
                 cursor={false}

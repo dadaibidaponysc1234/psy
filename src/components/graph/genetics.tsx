@@ -158,6 +158,7 @@ import { useGetGenetics } from "@/hooks/use-get-genetics";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import Search from "../Search";
 import { useMemo, useState } from "react";
+import GraphSkeleton from "../skeletons/graph-skeleton";
 
 export const description = "An interactive pie chart";
 
@@ -202,13 +203,12 @@ export function GeneticsStudyCount() {
     [desktopData]
   );
 
-  if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error loading data</div>;
-  if (!desktopData.length) return <div>No data available</div>;
+  if (!desktopData.length && !isLoading) return <div>No data available</div>;
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex-row items-start space-y-0 pb-0">
+      <CardHeader className="flex-row items-start space-y-0">
         <div className="grid gap-1">
           <CardTitle>Genetic Sources</CardTitle>
           <CardDescription>Number of Publications</CardDescription>
@@ -218,7 +218,7 @@ export function GeneticsStudyCount() {
             className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
             aria-label="Select a genetic source"
           >
-            <SelectValue placeholder="Select genetic" />
+            <SelectValue placeholder="Select genetic source" />
           </SelectTrigger>
           <SelectContent align="end" className="rounded-xl">
             {genetics?.map((key) => (
@@ -244,73 +244,77 @@ export function GeneticsStudyCount() {
         </Select>
       </CardHeader>
       <CardContent className="flex flex-1 justify-center pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square w-full max-w-[300px]"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Pie
-              data={desktopData}
-              dataKey="desktop"
-              nameKey="genetic" // Change here to use 'genetic' as the name key
-              innerRadius={60}
-              strokeWidth={5}
-              activeIndex={activeIndex}
-              onClick={(state) => {
-                setClickedGenetics(state.genetic ?? null);
-              }}
-              activeShape={({
-                outerRadius = 0,
-                ...props
-              }: PieSectorDataItem) => (
-                <g>
-                  <Sector {...props} outerRadius={outerRadius + 10} />
-                  <Sector
-                    {...props}
-                    outerRadius={outerRadius + 25}
-                    innerRadius={outerRadius + 12}
-                  />
-                </g>
-              )}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
+        {isLoading ? (
+          <GraphSkeleton pie />
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="mx-auto aspect-square w-full max-w-[300px]"
+          >
+            <PieChart>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Pie
+                data={desktopData}
+                dataKey="desktop"
+                nameKey="genetic" // Change here to use 'genetic' as the name key
+                innerRadius={60}
+                strokeWidth={5}
+                activeIndex={activeIndex}
+                onClick={(state) => {
+                  setClickedGenetics(state.genetic ?? null);
+                }}
+                activeShape={({
+                  outerRadius = 0,
+                  ...props
+                }: PieSectorDataItem) => (
+                  <g>
+                    <Sector {...props} outerRadius={outerRadius + 10} />
+                    <Sector
+                      {...props}
+                      outerRadius={outerRadius + 25}
+                      innerRadius={outerRadius + 12}
+                    />
+                  </g>
+                )}
+              >
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
                         >
-                          {desktopData[activeIndex]?.desktop.toLocaleString()}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
-                        >
-                          {desktopData[activeIndex]?.genetic}{" "}
-                          {/* Display the genetic name */}
-                        </tspan>
-                      </text>
-                    );
-                  }
-                  return null;
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {desktopData[activeIndex]?.desktop.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground"
+                          >
+                            {desktopData[activeIndex]?.genetic}{" "}
+                            {/* Display the genetic name */}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+        )}
       </CardContent>
       <Dialog
         open={!!clickedGenetics}

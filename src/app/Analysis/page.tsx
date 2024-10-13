@@ -22,13 +22,15 @@ const Analysis = () => {
         </p>
       </div>
       <div className="p-10 space-y-4">
-        <h1 className="text-2xl lg:text-[28px] font-bold ">Visualise by:</h1>
+        <h1 className="text-2xl lg:text-[28px] font-bold ">
+          Visualise studies by:
+        </h1>
         <Tabs defaultValue="collaboration" className="space-y-10">
           <div className="p-2 border rounded-md">
             <TabsList className="flex h-full">
               <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
               <TabsTrigger value="year">Year</TabsTrigger>
-              <TabsTrigger value="region">Region</TabsTrigger>
+              <TabsTrigger value="region">Country</TabsTrigger>
               <TabsTrigger value="map">Map</TabsTrigger>
               <TabsTrigger value="word-cloud">Word Cloud</TabsTrigger>
               <TabsTrigger value="disorder">Disorder</TabsTrigger>
@@ -36,7 +38,7 @@ const Analysis = () => {
                 Top Five Disorders
               </TabsTrigger>
               <TabsTrigger value="biologicalModality">
-                Biological Mod..
+                Biological Modality
               </TabsTrigger>
               <TabsTrigger value="geneticSource">Genetic Source</TabsTrigger>
             </TabsList>

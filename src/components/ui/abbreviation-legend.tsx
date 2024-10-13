@@ -8,10 +8,10 @@ const AbreviationLegend = ({
   abbreviationLength?: number;
 }) => {
   return (
-    <Card className="my-8 shadow-none">
+    <Card className="mt-8 shadow-none">
       <CardContent className="flex items-center justify-center gap-x-5 gap-y-1 flex-wrap p-5">
         {data.map((item, index) => (
-          <p key={index}>
+          <p key={index} className="font-semibold text-sm">
             {item.name?.slice(0, abbreviationLength) ?? ""} - {item.name}
           </p>
         ))}

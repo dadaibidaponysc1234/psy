@@ -13,7 +13,7 @@ export default function Home() {
         <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9]  lg:flex-row justify-evenly text-center lg:text-start  lg:gap-x-10">
           <div className="mx-auto lg:ms-0">
             <Image
-              src="/dna.svg"
+              src="/image-4.jpg"
               alt=""
               width={100}
               height={100}
@@ -26,7 +26,7 @@ export default function Home() {
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl text-start ">
               The Psychiatric Genomics Africa Portal (PsychGenAfrica)is a
-              pioneering initiative from the PGCAfrica working group, designed
+              pioneering initiative from the PGC Africa working group, designed
               to serve as a centralised platform for psychiatric genomics
               research focused on the African population. By establishing a
               unified metadata repository, PsychGenAfrica enables researchers,

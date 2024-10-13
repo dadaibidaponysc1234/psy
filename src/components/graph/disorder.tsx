@@ -96,11 +96,7 @@ const DisorderStudyCount: React.FC = () => {
       <CardContent>
         {isLoading ? (
           <div className="flex justify-center items-center size-full">
-            <GraphSkeleton
-              pie={{
-                className: "",
-              }}
-            />
+            <GraphSkeleton pie />
           </div>
         ) : (
           <ChartContainer

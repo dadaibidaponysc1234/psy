@@ -77,7 +77,7 @@ const BiologicalStudyCount: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Biological modularity Study-count</CardTitle>
+        <CardTitle>Biological modality Study-count</CardTitle>
         <CardDescription>Number of Publications </CardDescription>
         <Select
           value={activeBiologicalModality}
@@ -85,9 +85,9 @@ const BiologicalStudyCount: React.FC = () => {
         >
           <SelectTrigger
             className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
-            aria-label="Select a disorder"
+            aria-label="Select a biological modality"
           >
-            <SelectValue placeholder="Select disorder" />
+            <SelectValue placeholder="Select biological modality" />
           </SelectTrigger>
           <SelectContent align="end" className="rounded-xl">
             {chartData?.map((modality, index) => (
@@ -112,13 +112,7 @@ const BiologicalStudyCount: React.FC = () => {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex justify-center items-center size-full">
-            <GraphSkeleton
-              pie={{
-                className: "",
-              }}
-            />
-          </div>
+          <GraphSkeleton pie />
         ) : (
           <ChartContainer
             config={chartConfig}

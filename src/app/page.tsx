@@ -5,30 +5,54 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className=" w-full flex flex-col items-center p-2 lg:p-8">
+    <main className=" w-full flex flex-col items-center">
       {/* <NavBar/>
       <LandingPage/> */}
-      <div className="max-w-3xl text-center space-y-20 lg:space-y-32 h-[calc(100dvh-56px)] flex items-center justify-center flex-col">
-        <h1 className="text-5xl lg:text-6xl font-bold ">
-          Explore African Genomics - Your Gateway to Psychiatric Research
-        </h1>
-        {/* <Button  className="text-2xl p-7">Browse for free</Button> */}
-        <Link
-          className={buttonVariants({ size: "lg", className: "" })}
-          href="/About"
-        >
-          Browse for free
-        </Link>
-      </div>
-      <section className="max-w-5xl flex flex-col  gap-24 mt-48 ">
-        <div className="flex flex-col  lg:flex-row justify-evenly text-center lg:text-start  gap-x-10">
+      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center xl:items-start items-center flex-col p-2 lg:p-8">
+        <Image
+          src={"/image-1.jpg"}
+          alt="image"
+          width={1440}
+          height={1099}
+          unoptimized={false}
+          priority
+          className="object-cover absolute inset-0 w-full h-full left-0 top-0"
+        />
+        <div
+          className="absolute inset-0 w-full h-full left-0 top-0"
+          style={{
+            background:
+              "linear-gradient(90.98deg, rgba(0, 0, 0, 0.4) 32.12%, rgba(1, 88, 28, 0.4) 35.12%)",
+            backgroundBlendMode: "darken",
+          }}
+        ></div>
+        <div className="max-w-5xl space-y-10 xl:w-1/2 flex flex-col items-center z-10">
+          <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
+            Explore <span className="text-primary">African</span> Genomics -
+            Your Gateway to Psychiatric Research
+          </h1>
+          {/* <Button  className="text-2xl p-7">Browse for free</Button> */}
+          <Link
+            className={buttonVariants({
+              size: "lg",
+              className: "mx-auto font-bold h-14 rounded-[10px] !text-base",
+            })}
+            href="/About"
+          >
+            Browse for free
+          </Link>
+        </div>
+      </section>
+      <section className="mx-auto max-w-[1440px] flex flex-col  gap-24 mt-48 p-2 lg:p-8">
+        <div className="flex flex-col  lg:flex-row justify-evenly text-center lg:text-start gap-x-12">
           <div className="mx-auto">
             <Image
-              src="/dna.svg"
+              src="/image-2.jpg"
               alt=""
-              width={100}
-              height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg  object-cover object-center "
+              width={632}
+              height={768}
+              priority
+              className="w-[80vw] lg:w-[30vw] min-h-[450px] rounded-lg  object-cover object-center h-full"
             />
           </div>
           <div className="lg:w-[35vw] flex flex-col justify-center gap-6">
@@ -41,7 +65,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="flex flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
+        <div className="mx-auto max-w-[1440px] flex flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
           <div className=" lg:w-[35vw] flex flex-col justify-center gap-6">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Discover Groundbreaking Research
@@ -52,7 +76,10 @@ export default function Home() {
             </p>
             <SearchPublication />
             <Link
-              className={buttonVariants({ size: "lg", className: "" })}
+              className={buttonVariants({
+                size: "lg",
+                className: "font-bold h-14 rounded-[10px] !text-base",
+              })}
               href="/Search"
             >
               Use Advanced search
@@ -64,18 +91,18 @@ export default function Home() {
               alt=""
               width={100}
               height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center "
+              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center"
             />
           </div>
         </div>
-        <div className="flex flex-col  lg:flex-row justify-evenly text-center lg:text-start  gap-x-10">
+        <div className="mx-auto max-w-[1440px] flex flex-col lg:flex-row justify-evenly text-center lg:text-start gap-x-10">
           <div className="mx-auto">
             <Image
-              src="/dna.svg"
+              src="/image-3.jpg"
               alt=""
-              width={100}
-              height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg  object-cover object-center "
+              width={632}
+              height={768}
+              className="w-[80vw] lg:w-[30vw] min-h-[450px] rounded-lg object-cover object-center"
             />
           </div>
           <div className="lg:w-[35vw] flex flex-col justify-center gap-6 ">
@@ -87,7 +114,10 @@ export default function Home() {
               psychiatric genomics, organised for your convenience.
             </p>
             <Link
-              className={buttonVariants({ size: "lg", className: "" })}
+              className={buttonVariants({
+                size: "lg",
+                className: "font-bold h-14 rounded-[10px] !text-base",
+              })}
               href="/Analysis"
             >
               Learn more
@@ -95,7 +125,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <div className="max-w-4xl text-center my-32 space-y-10 ">
+      <section className="max-w-[1440px] text-center my-32 space-y-10 p-2 lg:p-8">
         <h2 className="text-2xl lg:text-6xl font-semibold">
           Share Your Innovations
         </h2>
@@ -103,8 +133,10 @@ export default function Home() {
           Contribute to the community by submitting your latest studies and
           sharing your discoveries with peers.
         </p>
-        <Button className="w-fit px-16 py-7 text-lg">Submit a paper</Button>
-      </div>
+        <Button className="w-fit px-16 py-7 font-bold h-14 rounded-[10px] !text-base">
+          Submit a paper
+        </Button>
+      </section>
     </main>
   );
 }
