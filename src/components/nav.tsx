@@ -1,8 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { buttonVariants } from "./ui/button";
 import MobileNav from "./MobileNav";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -22,7 +20,7 @@ const NavBar = () => {
             alt=""
             width={100}
             height={100}
-            className="w-28 h-16 rounded-lg object-cover object-center"
+            className="w-32 h-24 rounded-lg object-cover object-center"
           />
         </Link>
 
