@@ -11,17 +11,17 @@ export default function Home() {
 
       <section className="max-w-5xl flex flex-col gap-24">
         <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9] lg:flex-row justify-evenly text-center lg:text-start lg:gap-x-10">
-          <div className="w-1/2">
+          <div className="lg:w-1/2 w-full">
             <Image
               src="/image-4.jpg"
               alt=""
               width={639}
               height={525}
               priority
-              className="rounded-l-lg object-cover h-full w-full"
+              className="rounded-lg object-cover lg:h-full h-[350px] w-full"
             />
           </div>
-          <div className="w-1/2 p-3 flex flex-col justify-center gap-6">
+          <div className="lg:w-1/2 w-full p-3 flex flex-col justify-center gap-6">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31] text-center">
               About us
             </h2>
@@ -37,7 +37,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="flex border-[1px] border-gray-600 bg-[#FCF7F7] p-5 rounded-lg flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
+        <div className="flex border-[1px] border-gray-300 shadow-sm bg-[#FCF7F7] p-5 rounded-lg flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
           <div className=" lg:w-[35vw] flex flex-col justify-center gap-6">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Our Mission
@@ -57,11 +57,11 @@ export default function Home() {
               alt=""
               width={100}
               height={100}
-              className="w-full h-full rounded-lg object-cover object-center"
+              className="w-full lg:h-full h-[350px] rounded-lg object-cover object-center"
             />
           </div>
         </div>
-        <div className=" lg:border-[1px] border-gray-600 rounded-lg grid gap-y-10 lg:grid-cols-2">
+        <div className=" lg:border-[1px] border-gray-300 shadow-sm rounded-lg grid gap-y-10 lg:grid-cols-2 p-3">
           <div className="flex flex-col space-y-5">
             <h1 className="text-3xl text-center pt-6 lg:text-5xl font-semibold">
               Our vision
@@ -71,7 +71,7 @@ export default function Home() {
               alt=""
               width={100}
               height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg  object-cover object-center "
+              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center "
             ></Image>
           </div>
           <div className="  text-base my-auto items-center ">
@@ -90,16 +90,13 @@ export default function Home() {
             Key Features
           </h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className=" grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
+            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md">
               <Image
                 src="/layers.svg"
                 alt=""
                 width={50}
                 height={50}
-                className="
-            
-               rounded-lg  object-cover
-                object-center my-auto mx-auto"
+                className="rounded-lg object-cover object-center my-auto mx-auto"
               />
               <div className="col-span-2">
                 {" "}
@@ -113,15 +110,13 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
+            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
               <Image
                 src="/carbon_text-link-analysis.svg"
                 alt=""
                 width={50}
                 height={50}
-                className="
-            
-               rounded-lg  object-cover
+                className="rounded-lg  object-cover
                 object-center my-auto mx-auto"
               />
               <div className="col-span-2">
@@ -135,7 +130,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
+            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
               <Image
                 src="/Group.svg"
                 alt=""
@@ -156,7 +151,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
+            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
               <Image
                 src="/mdi_magnify.svg"
                 alt=""
@@ -177,7 +172,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid lg:grid-cols-3 p-5 border-gray-500 border-2 rounded-md  ">
+            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
               <Image
                 src="/Vector.svg"
                 alt=""
@@ -207,7 +202,7 @@ export default function Home() {
             alt=""
             width={100}
             height={100}
-            className="w-[80vw] lg:w-[30vw] rounded-lg  object-cover object-center "
+            className="w-[80vw] lg:w-[30vw] lg:h-full h-[350px] rounded-lg  object-cover object-center"
           />
           <div className="space-y-4">
             <h1 className="text-3xl pt-6 lg:text-5xl font-semibold ">
