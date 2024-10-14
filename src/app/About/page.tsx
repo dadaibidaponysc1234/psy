@@ -9,16 +9,19 @@ export default function Home() {
       {/* <NavBar/>
       <LandingPage/> */}
 
-      <section className="max-w-5xl flex flex-col  gap-24  ">
-        <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9]  lg:flex-row justify-evenly text-center lg:text-start  lg:gap-x-10">
-          <Image
-            src="/image-4.jpg"
-            alt=""
-            width={639}
-            height={525}
-            className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center h-full"
-          />
-          <div className="lg:w-[35vw] p-3 flex flex-col justify-center gap-6">
+      <section className="max-w-5xl flex flex-col gap-24">
+        <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9] lg:flex-row justify-evenly text-center lg:text-start lg:gap-x-10">
+          <div className="w-1/2">
+            <Image
+              src="/image-4.jpg"
+              alt=""
+              width={639}
+              height={525}
+              priority
+              className="rounded-l-lg object-cover h-full w-full"
+            />
+          </div>
+          <div className="w-1/2 p-3 flex flex-col justify-center gap-6">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31] text-center">
               About us
             </h2>
@@ -54,7 +57,7 @@ export default function Home() {
               alt=""
               width={100}
               height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center "
+              className="w-full h-full rounded-lg object-cover object-center"
             />
           </div>
         </div>

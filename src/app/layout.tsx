@@ -19,13 +19,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en ">
+    <html lang="en">
       <script async src="https://d3js.org/d3.v7.min.js"></script>
       <script
         async
         src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"
       ></script>
       <script async src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+      <link rel="shortcut icon" href="/logo.svg" />
       <body className={cn("min-h-screen antialiased", syne.className)}>
         <Providers>
           <NavBar />

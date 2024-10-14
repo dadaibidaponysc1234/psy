@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import {
   Form,
   FormControl,
@@ -34,14 +34,21 @@ const SearchPublication = () => {
   }
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="gap-y-8 flex flex-col lg:items-start items-center"
+      >
         <FormField
           control={form.control}
           name="publication"
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input placeholder="Search Publication" {...field} className="w-fit " />
+                <Input
+                  placeholder="Search Publication"
+                  {...field}
+                  className="w-fit"
+                />
               </FormControl>
               {/* <FormDescription>
                 This is your public display name.

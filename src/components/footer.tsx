@@ -14,7 +14,7 @@ const Footer = () => {
               alt=""
               width={100}
               height={100}
-              className="w-44 h-16 object-cover object-center"
+              className="w-40 h-16 object-cover object-center bg-white"
             />
             <Image
               src="/logo-1.png"
