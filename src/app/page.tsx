@@ -65,7 +65,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="mx-auto max-w-[1440px] flex flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
+        <div className="mx-auto max-w-[1440px] flex flex-col-reverse lg:flex-row justify-evenly text-center lg:text-start gap-x-10">
           <div className=" lg:w-[35vw] flex flex-col justify-center gap-6">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Discover Groundbreaking Research
@@ -78,22 +78,20 @@ export default function Home() {
             <Link
               className={buttonVariants({
                 size: "lg",
-                className: "font-bold h-14 rounded-[10px] !text-base",
+                className: "font-bold h-14 w-fit rounded-[10px] !text-base",
               })}
               href="/Search"
             >
               Use Advanced search
             </Link>
           </div>
-          <div className="mx-auto">
-            <Image
-              src="/genOne.svg"
-              alt=""
-              width={100}
-              height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center"
-            />
-          </div>
+          <Image
+            src="/genOne.svg"
+            alt=""
+            width={100}
+            height={100}
+            className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center"
+          />
         </div>
         <div className="mx-auto max-w-[1440px] flex flex-col lg:flex-row justify-evenly text-center lg:text-start gap-x-10">
           <div className="mx-auto">
@@ -116,7 +114,7 @@ export default function Home() {
             <Link
               className={buttonVariants({
                 size: "lg",
-                className: "font-bold h-14 rounded-[10px] !text-base",
+                className: "font-bold h-14 w-fit rounded-[10px] !text-base",
               })}
               href="/Analysis"
             >

@@ -1153,16 +1153,16 @@ const SideFilters = ({
   const handleShowMoreYears = () => setVisibleYears((prev) => prev + 5);
   const handleShowLessYears = () => setVisibleYears(5);
 
-  const handleShowMoreDisorders = () => setVisibleDisorders((prev) => prev + 5);
-  const handleShowLessDisorders = () => setVisibleDisorders(5);
+  const handleShowMore = (
+    setVisible: React.Dispatch<React.SetStateAction<number>>,
+    total: number
+  ) => {
+    setVisible((prev) => (prev + 5 <= total ? prev + 5 : total));
+  };
 
-  const handleShowMoreGeneticSources = () =>
-    setVisibleGeneticSources((prev) => prev + 5);
-  const handleShowLessGeneticSources = () => setVisibleGeneticSources(5);
-
-  const handleShowMoreArticleTypes = () =>
-    setVisibleArticleTypes((prev) => prev + 5);
-  const handleShowLessArticleTypes = () => setVisibleArticleTypes(5);
+  const handleShowLess = (setVisible: (value: number) => void) => {
+    setVisible(5);
+  };
   return (
     <>
       <div>
@@ -1223,10 +1223,10 @@ const SideFilters = ({
       <div>
         <h3 className="font-medium">Disorders</h3>
         <div className="pt-6">
-          {disorders.length > 5 && (
+          {visibleDisorders > 5 && (
             <button
               className="flex items-center mt-4 group cursor-pointer"
-              onClick={handleShowLessDisorders}
+              onClick={() => handleShowLess(setVisibleDisorders)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Disorders
@@ -1241,7 +1241,7 @@ const SideFilters = ({
                 <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
               </>
             ) : (
-              (disorders ? disorders.slice(visibleDisorders - 5) : []).map(
+              (disorders ? disorders.slice(0, visibleDisorders) : []).map(
                 (
                   disorder: { id: number; disorder_name: string },
                   index: number
@@ -1271,24 +1271,28 @@ const SideFilters = ({
               )
             )}
           </ul>
-          <button
-            className="flex items-center mt-4 group cursor-pointer"
-            onClick={handleShowMoreDisorders}
-          >
-            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
-              Show More Disorders
-            </p>
-            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-          </button>
+          {disorders.length > visibleDisorders && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={() =>
+                handleShowMore(setVisibleDisorders, disorders.length)
+              }
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show More Disorders
+              </p>
+              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
         </div>
       </div>
       <div>
         <h3 className="font-medium">Genetic Sources(s)</h3>
         <div className="pt-6">
-          {geneticSources.length > 5 && (
+          {visibleGeneticSources > 5 && (
             <button
               className="flex items-center mt-4 group cursor-pointer"
-              onClick={handleShowLessGeneticSources}
+              onClick={() => handleShowLess(setVisibleGeneticSources)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Genetic Sources
@@ -1304,7 +1308,7 @@ const SideFilters = ({
               </>
             ) : (
               (geneticSources
-                ? geneticSources.slice(visibleGeneticSources - 5)
+                ? geneticSources.slice(0, visibleGeneticSources)
                 : []
               ).map(
                 (
@@ -1336,25 +1340,29 @@ const SideFilters = ({
               )
             )}
           </ul>
-          <button
-            className="flex items-center mt-4 group cursor-pointer"
-            onClick={handleShowMoreGeneticSources}
-          >
-            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
-              Show More Genetic Sources
-            </p>
-            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-          </button>
+          {geneticSources.length > visibleGeneticSources && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={() =>
+                handleShowMore(setVisibleGeneticSources, geneticSources.length)
+              }
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show More Genetic Sources
+              </p>
+              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
         </div>
       </div>
 
       <div>
         <h3 className="font-medium">Article Type</h3>
         <div className="pt-6">
-          {articleTypes.length > 5 && (
+          {visibleArticleTypes > 5 && (
             <button
               className="flex items-center mt-4 group cursor-pointer"
-              onClick={handleShowLessArticleTypes}
+              onClick={() => handleShowLess(setVisibleArticleTypes)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Article Types
@@ -1370,7 +1378,7 @@ const SideFilters = ({
               </>
             ) : (
               (articleTypes
-                ? articleTypes.slice(visibleArticleTypes - 5)
+                ? articleTypes.slice(0, visibleArticleTypes)
                 : []
               ).map(
                 (
@@ -1402,15 +1410,19 @@ const SideFilters = ({
               )
             )}
           </ul>
-          <button
-            className="flex items-center mt-4 group cursor-pointer"
-            onClick={handleShowMoreArticleTypes}
-          >
-            <p className="text-sm text-muted-foreground group-hover:text-gray-900">
-              Show More Article Types
-            </p>
-            <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
-          </button>
+          {articleTypes.length > visibleArticleTypes && (
+            <button
+              className="flex items-center mt-4 group cursor-pointer"
+              onClick={() =>
+                handleShowMore(setVisibleArticleTypes, articleTypes.length)
+              }
+            >
+              <p className="text-sm text-muted-foreground group-hover:text-gray-900">
+                Show More Article Types
+              </p>
+              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            </button>
+          )}
         </div>
       </div>
     </>

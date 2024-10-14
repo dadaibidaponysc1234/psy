@@ -18,11 +18,11 @@ const NavBar = () => {
             Psychgen_Portal
           </div> */}
           <Image
-            src="/logo.svg"
+            src="/logo-1.svg"
             alt=""
             width={100}
             height={100}
-            className="w-16 h-16 rounded-lg object-cover object-center"
+            className="w-28 h-16 rounded-lg object-cover object-center"
           />
         </Link>
 
