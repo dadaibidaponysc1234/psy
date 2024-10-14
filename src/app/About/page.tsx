@@ -229,15 +229,17 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <div className="max-w-4xl text-center my-32 space-y-10 ">
-        <h2 className="text-2xl font-semibold">Technology and Development</h2>
-        <p className="font-medium  md:text-xl ">
-          PsychGenAfrica is built using cutting-edge technology to ensure a
-          user-friendly experience. It leverages Next.js for a responsive and
-          dynamic frontend, Django for the backend APIs, and PostgreSQL for
-          robust data management. The portal also integrates D3.js and Chart.js
-          for advanced data visualization.
-        </p>
+      <div className="bg-[#FCF7F7] my-32 p-10">
+        <div className="max-w-4xl text-center space-y-10">
+          <h2 className="text-2xl font-semibold">Technology and Development</h2>
+          <p className="font-medium  md:text-xl ">
+            PsychGenAfrica is built using cutting-edge technology to ensure a
+            user-friendly experience. It leverages Next.js for a responsive and
+            dynamic frontend, Django for the backend APIs, and PostgreSQL for
+            robust data management. The portal also integrates D3.js and
+            Chart.js for advanced data visualisation.
+          </p>
+        </div>
       </div>
     </main>
   );
