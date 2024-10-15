@@ -49,9 +49,9 @@ export default function Home() {
         <div className="mx-auto max-w-[1440px]">
           <video
             src="/video-1.mp4"
-            autoPlay
-            controls
             loop
+            autoPlay
+            muted
             className="rounded-3xl"
           ></video>
         </div>
