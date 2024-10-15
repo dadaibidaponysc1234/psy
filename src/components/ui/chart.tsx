@@ -62,7 +62,7 @@ const ChartContainer = React.forwardRef<
     if (jpeg) {
       FileSaver.saveAs(jpeg, "graph.jpeg");
     }
-  }, []);
+  }, [getDivJpeg]);
 
   return (
     <ChartContext.Provider value={{ config }}>

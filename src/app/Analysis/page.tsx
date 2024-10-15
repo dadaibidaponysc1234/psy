@@ -40,7 +40,7 @@ const Analysis = () => {
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
-            Dive Deep into <span className="text-primary">Africa's</span>{" "}
+            Dive Deep into <span className="text-primary">Africa&apos;s</span>{" "}
             Genomic Landscape
           </h1>
         </div>

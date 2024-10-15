@@ -424,7 +424,7 @@ const Chord = ({ data, isLoading, error }) => {
       .text((d) => d)
       .style("font-size", "12px")
       .style("alignment-baseline", "middle");
-  }, [data]);
+  }, [data, dimensions.width, dimensions.height]);
 
   return (
     <Card>
