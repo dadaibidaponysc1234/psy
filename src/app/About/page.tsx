@@ -110,7 +110,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
+            {/* <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md">
               <Image
                 src="/carbon_text-link-analysis.svg"
                 alt=""
@@ -129,7 +129,7 @@ export default function Home() {
                   psychiatric disorders studied.
                 </p>
               </div>
-            </div>
+            </div> */}
             <div className="grid lg:grid-cols-3 p-5 border-gray-300 shadow-sm border-2 rounded-md  ">
               <Image
                 src="/Group.svg"

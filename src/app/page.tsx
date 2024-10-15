@@ -46,6 +46,15 @@ export default function Home() {
       </section>
       <section className="mx-auto max-w-[1440px] overflow-hidden w-full flex flex-col gap-24 mt-48 p-8">
         <LandingCarousel />
+        <div className="mx-auto max-w-[1440px]">
+          <video
+            src="/video-1.mp4"
+            autoPlay
+            controls
+            loop
+            className="rounded-3xl"
+          ></video>
+        </div>
         <div className="mx-auto max-w-[1440px] flex flex-col lg:flex-row justify-evenly text-center lg:text-start gap-x-10">
           <div className="mx-auto">
             <Image
