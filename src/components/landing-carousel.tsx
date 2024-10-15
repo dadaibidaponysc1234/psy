@@ -54,7 +54,7 @@ const LandingCarousel = () => {
                 Uncover a comprehensive overview of existing studies in African
                 psychiatric genomics, organised for your convenience.
               </p>
-              <SearchPublication />
+              {/* <SearchPublication /> */}
               <Link
                 className={buttonVariants({
                   size: "lg",

@@ -25,8 +25,8 @@ const Footer = () => {
             />
           </div>
           <div className="lg:w-[12vw] leading-loose">
-            The Psychiatric Genomics Africa Portal (PsychGen-Africa) is an
-            initiative of the PGC-Africa working group.
+            The Psychiatric Genomics Africa Portal (PsychGen Africa) is an
+            initiative of the PGC Africa working group.
           </div>
           <ul className="space-y-3 lg:space-y-5">
             <li>Terms of use</li>
@@ -36,7 +36,7 @@ const Footer = () => {
           </ul>
         </div>
         <p className="lg:text-center text-lg pb-5">
-          © 2024 PsychGen-Africa. All rights reserved.
+          © 2024 PsychGen Africa. All rights reserved.
         </p>
       </div>
     </section>
