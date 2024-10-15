@@ -112,7 +112,7 @@ const YearlyStudyCount: React.FC = () => {
             </ChartContainer>
           )}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2 text-sm">
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Highlight <TrendingUp className="h-4 w-4" />
           </div>
@@ -124,7 +124,7 @@ const YearlyStudyCount: React.FC = () => {
             activity over the years highlights the growing importance and
             recognition of African genomics on the global research stage.
           </div>
-        </CardFooter>
+        </CardFooter> */}
       </Card>
       <Card>
         <CardHeader>
@@ -167,7 +167,7 @@ const YearlyStudyCount: React.FC = () => {
             </ChartContainer>
           )}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2 text-sm">
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Highlight <TrendingUp className="h-4 w-4" />
           </div>
@@ -179,7 +179,7 @@ const YearlyStudyCount: React.FC = () => {
             activity over the years highlights the growing importance and
             recognition of African genomics on the global research stage.
           </div>
-        </CardFooter>
+        </CardFooter> */}
       </Card>
       <Card>
         <CardHeader>
@@ -222,7 +222,7 @@ const YearlyStudyCount: React.FC = () => {
             </ChartContainer>
           )}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2 text-sm">
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Highlight <TrendingUp className="h-4 w-4" />
           </div>
@@ -234,7 +234,7 @@ const YearlyStudyCount: React.FC = () => {
             activity over the years highlights the growing importance and
             recognition of African genomics on the global research stage.
           </div>
-        </CardFooter>
+        </CardFooter> */}
       </Card>
     </div>
   );

@@ -28,7 +28,6 @@ const Analysis = () => {
         <Tabs defaultValue="collaboration" className="space-y-10">
           <div className="p-2 border rounded-md">
             <TabsList className="flex h-full">
-              <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
               <TabsTrigger value="year">Year</TabsTrigger>
               <TabsTrigger value="region">Country</TabsTrigger>
               <TabsTrigger value="map">Map</TabsTrigger>
@@ -41,6 +40,7 @@ const Analysis = () => {
                 Biological Modality
               </TabsTrigger>
               <TabsTrigger value="geneticSource">Genetic Source</TabsTrigger>
+              <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="year">

@@ -171,14 +171,14 @@ const DisorderStudyCount: React.FC = () => {
           </ChartContainer>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
           Highlight <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
           Showing total visitors for the last 6 months
         </div>
-      </CardFooter>
+      </CardFooter> */}
       <Dialog
         open={!!clickedDisorder}
         onOpenChange={(open) => !open && setClickedDisorder(null)}

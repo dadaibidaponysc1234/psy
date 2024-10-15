@@ -782,14 +782,14 @@ const RegionalStudyCount = ({
           </ChartContainer>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
           Highlight <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
           Showing total visitors for the last 6 months
         </div>
-      </CardFooter>
+      </CardFooter> */}
     </Card>
   );
 };
@@ -929,14 +929,14 @@ const DisorderStudyCount = ({
           </ChartContainer>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
           Highlight <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
           Showing total visitors for the last 6 months
         </div>
-      </CardFooter>
+      </CardFooter> */}
     </Card>
   );
 };
@@ -1015,14 +1015,14 @@ const BiologicalStudyCount = ({
           </ChartContainer>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
           Highlight <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
           Showing total visitors for the last 6 months
         </div>
-      </CardFooter>
+      </CardFooter> */}
     </Card>
   );
 };
@@ -1101,14 +1101,14 @@ const GeneticsStudyCount = ({
           </ChartContainer>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
           Highlight <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
           Showing total visitors for the last 6 months
         </div>
-      </CardFooter>
+      </CardFooter> */}
     </Card>
   );
 };
