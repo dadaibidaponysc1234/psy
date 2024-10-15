@@ -9,7 +9,7 @@ export default function Home() {
     <main className=" w-full flex flex-col items-center">
       {/* <NavBar/>
       <LandingPage/> */}
-      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center xl:items-start items-center flex-col p-2 lg:p-8">
+      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center flex-col p-2 lg:p-8">
         <video
           src="/video-1.mp4"
           loop
@@ -34,7 +34,7 @@ export default function Home() {
             backgroundBlendMode: "darken",
           }}
         ></div>
-        <div className="max-w-5xl space-y-10 xl:w-1/2 flex flex-col items-center z-10">
+        <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
             Explore <span className="text-primary">African</span> Psychiatric
             Genomics - Your gateway to African Psychiatric Genomics Research
