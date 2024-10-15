@@ -26,7 +26,7 @@ export default function Home() {
               About us
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl text-center">
-              The Psychiatric Genomics Africa Portal (Psych Gen Africa)is a
+              The Psychiatric Genomics Africa Portal (Psych Gen Africa) is a
               pioneering initiative from the PGC Africa working group, designed
               to serve as a centralised platform for psychiatric genomics
               research focused on the African population. By establishing a
@@ -38,17 +38,18 @@ export default function Home() {
           </div>
         </div>
         <div className="flex border-[1px] border-gray-300 shadow-sm bg-[#FCF7F7] p-5 rounded-lg flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
-          <div className=" lg:w-[35vw] flex flex-col justify-center gap-6">
+          <div className=" lg:w-[35vw] flex flex-col justify-center gap-6 text-center">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Our Mission
             </h2>
             <p className="font-medium text-muted-foreground md:text-xl ">
-              PsychGenAfrica aims to democratise access to psychiatric genomics
-              data by providing free, open, and curated metadata from studies
-              involving African participants or research conducted within the
-              continent. The platform seeks to facilitate realtime analysis,
-              promote collaborative research, and highlight significant trends
-              and findings in the field of psychiatric genomics in Africa.
+              Psych Gen Africa aims to democratise access to psychiatric
+              genomics data by providing free, open, and curated metadata from
+              studies involving African participants or research conducted
+              within the continent. The platform seeks to facilitate realtime
+              analysis, promote collaborative research, and highlight
+              significant trends and findings in the field of psychiatric
+              genomics in Africa.
             </p>
           </div>
           <div className=" my-auto lg:ms-auto">
@@ -76,7 +77,7 @@ export default function Home() {
           </div>
           <div className="  text-base my-auto items-center ">
             <p className="font-bold">
-              Through PsychGenAfrica, we envision a future where African
+              Through Psych Gen Africa, we envision a future where African
               psychiatric genomics research is fully integrated into the global
               research landscape, fostering collaboration and enhancing the
               quality and impact of studies on neuropsychiatric disorders. The
@@ -233,7 +234,7 @@ export default function Home() {
         <div className="max-w-4xl text-center space-y-10">
           <h2 className="text-2xl font-semibold">Technology and Development</h2>
           <p className="font-medium  md:text-xl ">
-            PsychGenAfrica is built using cutting-edge technology to ensure a
+            Psych Gen Africa is built using cutting-edge technology to ensure a
             user-friendly experience. It leverages Next.js for a responsive and
             dynamic frontend, Django for the backend APIs, and PostgreSQL for
             robust data management. The portal also integrates D3.js and
