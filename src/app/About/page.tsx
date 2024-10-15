@@ -36,7 +36,9 @@ export default function Home() {
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
-            Developed in Africa by Africans for Africa.
+            Developed in <span className="text-primary">Africa</span> by
+            <span className="text-primary">Africans</span> for{" "}
+            <span className="text-primary">Africa</span>.
           </h1>
         </div>
       </section>
@@ -103,10 +105,10 @@ export default function Home() {
               alt=""
               width={100}
               height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center "
+              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center"
             ></Image>
           </div>
-          <div className="  text-base my-auto items-center ">
+          <div className="text-base my-auto items-center text-muted-foreground">
             <p className="font-bold">
               Through Psych Gen Africa, we envision a future where African
               psychiatric genomics research is fully integrated into the global
@@ -261,18 +263,31 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <div className="bg-[#FCF7F7] my-32 p-10 px-2 lg:p-8">
-        <div className="max-w-4xl text-center space-y-10">
-          <h2 className="text-2xl font-semibold">Technology and Development</h2>
-          <p className="font-medium  md:text-xl ">
-            Psych Gen Africa is built using cutting-edge technology to ensure a
-            user-friendly experience. It leverages Next.js for a responsive and
-            dynamic frontend, Django for the backend APIs, and PostgreSQL for
-            robust data management. The portal also integrates D3.js and
-            Chart.js for advanced data visualisation.
-          </p>
+      <section className="lg:px-10 px-2">
+        <div className="bg-[#FCF7F7] my-32 px-24 py-10 rounded-xl">
+          <div className="max-w-4xl text-center space-y-8">
+            <h2 className="text-2xl font-semibold">
+              Technology and Development
+            </h2>
+            <div className="flex items-center justify-center gap-5">
+              <Image
+                src={"/icons/chart-js.svg"}
+                alt=""
+                width={70}
+                height={70}
+              />
+              <Image src={"/icons/d3-js.svg"} alt="" width={60} height={60} />
+              <Image src={"/icons/next-js.svg"} alt="" width={60} height={60} />
+              <Image
+                src={"/icons/postgres.svg"}
+                alt=""
+                width={50}
+                height={50}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

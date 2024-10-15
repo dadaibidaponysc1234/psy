@@ -36,8 +36,8 @@ export default function Home() {
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
-            Explore <span className="text-primary">African</span> Psychiatric
-            Genomics - Your gateway to African Psychiatric Genomics Research
+            Your gateway to <span className="text-primary">African</span>{" "}
+            Psychiatric Genomics Research
           </h1>
           {/* <Button  className="text-2xl p-7">Browse for free</Button> */}
           <Link

@@ -12,16 +12,45 @@ import TopFiveDisorders from "@/components/graph/top-five-disorders";
 
 const Analysis = () => {
   return (
-    <div className="max-w-[1024px] mx-auto w-full">
-      <div className="p-10 lg:space-y-5 space-y-2">
+    <div className="">
+      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center mb-12 flex-col p-2 lg:p-8">
+        <video
+          src="/video-1.mp4"
+          loop
+          autoPlay
+          muted
+          className="object-cover absolute inset-0 w-full h-full left-0 top-0"
+        ></video>
+        {/* <Image
+          src={"/image-1.jpg"}
+          alt="image"
+          width={1440}
+          height={1099}
+          unoptimized={false}
+          priority
+          className=""
+        /> */}
+        <div
+          className="absolute inset-0 w-full h-full left-0 top-0"
+          style={{
+            background:
+              "linear-gradient(90.98deg, rgba(0, 0, 0, 0.4) 32.12%, rgba(1, 88, 28, 0.4) 35.12%)",
+            backgroundBlendMode: "darken",
+          }}
+        ></div>
+        <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
+          <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
+            Dive Deep into <span className="text-primary">Africa's</span>{" "}
+            Genomic Landscape
+          </h1>
+        </div>
+      </section>
+      <div className="p-10 lg:space-y-5 space-y-2 max-w-[1024px] mx-auto w-full">
         <h1 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
-          Dive Deep into Africa&apos;s Genomic Landscape
-        </h1>
-        <p className="text-xl lg:text-3xl font-bold ">
           Uncover Regional Insights and Research Trends
-        </p>
+        </h1>
       </div>
-      <div className="p-10 space-y-4">
+      <div className="p-10 space-y-4 max-w-[1024px] mx-auto w-full">
         <h1 className="text-2xl lg:text-[28px] font-bold ">
           Visualise studies by:
         </h1>

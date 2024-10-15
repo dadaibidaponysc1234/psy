@@ -1,25 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import * as d3 from "d3";
 import GraphSkeleton from "../skeletons/graph-skeleton";
 import { Card, CardContent } from "../ui/card";
 
-// Debounce function to limit how often a function can be called
-const debounce = (func, wait) => {
-  let timeout;
-  return (...args) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(null, args), wait);
-  };
-};
-
 const Chord = ({ data, isLoading, error }) => {
-  const [dimensions, setDimensions] = useState({ width: 700, height: 700 });
+  const dimensions = { width: 800, height: 800 };
 
   const svgContainerRef = useRef(null);
   const legendContainerRef = useRef(null);
-  const resizeObserverRef = useRef(null);
 
-  // Render D3 chart when data or dimensions change
   useEffect(() => {
     if (!data || !data.matrix || !data.countries || !svgContainerRef.current) {
       return;
@@ -326,10 +315,22 @@ const Chord = ({ data, isLoading, error }) => {
     const svg = d3
       .select(svgContainerRef.current)
       .append("svg")
-      .attr("width", width)
-      .attr("height", height)
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr(
+        "viewBox",
+        "0 0 " + Math.min(width, height) + " " + Math.min(width, height)
+      )
+      .attr("preserveAspectRatio", "xMinYMin")
       .append("g")
-      .attr("transform", `translate(${width / 2}, ${height / 2})`);
+      .attr(
+        "transform",
+        "translate(" +
+          Math.min(width, height) / 2 +
+          "," +
+          Math.min(width, height) / 2 +
+          ")"
+      );
 
     const chord = d3.chord().padAngle(0.05).sortSubgroups(d3.descending);
     const chords = chord(reversedAfricaMatrix);
@@ -423,46 +424,8 @@ const Chord = ({ data, isLoading, error }) => {
       .text((d) => d)
       .style("font-size", "12px")
       .style("alignment-baseline", "middle");
-  }, [data, dimensions]);
+  }, [data]);
 
-  // Resize handler
-  useEffect(() => {
-    const handleResize = debounce(() => {
-      if (svgContainerRef.current) {
-        const { clientWidth, clientHeight } = svgContainerRef.current;
-        setDimensions({
-          width: clientWidth,
-          height: clientHeight,
-        });
-      }
-    }, 300); // 300ms debounce delay
-
-    // Initial dimensions
-    if (svgContainerRef.current) {
-      const { clientWidth, clientHeight } = svgContainerRef.current;
-      setDimensions({
-        width: clientWidth,
-        height: clientHeight,
-      });
-    }
-
-    // Add window resize listener
-    window.addEventListener("resize", handleResize);
-
-    // Use ResizeObserver for more accurate dimensions
-    if (svgContainerRef.current) {
-      resizeObserverRef.current = new ResizeObserver(handleResize);
-      resizeObserverRef.current.observe(svgContainerRef.current);
-    }
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      if (resizeObserverRef.current && svgContainerRef.current) {
-        // eslint-disable-next-line
-        resizeObserverRef.current.unobserve(svgContainerRef.current);
-      }
-    };
-  }, []);
   return (
     <Card>
       <CardContent className="p-5">

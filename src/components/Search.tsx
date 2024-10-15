@@ -59,6 +59,7 @@ import {
   Pie,
   Sector,
   Label,
+  YAxis,
 } from "recharts";
 import axios from "axios";
 import {
@@ -109,7 +110,7 @@ const Search = ({
   showFilters?: boolean;
   showVisualize?: boolean;
 }) => {
-  const [filter, setFilter] = useState<DocumentState>({
+  const defaultFilter = {
     title,
     research_regions,
     journal_name,
@@ -124,7 +125,8 @@ const Search = ({
     genetic_source_materials,
     biological_modalities,
     page,
-  });
+  };
+  const [filter, setFilter] = useState<DocumentState>(defaultFilter);
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [clearFilters, setClearFilters] = useState(false);
@@ -210,13 +212,7 @@ const Search = ({
 
   const handleClearFilters = () => {
     setClearFilters(true);
-    setFilter((prev) => {
-      const newFilters = { ...prev };
-      Object.keys(newFilters).forEach((key) => {
-        newFilters[key as keyof typeof filter] = "";
-      });
-      return newFilters;
-    });
+    setFilter(defaultFilter);
   };
 
   const handleDownload = () => {
@@ -614,7 +610,7 @@ const YearlyStudyCount = ({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Yearly Study-Count and Impact factor</CardTitle>
+          <CardTitle>Yearly Study-Count</CardTitle>
           <CardDescription>Number of Publications </CardDescription>
         </CardHeader>
         <CardContent>
@@ -622,14 +618,19 @@ const YearlyStudyCount = ({
             <GraphSkeleton />
           ) : (
             <ChartContainer config={chartConfig}>
-              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="year"
-                  tickLine={false}
                   axisLine={false}
                   tickMargin={8}
+                  // fontSize={10}
+                  // fontWeight={600}
                 />
+                <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent hideLabel />}
@@ -641,18 +642,20 @@ const YearlyStudyCount = ({
                   strokeWidth={2}
                   dot={true}
                 />
-                <Line
-                  dataKey="impact_factor"
+                {/* <Line
+                  data={studyCountTrendLine}
+                  dataKey="trend"
                   type="linear"
-                  stroke="var(--color-desktop)"
+                  stroke="#FF6347"
                   strokeWidth={2}
-                  dot={true}
-                />
+                  dot={false}
+                  strokeDasharray="3 3"
+                /> */}
               </LineChart>
             </ChartContainer>
           )}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2 text-sm">
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Highlight <TrendingUp className="h-4 w-4" />
           </div>
@@ -664,7 +667,7 @@ const YearlyStudyCount = ({
             activity over the years highlights the growing importance and
             recognition of African genomics on the global research stage.
           </div>
-        </CardFooter>
+        </CardFooter> */}
       </Card>
       <Card>
         <CardHeader>
@@ -675,15 +678,14 @@ const YearlyStudyCount = ({
           {isLoading ? (
             <GraphSkeleton />
           ) : (
-            <ChartContainer config={chartConfig}>
-              <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+            <ChartContainer config={chartConfig} className="h-full">
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
                 <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="year"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
+                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
+                <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent hideLabel />}
@@ -695,11 +697,20 @@ const YearlyStudyCount = ({
                   strokeWidth={2}
                   dot={true}
                 />
+                {/* <Line
+                  data={citationTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#32CD32"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
+                /> */}
               </LineChart>
             </ChartContainer>
           )}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2 text-sm">
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Highlight <TrendingUp className="h-4 w-4" />
           </div>
@@ -711,7 +722,62 @@ const YearlyStudyCount = ({
             activity over the years highlights the growing importance and
             recognition of African genomics on the global research stage.
           </div>
-        </CardFooter>
+        </CardFooter> */}
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Yearly Impact factor</CardTitle>
+          <CardDescription>Number of Publications </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <GraphSkeleton />
+          ) : (
+            <ChartContainer config={chartConfig} className="h-full">
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
+                <YAxis domain={["auto", "auto"]} />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Line
+                  dataKey="impact_factor"
+                  type="linear"
+                  stroke="var(--color-desktop)"
+                  strokeWidth={2}
+                  dot={true}
+                />
+                {/* <Line
+                  data={impactFactorTrendLine}
+                  dataKey="trend"
+                  type="linear"
+                  stroke="#32CD32"
+                  strokeWidth={2}
+                  dot={false}
+                  strokeDasharray="3 3"
+                /> */}
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
+          <div className="flex gap-2 font-medium leading-none">
+            Highlight <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="leading-none text-muted-foreground">
+            The data on African genomics research reveals a clear upward trend
+            from 2007, with a significant surge in publications starting around
+            2014. This growth reflects increasing global interest and investment
+            in the field, peaking at 14 publications in 2022. The consistent
+            activity over the years highlights the growing importance and
+            recognition of African genomics on the global research stage.
+          </div>
+        </CardFooter> */}
       </Card>
     </div>
   );
@@ -733,7 +799,7 @@ const RegionalStudyCount = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Regional Study-count</CardTitle>
+        <CardTitle>Country Study-count</CardTitle>
         <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
       <CardContent>
@@ -763,6 +829,8 @@ const RegionalStudyCount = ({
                 dataKey="countries__name"
                 tickLine={false}
                 tickMargin={10}
+                fontSize={14}
+                fontWeight={600}
                 axisLine={false}
                 tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
               />
