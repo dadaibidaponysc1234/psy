@@ -243,7 +243,7 @@ export function GeneticsStudyCount() {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="flex flex-1 justify-center pb-0">
+      <CardContent className="flex flex-1 justify-center">
         {isLoading ? (
           <GraphSkeleton pie />
         ) : (
