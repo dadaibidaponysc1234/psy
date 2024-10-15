@@ -101,7 +101,7 @@ export default function Home() {
           Contribute to the community by submitting your latest studies and
           sharing your discoveries with peers.
         </p>
-        <Button className="w-fit px-16 py-7 font-bold h-14 rounded-[10px] !text-base">
+        <Button className="w-fit px-16 py-7 font-bold h-14 rounded-md !text-base">
           Submit a paper
         </Button>
       </section>

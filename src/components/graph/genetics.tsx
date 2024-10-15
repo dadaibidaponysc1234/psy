@@ -176,8 +176,9 @@ export function GeneticsStudyCount() {
   const desktopData = React.useMemo(
     () =>
       year?.map((data) => ({
-        genetic: data.genetic_source_materials__material_type,
-        desktop: data.study_count,
+        genetic_source_materials__material_type:
+          data.genetic_source_materials__material_type,
+        study_count: data.study_count,
         fill: getRandomColor(),
       })) || [],
     [year]
@@ -194,12 +195,16 @@ export function GeneticsStudyCount() {
   const [clickedGenetics, setClickedGenetics] = useState<string | null>(null);
 
   const activeIndex = useMemo(
-    () => desktopData?.findIndex((item) => item.genetic === activeGenetic),
+    () =>
+      desktopData?.findIndex(
+        (item) => item.genetic_source_materials__material_type === activeGenetic
+      ),
     [activeGenetic, desktopData]
   );
 
   const genetics = useMemo(
-    () => desktopData?.map((item) => item.genetic),
+    () =>
+      desktopData?.map((item) => item.genetic_source_materials__material_type),
     [desktopData]
   );
 
@@ -232,7 +237,8 @@ export function GeneticsStudyCount() {
                     className="flex h-3 w-3 shrink-0 rounded-sm"
                     style={{
                       backgroundColor: desktopData.find(
-                        (item) => item.genetic === key
+                        (item) =>
+                          item.genetic_source_materials__material_type === key
                       )?.fill,
                     }}
                   />
@@ -258,8 +264,8 @@ export function GeneticsStudyCount() {
               />
               <Pie
                 data={desktopData}
-                dataKey="desktop"
-                nameKey="genetic" // Change here to use 'genetic' as the name key
+                dataKey="study_count"
+                nameKey="genetic_source_materials__material_type" // Change here to use 'genetic' as the name key
                 innerRadius={60}
                 strokeWidth={5}
                 activeIndex={activeIndex}
@@ -295,14 +301,19 @@ export function GeneticsStudyCount() {
                             y={viewBox.cy}
                             className="fill-foreground text-3xl font-bold"
                           >
-                            {desktopData[activeIndex]?.desktop.toLocaleString()}
+                            {desktopData[
+                              activeIndex
+                            ]?.study_count.toLocaleString()}
                           </tspan>
                           <tspan
                             x={viewBox.cx}
                             y={(viewBox.cy || 0) + 24}
                             className="fill-muted-foreground"
                           >
-                            {desktopData[activeIndex]?.genetic}{" "}
+                            {
+                              desktopData[activeIndex]
+                                ?.genetic_source_materials__material_type
+                            }{" "}
                             {/* Display the genetic name */}
                           </tspan>
                         </text>

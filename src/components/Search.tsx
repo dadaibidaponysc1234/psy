@@ -368,13 +368,13 @@ const Search = ({
                     Year
                   </TabsTrigger>
                   <TabsTrigger value="region" className="w-full">
-                    Region
+                    Country
                   </TabsTrigger>
                   <TabsTrigger value="disorder" className="w-full">
                     Disorder
                   </TabsTrigger>
                   <TabsTrigger value="biologicalModality" className="w-full">
-                    Biological Mod..
+                    Biological Modality
                   </TabsTrigger>
                   <TabsTrigger value="geneticSource" className="w-full">
                     Genetic Source
@@ -1022,6 +1022,7 @@ const BiologicalStudyCount = ({
         biological_modalities__modality_name:
           d.biological_modalities__modality_name,
         study_count: d.study_count,
+        fill: getRandomColor(),
       }))
       ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [];
 
@@ -1034,52 +1035,63 @@ const BiologicalStudyCount = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Biological modularity Study-count</CardTitle>
+        <CardTitle>Biological modality Study-count</CardTitle>
         <CardDescription>Number of Publications </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <GraphSkeleton />
+          <GraphSkeleton pie />
         ) : (
           <ChartContainer config={chartConfig}>
-            <BarChart
-              accessibilityLayer
-              data={chartData}
-              margin={{
-                top: 20,
-              }}
-            >
-              <Legend
-                verticalAlign="bottom"
-                content={
-                  <AbbreviationLegend
-                    data={(chartData ?? []).map((val) => ({
-                      name: val.biological_modalities__modality_name,
-                    }))}
-                  />
-                }
-              />
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="biological_modalities__modality_name"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
-              />
+            <PieChart>
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-                <LabelList
-                  position="top"
-                  offset={12}
-                  className="fill-foreground"
-                  fontSize={12}
-                />
-              </Bar>
-            </BarChart>
+              <Pie
+                data={chartData}
+                dataKey={"study_count"}
+                nameKey={"biological_modalities__modality_name"}
+                innerRadius={60}
+                strokeWidth={5}
+              >
+                {/* <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          // className="text-lg font-medium"
+                        >
+                          <tspan
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            className="fill-foreground text-3xl font-bold"
+                          >
+                            {chartData[
+                              activeIndex
+                            ]?.study_count.toLocaleString()}
+                          </tspan>
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy || 0) + 24}
+                            className="fill-muted-foreground"
+                          >
+                            {
+                              chartData[activeIndex]
+                                ?.biological_modalities__modality_name
+                            }{" "}
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                /> */}
+              </Pie>
+            </PieChart>
           </ChartContainer>
         )}
       </CardContent>
@@ -1108,6 +1120,7 @@ const GeneticsStudyCount = ({
         genetic_source_materials__material_type:
           d.genetic_source_materials__material_type,
         study_count: d.study_count,
+        fill: getRandomColor(),
       }))
       ?.filter((d) => d.genetic_source_materials__material_type !== null) ?? [];
 
@@ -1125,47 +1138,25 @@ const GeneticsStudyCount = ({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <GraphSkeleton />
+          <GraphSkeleton pie />
         ) : (
-          <ChartContainer config={chartConfig}>
-            <BarChart
-              accessibilityLayer
-              data={chartData}
-              margin={{
-                top: 20,
-              }}
-            >
-              <Legend
-                verticalAlign="bottom"
-                content={
-                  <AbbreviationLegend
-                    data={(chartData ?? []).map((val) => ({
-                      name: val.genetic_source_materials__material_type,
-                    }))}
-                  />
-                }
-              />
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="genetic_source_materials__material_type"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
-              />
+          <ChartContainer
+            config={chartConfig}
+            className="mx-auto aspect-square w-full max-w-[300px]"
+          >
+            <PieChart>
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
-                <LabelList
-                  position="top"
-                  offset={12}
-                  className="fill-foreground"
-                  fontSize={12}
-                />
-              </Bar>
-            </BarChart>
+              <Pie
+                data={chartData}
+                dataKey="study_count"
+                nameKey="genetic_source_materials__material_type" // Change here to use 'genetic' as the name key
+                innerRadius={60}
+                strokeWidth={5}
+              ></Pie>
+            </PieChart>
           </ChartContainer>
         )}
       </CardContent>

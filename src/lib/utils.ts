@@ -16,3 +16,15 @@ export const getRandomColor = (): string => {
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
+
+export function mergeRefs<T>(...refs: React.Ref<T>[]): React.RefCallback<T> {
+  return (value: T | null) => {
+    refs.forEach((ref) => {
+      if (typeof ref === "function") {
+        ref(value);
+      } else if (ref != null) {
+        (ref as React.MutableRefObject<T | null>).current = value;
+      }
+    });
+  };
+}
