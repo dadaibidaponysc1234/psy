@@ -25,12 +25,12 @@ export default function Home() {
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31] text-center">
               About us
             </h2>
-            <p className="font-medium text-muted-foreground md:text-xl text-start ">
-              The Psychiatric Genomics Africa Portal (PsychGenAfrica)is a
+            <p className="font-medium text-muted-foreground md:text-xl text-center">
+              The Psychiatric Genomics Africa Portal (Psych Gen Africa)is a
               pioneering initiative from the PGC Africa working group, designed
               to serve as a centralised platform for psychiatric genomics
               research focused on the African population. By establishing a
-              unified metadata repository, PsychGenAfrica enables researchers,
+              unified metadata repository, Psych Gen Africa enables researchers,
               healthcare professionals, and the public to access vital
               information and explore groundbreaking research in
               neuropsychiatric disorders across Africa.
