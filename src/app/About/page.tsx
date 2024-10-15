@@ -244,18 +244,18 @@ export default function Home() {
             <ul className="space-y-3 text-xl font-bold list-disc">
               <li>
                 Provide open and equitable access to African psychiatric
-                genomics metadata.
+                genomics metadata
               </li>
               <li>
                 Offer an intuitive platform for real-time research analysis and
-                data visualization.
+                data visualization
               </li>
               <li>
-                Support researchers in sharing and disseminating new findings.
+                Support researchers in sharing and disseminating new findings
               </li>
               <li>
                 Centralise events, publications, and news in the African
-                psychiatric genomics field.
+                psychiatric genomics field
               </li>
             </ul>
           </div>

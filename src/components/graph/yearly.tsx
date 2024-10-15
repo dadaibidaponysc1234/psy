@@ -99,7 +99,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                <Line
+                {/* <Line
                   data={studyCountTrendLine}
                   dataKey="trend"
                   type="linear"
@@ -107,7 +107,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={false}
                   strokeDasharray="3 3"
-                />
+                /> */}
               </LineChart>
             </ChartContainer>
           )}
@@ -154,7 +154,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                <Line
+                {/* <Line
                   data={citationTrendLine}
                   dataKey="trend"
                   type="linear"
@@ -162,7 +162,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={false}
                   strokeDasharray="3 3"
-                />
+                /> */}
               </LineChart>
             </ChartContainer>
           )}
@@ -209,7 +209,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                <Line
+                {/* <Line
                   data={impactFactorTrendLine}
                   dataKey="trend"
                   type="linear"
@@ -217,7 +217,7 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={false}
                   strokeDasharray="3 3"
-                />
+                /> */}
               </LineChart>
             </ChartContainer>
           )}
