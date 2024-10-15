@@ -5,11 +5,42 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className=" w-full flex flex-col items-center px-2 lg:p-8">
+    <main className=" w-full flex flex-col items-center">
       {/* <NavBar/>
       <LandingPage/> */}
 
-      <section className="max-w-5xl flex flex-col gap-24">
+      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center mb-12 flex-col p-2 lg:p-8">
+        <video
+          src="/video-1.mp4"
+          loop
+          autoPlay
+          muted
+          className="object-cover absolute inset-0 w-full h-full left-0 top-0"
+        ></video>
+        {/* <Image
+          src={"/image-1.jpg"}
+          alt="image"
+          width={1440}
+          height={1099}
+          unoptimized={false}
+          priority
+          className=""
+        /> */}
+        <div
+          className="absolute inset-0 w-full h-full left-0 top-0"
+          style={{
+            background:
+              "linear-gradient(90.98deg, rgba(0, 0, 0, 0.4) 32.12%, rgba(1, 88, 28, 0.4) 35.12%)",
+            backgroundBlendMode: "darken",
+          }}
+        ></div>
+        <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
+          <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
+            Developed in Africa by Africans for Africa.
+          </h1>
+        </div>
+      </section>
+      <section className="max-w-5xl flex flex-col gap-24 px-2 lg:p-8">
         <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9] lg:flex-row justify-evenly text-center lg:text-start lg:gap-x-10">
           <div className="lg:w-1/2 w-full">
             <Image
@@ -230,7 +261,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <div className="bg-[#FCF7F7] my-32 p-10">
+      <div className="bg-[#FCF7F7] my-32 p-10 px-2 lg:p-8">
         <div className="max-w-4xl text-center space-y-10">
           <h2 className="text-2xl font-semibold">Technology and Development</h2>
           <p className="font-medium  md:text-xl ">
