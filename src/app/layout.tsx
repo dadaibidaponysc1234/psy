@@ -26,7 +26,7 @@ export default function RootLayout({
         src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"
       ></script>
       <script async src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-      <link rel="shortcut icon" href="/logo.svg" />
+      <link rel="shortcut icon" href="/logo-1.svg" />
       <body className={cn("min-h-screen antialiased", syne.className)}>
         <Providers>
           <NavBar />

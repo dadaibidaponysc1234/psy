@@ -10,15 +10,22 @@ export default function Home() {
       {/* <NavBar/>
       <LandingPage/> */}
       <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center xl:items-start items-center flex-col p-2 lg:p-8">
-        <Image
+      <video
+            src="/video-1.mp4"
+            loop
+            autoPlay
+            muted
+            className="object-cover absolute inset-0 w-full h-full left-0 top-0"
+          ></video>
+        {/* <Image
           src={"/image-1.jpg"}
           alt="image"
           width={1440}
           height={1099}
           unoptimized={false}
           priority
-          className="object-cover absolute inset-0 w-full h-full left-0 top-0"
-        />
+          className=""
+        /> */}
         <div
           className="absolute inset-0 w-full h-full left-0 top-0"
           style={{
@@ -29,8 +36,8 @@ export default function Home() {
         ></div>
         <div className="max-w-5xl space-y-10 xl:w-1/2 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
-            Explore <span className="text-primary">African</span> Genomics -
-            Your Gateway to Psychiatric Research
+            Explore <span className="text-primary">African</span> Psychiatric Genomics -
+            Your gateway to African Psychiatric Genomics Research
           </h1>
           {/* <Button  className="text-2xl p-7">Browse for free</Button> */}
           <Link
@@ -40,7 +47,7 @@ export default function Home() {
             })}
             href="/Search"
           >
-            Browse for free
+            Explore now
           </Link>
         </div>
       </section>
