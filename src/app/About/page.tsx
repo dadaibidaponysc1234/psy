@@ -97,7 +97,7 @@ export default function Home() {
             />
           </div>
         </div>
-        <div className="flex flex-col lg:flex-row gap-x-20">
+        <div className="flex flex-col lg:flex-row gap-x-20 items-center">
           <Image
             src="/Specific-Objectives.jpg"
             alt=""
@@ -128,20 +128,20 @@ export default function Home() {
             </ul>
           </div>
         </div>
-        <div className=" lg:border-[1px] border-gray-300 shadow-sm rounded-lg grid gap-y-10 lg:grid-cols-2 p-3">
-          <div className="flex flex-col space-y-5">
-            <h1 className="text-3xl text-center pt-6 lg:text-5xl font-semibold">
+        <div className="lg:border-[1px] border-gray-300 shadow-sm rounded-lg gap-y-10 px-3 py-10 flex items-center gap-x-10">
+          <div className="flex flex-col space-y-8 items-center w-full">
+            <h1 className="text-3xl text-center lg:text-5xl font-semibold">
               Vision Statement
             </h1>
             <Image
-              src="/oneAbout.svg"
+              src="/Vision.jpg"
               alt=""
-              width={100}
-              height={100}
-              className="w-[80vw] lg:w-[30vw] rounded-lg object-cover object-center"
+              width={5120}
+              height={2880}
+              className="w-full lg:w-[30vw] rounded-lg object-cover object-center"
             ></Image>
           </div>
-          <div className="text-base my-auto items-center text-muted-foreground">
+          <div className="text-base my-auto items-center text-muted-foreground w-full">
             <p className="font-bold">
               Through Psych Gen Africa, we envision a future where African
               psychiatric genomics research is fully integrated into the global
