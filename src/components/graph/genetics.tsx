@@ -215,8 +215,8 @@ export function GeneticsStudyCount() {
     <Card className="flex flex-col">
       <CardHeader className="flex-row items-start space-y-0">
         <div className="grid gap-1">
-          <CardTitle>Genetic Sources</CardTitle>
-          <CardDescription>Number of Publications</CardDescription>
+          <CardTitle>Number of studies, by DNA source</CardTitle>
+          {/* <CardDescription>Number of Publications</CardDescription> */}
         </div>
         <Select value={activeGenetic} onValueChange={setActiveGenetic}>
           <SelectTrigger
@@ -334,7 +334,7 @@ export function GeneticsStudyCount() {
         <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
           <DialogHeader>
             <DialogTitle>
-              Search Results for &quot;{clickedGenetics}&quot; genetic source
+              Search Results for &quot;{clickedGenetics}&quot;
             </DialogTitle>
           </DialogHeader>
           <Search

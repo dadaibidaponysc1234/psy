@@ -26,12 +26,12 @@ const LandingCarousel = () => {
         <SwiperSlide>
           <div className="flex flex-col lg:flex-row justify-center text-center lg:text-start gap-x-12">
             <Image
-              src="/image-2.jpg"
+              src="/image-5.jpg"
               alt="Research Image"
-              width={632}
-              height={768}
+              width={996}
+              height={558}
               priority
-              className="w-full lg:w-[30vw] min-h-[450px] rounded-lg object-cover object-center"
+              className="w-full lg:w-[30vw] sm:min-h-[450px] max-h-[400px] rounded-lg object-cover object-center"
             />
             <div className="lg:w-[35vw] flex flex-col justify-center gap-6">
               <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
@@ -67,11 +67,12 @@ const LandingCarousel = () => {
               </Link>
             </div>
             <Image
-              src="/genOne.svg"
+              src="/image-6.jpg"
               alt="Genomics"
-              width={100}
-              height={100}
-              className="w-full lg:w-[30vw] rounded-lg object-cover object-center"
+              width={996}
+              height={558}
+              priority
+              className="w-full lg:w-[30vw] sm:min-h-[450px] max-h-[400px] rounded-lg object-cover object-center"
             />
           </div>
         </SwiperSlide>

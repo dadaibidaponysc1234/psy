@@ -15,7 +15,7 @@ const Analysis = () => {
     <div className="">
       <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center mb-12 flex-col p-2 lg:p-8">
         <video
-          src="/video-1.mp4"
+          src="/AnalysisPage.mov"
           loop
           autoPlay
           muted

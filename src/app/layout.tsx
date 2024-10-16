@@ -27,14 +27,6 @@ export default function RootLayout({
       ></script>
       <script async src="https://cdn.plot.ly/plotly-latest.min.js"></script>
       <link rel="shortcut icon" href="/icons/favicon.svg" />
-      <style>
-        {`
-          .icon {
-            width: 32px;
-            height: 32px;
-          }
-        `}
-      </style>
       <body className={cn("min-h-screen antialiased", syne.className)}>
         <Providers>
           <NavBar />

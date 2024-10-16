@@ -11,7 +11,7 @@ export default function Home() {
       <LandingPage/> */}
       <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center flex-col p-2 lg:p-8">
         <video
-          src="/video-1.mp4"
+          src="/HomePage.mov"
           loop
           autoPlay
           muted
@@ -66,10 +66,11 @@ export default function Home() {
           <div className="mx-auto">
             {/* TODO: Replace this with new image of woman - name should be homepage_analyze */}
             <Image
-              src="/image-3.jpg"
+              src="/image-7.jpg"
               alt=""
-              width={632}
-              height={768}
+              width={996}
+              height={563}
+              priority
               className="w-[80vw] lg:w-[30vw] min-h-[450px] rounded-lg object-cover object-center"
             />
           </div>

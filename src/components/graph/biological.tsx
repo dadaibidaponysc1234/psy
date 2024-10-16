@@ -77,8 +77,8 @@ const BiologicalStudyCount: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Biological modality Study-count</CardTitle>
-        <CardDescription>Number of Publications </CardDescription>
+        <CardTitle>Number of studies, by biological modality</CardTitle>
+        {/* <CardDescription>Number of Publications </CardDescription> */}
         <Select
           value={activeBiologicalModality}
           onValueChange={setActiveBiologicalModality}
@@ -209,7 +209,6 @@ const BiologicalStudyCount: React.FC = () => {
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedBiologicalModality}&quot;
-              biological modality
             </DialogTitle>
           </DialogHeader>
           <Search

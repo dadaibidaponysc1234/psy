@@ -1035,8 +1035,8 @@ const BiologicalStudyCount = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Biological modality Study-count</CardTitle>
-        <CardDescription>Number of Publications </CardDescription>
+        <CardTitle>Number of studies, by biological modality</CardTitle>
+        {/* <CardDescription>Number of Publications </CardDescription> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -1133,8 +1133,8 @@ const GeneticsStudyCount = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Genetic Source Study-Count</CardTitle>
-        <CardDescription>Number of Publications </CardDescription>
+        <CardTitle>Number of studies, by DNA source</CardTitle>
+        {/* <CardDescription>Number of Publications </CardDescription> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (

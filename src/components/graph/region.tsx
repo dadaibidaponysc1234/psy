@@ -120,7 +120,7 @@ const RegionalStudyCount: React.FC = () => {
         <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
           <DialogHeader>
             <DialogTitle>
-              Search Results for &quot;{clickedRegion}&quot; region
+              Search Results for &quot;{clickedRegion}&quot;
             </DialogTitle>
           </DialogHeader>
           <Search
