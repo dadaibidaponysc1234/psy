@@ -60,7 +60,7 @@ export default function Home() {
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31] text-center">
               About us
             </h2>
-            <p className="font-medium text-muted-foreground md:text-xl text-center">
+            <p className="font-medium text-muted-foreground md:text-lg text-center">
               The Psychiatric Genomics Africa Portal (Psych Gen Africa) is a
               pioneering initiative from the PGC Africa working group, designed
               to serve as a centralised platform for psychiatric genomics
@@ -77,7 +77,7 @@ export default function Home() {
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Mission Statement
             </h2>
-            <p className="font-medium text-muted-foreground md:text-xl ">
+            <p className="font-medium text-muted-foreground md:text-lg ">
               Psych Gen Africa aims to democratise access to psychiatric
               genomics data by providing free, open, and curated metadata from
               studies involving African participants or research conducted
@@ -99,17 +99,17 @@ export default function Home() {
         </div>
         <div className="flex flex-col lg:flex-row gap-x-20">
           <Image
-            src="/genOne.svg"
+            src="/Specific-Objectives.jpg"
             alt=""
-            width={100}
-            height={100}
+            width={4500}
+            height={3375}
             className="w-[80vw] lg:w-[30vw] lg:h-full h-[350px] rounded-lg  object-cover object-center"
           />
           <div className="space-y-6">
             <h1 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Specific Objectives
             </h1>
-            <ul className="space-y-3 text-xl font-bold list-disc ml-5">
+            <ul className="space-y-3 text-lg font-bold list-disc ml-5">
               <li>
                 Provide open and equitable access to African psychiatric
                 genomics metadata
