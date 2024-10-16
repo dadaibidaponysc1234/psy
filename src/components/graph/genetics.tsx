@@ -270,7 +270,9 @@ export function GeneticsStudyCount() {
                 strokeWidth={5}
                 activeIndex={activeIndex}
                 onClick={(state) => {
-                  setClickedGenetics(state.genetic ?? null);
+                  setClickedGenetics(
+                    state.genetic_source_materials__material_type ?? null
+                  );
                 }}
                 activeShape={({
                   outerRadius = 0,
