@@ -287,7 +287,7 @@ const Search = ({
               value={filter.title}
               onChange={handleInputChange}
               className="border-0 dark:text-white dark:placeholder:text-white"
-              placeholder="Search for disorders"
+              placeholder="Type your query here"
               autoComplete="off"
             />
           </div>
@@ -470,6 +470,7 @@ const Search = ({
               {/* <FilterButton name="Save Filters" type="outline" /> */}
             </div>
             <SideFilters
+              clearFilters={clearFilters}
               filter={filter}
               applyStringFilter={applyStringFilter}
               isGeneticSourcesLoading={isGeneticSourcesLoading}
@@ -527,6 +528,7 @@ const Search = ({
                       </SheetTitle>
                     </SheetHeader>
                     <SideFilters
+                      clearFilters={clearFilters}
                       filter={filter}
                       applyStringFilter={applyStringFilter}
                       isGeneticSourcesLoading={isGeneticSourcesLoading}
@@ -1181,6 +1183,7 @@ const SideFilters = ({
   articleTypes,
   disorders,
   isDisorderLoading,
+  clearFilters,
 }: {
   filter: DocumentState;
   applyStringFilter: ({
@@ -1196,6 +1199,7 @@ const SideFilters = ({
   articleTypes: any[];
   disorders: any[];
   isDisorderLoading: boolean;
+  clearFilters: boolean;
 }) => {
   const [visibleYears, setVisibleYears] = useState(5);
   const [visibleDisorders, setVisibleDisorders] = useState(5);
@@ -1256,6 +1260,7 @@ const SideFilters = ({
                       });
                     }}
                     value={`${year}`}
+                    checked={filter.year === `${year}`}
                     className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
                   <label
@@ -1317,6 +1322,7 @@ const SideFilters = ({
                         });
                       }}
                       value={disorder.disorder_name}
+                      checked={filter.disorder === disorder.disorder_name}
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label
@@ -1386,6 +1392,9 @@ const SideFilters = ({
                         });
                       }}
                       value={source.material_type}
+                      checked={
+                        filter.genetic_source_materials === source.material_type
+                      }
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label
@@ -1456,6 +1465,7 @@ const SideFilters = ({
                         });
                       }}
                       value={articleType.article_name}
+                      checked={filter.article_type === articleType.article_name}
                       className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <label

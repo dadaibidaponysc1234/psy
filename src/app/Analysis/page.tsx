@@ -40,8 +40,8 @@ const Analysis = () => {
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
-            Dive Deep into <span className="text-primary">Africa&apos;s</span>{" "}
-            Genomic Landscape
+            Take a Deep Dive into{" "}
+            <span className="text-primary">Africa&apos;s</span> Psychiatric
           </h1>
         </div>
       </section>
@@ -54,11 +54,11 @@ const Analysis = () => {
         <h1 className="text-2xl lg:text-[28px] font-bold ">
           Visualise studies by:
         </h1>
-        <Tabs defaultValue="collaboration" className="space-y-10">
+        <Tabs defaultValue="region" className="space-y-10">
           <div className="p-2 border rounded-md">
             <TabsList className="flex h-full">
-              <TabsTrigger value="year">Year</TabsTrigger>
               <TabsTrigger value="region">Country</TabsTrigger>
+              <TabsTrigger value="year">Year</TabsTrigger>
               <TabsTrigger value="map">Map</TabsTrigger>
               <TabsTrigger value="word-cloud">Word Cloud</TabsTrigger>
               <TabsTrigger value="disorder">Disorder</TabsTrigger>

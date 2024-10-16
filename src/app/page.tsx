@@ -71,7 +71,7 @@ export default function Home() {
               width={996}
               height={563}
               priority
-              className="w-[80vw] lg:w-[30vw] min-h-[450px] rounded-lg object-cover object-center"
+              className="w-full lg:w-[40vw] min-h-[450px] rounded-lg object-cover object-center"
             />
           </div>
           <div className="lg:w-[35vw] flex flex-col items-center lg:items-start justify-center gap-6 ">
