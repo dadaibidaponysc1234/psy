@@ -1,7 +1,7 @@
 "use client";
 
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Navigation, Pagination } from "swiper/modules";
+import { Autoplay, Navigation, Pagination, A11y } from "swiper/modules";
 import "swiper/swiper-bundle.css";
 import { buttonVariants } from "./ui/button";
 import Link from "next/link";
@@ -12,6 +12,7 @@ const KeyFeaturesCarousel = () => {
   return (
     <Swiper
       loop
+      freeMode
       slidesPerView={"auto"}
       speed={1000}
       spaceBetween={30}
@@ -20,8 +21,7 @@ const KeyFeaturesCarousel = () => {
         delay: 1000,
         disableOnInteraction: true,
       }}
-      modules={[Autoplay, Pagination, Navigation]}
-      className="!overflow-hidden"
+      modules={[Autoplay, Pagination, Navigation, A11y]}
     >
       <SwiperSlide className="max-w-[500px]">
         <div className="flex items-center justify-center gap-10 p-5 border-gray-300 shadow-sm border-2 rounded-md h-[300px]">

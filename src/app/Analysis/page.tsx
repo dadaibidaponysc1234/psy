@@ -42,6 +42,7 @@ const Analysis = () => {
           <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
             Take a Deep Dive into{" "}
             <span className="text-primary">Africa&apos;s</span> Psychiatric
+            Genomic Landscape
           </h1>
         </div>
       </section>
