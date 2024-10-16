@@ -50,7 +50,7 @@ const ChartContainer = React.forwardRef<
   const uniqueId = React.useId();
   const [getDivJpeg, { ref: imageRef, isLoading }] =
     useGenerateImage<HTMLDivElement>({
-      quality: 0.8,
+      quality: 1,
       type: "image/jpeg",
     });
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
