@@ -61,7 +61,7 @@ const LandingCarousel = () => {
                   className:
                     "font-bold h-14 w-fit rounded-[10px] !text-base lg:mx-0 mx-auto",
                 })}
-                href="/Search"
+                href="/search"
               >
                 Use Advanced search
               </Link>

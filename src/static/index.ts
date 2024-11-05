@@ -1,4 +1,5 @@
 export const BASE_URL = "https://algorithmxcomp.pythonanywhere.com/api";
+export const AUTH_TOKEN = "psychgen-auth-token";
 
 export const navItems: { name: string; path: string }[] = [
   {
@@ -7,14 +8,16 @@ export const navItems: { name: string; path: string }[] = [
   },
   {
     name: "About",
-    path: "/About",
+    path: "/about",
   },
   {
     name: "Analysis",
-    path: "/Analysis",
+    path: "/analysis",
   },
   {
     name: "Search",
-    path: "/Search",
+    path: "/search",
   },
 ];
+
+export const protectedRoutes = ["/admin"];

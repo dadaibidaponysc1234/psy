@@ -27,12 +27,10 @@ export default function RootLayout({
       ></script>
       <script async src="https://cdn.plot.ly/plotly-latest.min.js"></script>
       <link rel="shortcut icon" href="/icons/favicon.svg" />
-      <body className={cn("min-h-screen antialiased", syne.className)}>
-        <Providers>
-          <NavBar />
-          <div className="flex flex-col min-h-screen">{children}</div>
-          <Footer />
-        </Providers>
+      <body
+        className={cn("min-h-dvh flex flex-col antialiased", syne.className)}
+      >
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

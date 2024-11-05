@@ -17,4 +17,10 @@ export const DocumentFilterValidator = z.object({
   page: z.string().optional(),
 });
 
+export const LoginValidator = z.object({
+  username: z.string().min(1, { message: "This field is required" }),
+  password: z.string().min(1, { message: "This field is required" }),
+});
+
 export type DocumentState = z.infer<typeof DocumentFilterValidator>;
+export type LoginState = z.infer<typeof LoginValidator>;

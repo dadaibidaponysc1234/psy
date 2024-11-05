@@ -28,3 +28,8 @@ export function mergeRefs<T>(...refs: React.Ref<T>[]): React.RefCallback<T> {
     });
   };
 }
+
+export const createBlobUrl = (file: File) => {
+  const blob = new Blob([file], { type: file.type });
+  return URL.createObjectURL(blob);
+};

@@ -45,7 +45,7 @@ export default function Home() {
               size: "lg",
               className: "mx-auto font-bold h-14 rounded-[10px] !text-base",
             })}
-            href="/Search"
+            href="/search"
           >
             Explore now
           </Link>

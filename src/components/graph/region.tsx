@@ -117,7 +117,7 @@ const RegionalStudyCount: React.FC = () => {
         open={!!clickedRegion}
         onOpenChange={(open) => !open && setClickedRegion(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedRegion}&quot;

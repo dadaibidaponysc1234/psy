@@ -183,7 +183,7 @@ const DisorderStudyCount: React.FC = () => {
         open={!!clickedDisorder}
         onOpenChange={(open) => !open && setClickedDisorder(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedDisorder}&quot;

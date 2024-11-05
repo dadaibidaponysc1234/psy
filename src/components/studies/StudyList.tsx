@@ -17,7 +17,7 @@ const StudyList = ({ study }: studyListProps) => {
           </div>
         ))}
         <Link
-          href={`/Search/${study.id}`}
+          href={`/search/${study.id}`}
           className="text-xl font-semibold tracking-tight text-balance hover:text-gray-600"
         >
           {study.title}

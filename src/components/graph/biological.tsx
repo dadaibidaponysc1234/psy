@@ -205,7 +205,7 @@ const BiologicalStudyCount: React.FC = () => {
         open={!!clickedBiologicalModality}
         onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedBiologicalModality}&quot;

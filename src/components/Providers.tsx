@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
 
 import { PropsWithChildren } from "react";
+import { Toaster } from "./misc/toaster";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +18,8 @@ const queryClient = new QueryClient({
 const Providers = ({ children }: PropsWithChildren) => {
   return (
     <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster />
       <ProgressBar
         style="style"
         options={{
@@ -28,7 +31,6 @@ const Providers = ({ children }: PropsWithChildren) => {
         }}
         shallowRouting
       />
-      {children}
     </QueryClientProvider>
   );
 };

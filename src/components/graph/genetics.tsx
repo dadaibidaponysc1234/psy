@@ -108,7 +108,7 @@
 //         open={!!clickedGenetics}
 //         onOpenChange={(open) => !open && setClickedGenetics(null)}
 //       >
-//         <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen opacity-70 backdrop-blur-3xl">
+//         <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh opacity-70 backdrop-blur-3xl">
 //           <DialogHeader>
 //             <DialogTitle>
 //               Search Results for &quot;{clickedGenetics}&quot; genetic source
@@ -333,7 +333,7 @@ export function GeneticsStudyCount() {
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-screen">
+        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedGenetics}&quot;

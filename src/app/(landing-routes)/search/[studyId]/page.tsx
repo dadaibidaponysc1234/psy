@@ -223,7 +223,7 @@ const Detail = async ({ params }: pageProps) => {
                     className="hover:underline hover:cursor-pointer"
                   >
                     <Link
-                      href={`/Search/${article.id}`}
+                      href={`/search/${article.id}`}
                       className="text-blue-600"
                     >
                       {article.title}
@@ -268,7 +268,7 @@ const Detail = async ({ params }: pageProps) => {
               className="hover:underline hover:cursor-pointer "
             >
               <Link
-                href={`/Search/${article.id}`}
+                href={`/search/${article.id}`}
                 className="font-medium text-blue-600"
               >
                 {article.title}
