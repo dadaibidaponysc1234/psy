@@ -1,3 +1,5 @@
+"use client";
+
 const StudySkeleton = () => {
   return (
     <div className="w-full relative animate-pulse">

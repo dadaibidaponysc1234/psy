@@ -34,7 +34,7 @@ const AdminPage = () => {
           </CardContent>
         </Card>
       </section>
-      <section className="grid grid-cols-2 gap-5 w-full">
+      <section className="grid grid-cols-2 gap-5 w-full h-full">
         <Card className="w-full min-h-80 h-full">
           <CardContent className="p-6 flex flex-col h-full">
             <UploadEntry />
