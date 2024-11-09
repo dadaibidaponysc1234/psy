@@ -41,14 +41,35 @@ const AdminLoginPage = () => {
   });
 
   const onSubmit = (values: LoginState) => {
-    // console.log(values);
-    Cookies.set(AUTH_TOKEN, "eyywe9euew90uew0909ue9", { expires: 1 });
-    toast({
-      title: "Login Successful",
-      type: "foreground",
-      duration: 2000,
-    });
-    router.push("/admin");
+    const { NEXT_PUBLIC_ADMIN_USERNAME, NEXT_PUBLIC_ADMIN_PASSWORD } =
+      process.env;
+    if (NEXT_PUBLIC_ADMIN_USERNAME || NEXT_PUBLIC_ADMIN_PASSWORD) {
+      if (values.username === "Admin" && values.password === "1P@ssword") {
+        Cookies.set(AUTH_TOKEN, "eyy4iow29ewoi93203kjsdhwqhwq98w078qe78", {
+          expires: 1,
+        });
+        toast({
+          title: "Login Successful",
+          type: "foreground",
+          duration: 2000,
+        });
+        router.push("/admin");
+      } else {
+        form.setError("username", { message: "Invalid username or password" });
+        form.setError("password", { message: "Invalid username or password" });
+        toast({
+          title: "Invalid username or password",
+          type: "foreground",
+          duration: 3000,
+        });
+      }
+    } else {
+      toast({
+        title: "An error occured",
+        type: "foreground",
+        duration: 3000,
+      });
+    }
   };
   return (
     <main className="flex-grow flex flex-col justify-center items-center p-5 gap-10">
