@@ -1,3 +1,5 @@
+"use client";
+
 import UploadEntry from "@/components/admin/upload-entry";
 import {
   Card,
@@ -7,9 +9,49 @@ import {
 } from "@/components/ui/card";
 import DropBox from "@/components/ui/drop-box";
 import { Input } from "@/components/ui/input";
-import Image from "next/image";
+import Loader from "@/components/ui/loader";
+import { apiCall } from "@/services/endpoint";
+import { BASE_URL } from "@/static";
+import { ApiResponse } from "@/types/studyViewList";
+import { useQuery } from "@tanstack/react-query";
 
 const AdminPage = () => {
+  const { data: entriesData, isLoading: isEntriesLoading } = useQuery<
+    ApiResponse,
+    Error
+  >({
+    queryKey: ["entries", { page: 1 }],
+    queryFn: async () => {
+      const res = await apiCall(
+        {},
+        `${BASE_URL}/studies`,
+        "get",
+        {},
+        {
+          page: 1,
+        }
+      );
+      return res ?? {};
+    },
+  });
+
+  // const { data, isLoading } = useQuery<
+  //   {
+  //     unique_visitors: number;
+  //     total_visits: number;
+  //     daily_visits: {
+  //       date: string;
+  //       visit_count: number;
+  //     }[];
+  //   },
+  //   Error
+  // >({
+  //   queryKey: ["entries"],
+  //   queryFn: async (data) => {
+  //     const res = await apiCall(data, `${BASE_URL}/visitor-count/`, "get");
+  //     return res.data;
+  //   },
+  // });
   return (
     <div className="flex flex-col gap-5">
       <Input
@@ -19,7 +61,13 @@ const AdminPage = () => {
       <section className="flex items-center gap-5 w-full text-center">
         <Card className="w-full h-[120px]">
           <CardContent className="p-6">
-            <CardTitle className="text-[#5A3A31] text-4xl">305</CardTitle>
+            <CardTitle className="text-[#5A3A31] text-4xl">
+              {isEntriesLoading ? (
+                <Loader />
+              ) : (
+                entriesData?.count?.toLocaleString()
+              )}
+            </CardTitle>
             <CardDescription className="text-2xl text-black">
               Papers
             </CardDescription>
@@ -27,7 +75,13 @@ const AdminPage = () => {
         </Card>
         <Card className="w-full h-[120px]">
           <CardContent className="p-6">
-            <CardTitle className="text-[#5A3A31] text-4xl">1,636</CardTitle>
+            <CardTitle className="text-[#5A3A31] text-4xl">
+              {isEntriesLoading ? (
+                <Loader />
+              ) : (
+                entriesData?.count?.toLocaleString()
+              )}
+            </CardTitle>
             <CardDescription className="text-2xl text-black">
               Papers
             </CardDescription>

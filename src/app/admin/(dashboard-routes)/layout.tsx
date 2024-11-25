@@ -5,12 +5,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import Cookies from "js-cookie";
-import { AUTH_TOKEN } from "@/static";
+import { AUTH_TOKEN, BASE_URL } from "@/static";
 import { useRouter } from "next-nprogress-bar";
+import { useToast } from "@/hooks/use-toast";
+import { apiCall } from "@/services/endpoint";
+import { useMutation } from "@tanstack/react-query";
 
 const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
+
+  const { mutate: logout, isPending } = useMutation<any, Error, any>({
+    mutationFn: async (data) => {
+      const res = await apiCall(data, `${BASE_URL}/logout/`, "post");
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Logout successful",
+        type: "foreground",
+        duration: 2000,
+      });
+      router.push("/admin/login");
+    },
+    onError: (err) => {
+      toast({
+        title: err.message,
+      });
+    },
+  });
 
   const tabs = [
     {
@@ -62,8 +86,8 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <button
               className="flex items-center gap-x-2 text-[#FF0000]/80"
               onClick={() => {
+                logout({});
                 Cookies.remove(AUTH_TOKEN);
-                router.push("/admin/login");
               }}
             >
               <LogOut size={22} />

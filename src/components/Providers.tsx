@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 import { PropsWithChildren } from "react";
 import { Toaster } from "./misc/toaster";
@@ -19,6 +20,11 @@ const Providers = ({ children }: PropsWithChildren) => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <ReactQueryDevtools
+        initialIsOpen={false}
+        buttonPosition="bottom-right"
+        position="right"
+      />
       <Toaster />
       <ProgressBar
         style="style"

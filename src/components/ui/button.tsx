@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary hover:border-primary hover:border",
+          "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary border border-primary",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -52,6 +52,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       loading = false,
       children,
       disabled = false,
+      onClick,
       ...props
     },
     ref
@@ -62,6 +63,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={loading || disabled}
+        onClick={loading || disabled ? undefined : onClick}
         {...props}
       >
         {loading ? <Loader2Icon className="animate-spin" /> : children}
