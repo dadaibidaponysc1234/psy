@@ -46,12 +46,12 @@ const Analysis = () => {
           </h1>
         </div>
       </section>
-      <div className="p-10 lg:space-y-5 space-y-2 max-w-[1024px] mx-auto w-full">
+      <div className="sm:p-10 p-6 lg:space-y-5 space-y-2 max-w-[1024px] mx-auto w-full">
         <h1 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31]">
           Uncover Regional Insights and Research Trends
         </h1>
       </div>
-      <div className="p-10 space-y-4 max-w-[1024px] mx-auto w-full">
+      <div className="sm:p-10 p-6 space-y-4 max-w-[1024px] mx-auto w-full">
         <h1 className="text-2xl lg:text-[28px] font-bold ">
           Visualise studies by:
         </h1>

@@ -109,7 +109,7 @@ const AdvancedSearch = ({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="gap-4 grid lg:grid-cols-3 sm:grid-cols-2 grid-cols-1"
+        className="sm:gap-4 gap-3 grid lg:grid-cols-3 sm:grid-cols-2 grid-cols-1"
       >
         <FormField
           control={form.control}

@@ -84,7 +84,7 @@ const ChartContainer = React.forwardRef<
         onClick={() => handleDownload()}
         loading={isLoading}
         variant={"ghost"}
-        className="h-fit w-[180px] text-sm border mt-8 gap-2"
+        className="h-fit w-[180px] text-sm border sm:mt-8 mt-4 gap-2"
       >
         <CloudDownloadIcon strokeWidth={1.5} />
         Download Graph

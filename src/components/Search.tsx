@@ -274,8 +274,8 @@ const Search = ({
     >
       {showSearchBar && (
         <div
-          className={`sm:w-4/5 w-full relative lg:max-w-2xl flex flex-col p-10 mx-auto mt-10 lg:mt-16 ${
-            isAdvanceFilterOpen ? "border rounded-xl" : "border-none"
+          className={`sm:w-4/5 w-full relative lg:max-w-2xl flex flex-col sm:p-10 p-6 mx-auto mt-10 lg:mt-16 ${
+            isAdvanceFilterOpen ? "border rounded-lg" : "border-none"
           }`}
         >
           <div className="flex items-center justify-center ring-1 ring-gray-500 focus-within:ring-gray-400 rounded-md">
@@ -296,7 +296,7 @@ const Search = ({
             className="my-8 flex items-center justify-center"
             onClick={() => setIsAdvanceFilterOpen((prev) => !prev)}
           >
-            <p className="text-[#6666E7] cursor-pointer font-bold">
+            <p className="text-[#6666E7] text-sm sm:text-base cursor-pointer font-bold">
               {isAdvanceFilterOpen
                 ? "Close Advance Search Options"
                 : "Use Advanced Search"}
@@ -310,7 +310,7 @@ const Search = ({
           </div>
           {showVisualize && (
             <Button
-              className="h-14 w-[200px] mb-8 text-base mx-auto"
+              className="sm:h-14 h-12 sm:w-[200px] w-40 mb-8 sm:text-base text-sm mx-auto"
               onClick={() => setIsGraphOpen((prev) => !prev)}
             >
               {isGraphOpen ? "Close visuals" : "Visualise"}
@@ -483,8 +483,8 @@ const Search = ({
           </div>
         )}
 
-        <div className="w-full flex flex-col">
-          <div className="flex items-center justify-between">
+        <div className="w-full flex flex-col gap-3">
+          <div className="flex sm:items-center justify-between sm:flex-row flex-col-reverse gap-5">
             {isLoading ? (
               ""
             ) : searches?.results && searches?.results.length > 0 ? (
@@ -492,59 +492,61 @@ const Search = ({
                 <h1 className="text-2xl lg:text-2xl font-bold">
                   {searches?.count} Results
                 </h1>
-                <Button
-                  className="gap-2 text-white"
-                  onClick={() => handleDownload()}
-                >
-                  <CloudDownloadIcon strokeWidth={2} />
-                  <span>Download Search Result</span>
-                </Button>
+
+                <div className="flex gap-3 min-[500px]:flex-row flex-col">
+                  <Button
+                    className="gap-2 text-white  w-full sm:w-auto"
+                    onClick={() => handleDownload()}
+                  >
+                    <CloudDownloadIcon strokeWidth={2} />
+                    <span>Download Search Result</span>
+                  </Button>
+                  {showFilters && (
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className="group flex items-center border rounded-md w-full sm:w-auto md:hidden"
+                        >
+                          <Filter
+                            aria-hidden="true"
+                            className="h-4 w-4 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-gray-800">
+                            Filter By
+                          </span>
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent className="flex w-3/6 flex-col pr-0 sm:max-w-lg overflow-y-auto md:hidden">
+                        <SheetHeader className="mt-6 space-y-2.5 pr-6">
+                          <SheetTitle>
+                            <FilterButton
+                              name="Clear Filters"
+                              type="ghost"
+                              onClick={handleClearFilters}
+                            />
+                          </SheetTitle>
+                        </SheetHeader>
+                        <SideFilters
+                          clearFilters={clearFilters}
+                          filter={filter}
+                          applyStringFilter={applyStringFilter}
+                          isGeneticSourcesLoading={isGeneticSourcesLoading}
+                          geneticSources={geneticSources ?? []}
+                          isArticleTypesLoading={isArticleTypesLoading}
+                          articleTypes={articleTypes ?? []}
+                          isDisorderLoading={isDisorderLoading}
+                          disorders={disorders ?? []}
+                        />
+                      </SheetContent>
+                    </Sheet>
+                  )}
+                </div>
               </>
             ) : null}
-
-            {showFilters && (
-              <div className="flex flex-col md:hidden">
-                <Sheet>
-                  <SheetTrigger className="group -m-2 flex items-center p-2 border rounded-md">
-                    <Filter
-                      aria-hidden="true"
-                      className="h-4 w-4 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
-                    />
-                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-gray-800">
-                      Filter By
-                    </span>
-                  </SheetTrigger>
-                  <SheetContent className="flex w-3/6 flex-col pr-0 sm:max-w-lg overflow-y-auto">
-                    <SheetHeader className="mt-6 space-y-2.5 pr-6">
-                      <SheetTitle>
-                        <div className="flex gap-4 lg:gap-6">
-                          <FilterButton
-                            name="Clear Filters"
-                            type="ghost"
-                            onClick={handleClearFilters}
-                          />
-                          {/* <FilterButton name="Save Filters" type="outline" /> */}
-                        </div>
-                      </SheetTitle>
-                    </SheetHeader>
-                    <SideFilters
-                      clearFilters={clearFilters}
-                      filter={filter}
-                      applyStringFilter={applyStringFilter}
-                      isGeneticSourcesLoading={isGeneticSourcesLoading}
-                      geneticSources={geneticSources ?? []}
-                      isArticleTypesLoading={isArticleTypesLoading}
-                      articleTypes={articleTypes ?? []}
-                      isDisorderLoading={isDisorderLoading}
-                      disorders={disorders ?? []}
-                    />
-                  </SheetContent>
-                </Sheet>
-              </div>
-            )}
           </div>
 
-          <div className="flex flex-col gap-4 grow">
+          <div className="flex flex-col gap-5 grow">
             {isLoading ? (
               new Array(10).fill(null).map((_, i) => <StudySkeleton key={i} />)
             ) : isError ? (

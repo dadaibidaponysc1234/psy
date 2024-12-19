@@ -9,7 +9,7 @@ const StudyList = ({ study }: studyListProps) => {
   // console.log(study);
 
   return (
-    <div key={study.id} className="w-full flex flex-col gap-6 my-5">
+    <div key={study.id} className="w-full flex flex-col gap-6">
       <div className="max-w-4xl space-y-1">
         {study.article_type.map((a, index) => (
           <div key={index} className="font-medium text-[#5A3A31]">

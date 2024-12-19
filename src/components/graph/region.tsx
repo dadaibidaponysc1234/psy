@@ -49,6 +49,10 @@ const RegionalStudyCount: React.FC = () => {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
+    mobile: {
+      label: "Desktop",
+      color: "hsl(var(--chart-5))",
+    },
   };
 
   return (
@@ -57,7 +61,7 @@ const RegionalStudyCount: React.FC = () => {
         <CardTitle>Country Study-count</CardTitle>
         <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="w-full overflow-x-auto h-full">
         {isLoading ? (
           <GraphSkeleton />
         ) : (

@@ -459,16 +459,16 @@ const Chord = ({ data, isLoading, error }) => {
             <div
               data-chart={chartId}
               ref={imageRef}
-              className="flex flex-col-reverse lg:flex-row justify-between items-start"
+              className="flex flex-col-reverse md:flex-row justify-between items-start gap-4"
             >
               <div
                 ref={legendContainerRef}
-                style={{ padding: "20px", flex: "0 0 200px" }}
+                style={{ flex: "0 0 200px" }}
                 className="w-full lg:w-1/4"
               ></div>
               <div
                 ref={svgContainerRef}
-                style={{ flex: "1 1 auto", minHeight: "500px" }}
+                style={{ flex: "1 1 auto" }}
                 className="w-full lg:w-3/4"
               ></div>
             </div>
