@@ -132,7 +132,14 @@ const Detail = async ({ params }: pageProps) => {
             <span>ISSN: {detail.issue}</span>{" "}
           </div>
           <div>
-            DOI: <span>{detail.DOI}</span>
+            DOI:{" "}
+            <a
+              href={`https://doi.org/${detail.DOI}`}
+              target="_blank"
+              className="text-blue-600 hover:underline"
+            >
+              https://doi.org/{detail.DOI}
+            </a>
           </div>
         </div>
 

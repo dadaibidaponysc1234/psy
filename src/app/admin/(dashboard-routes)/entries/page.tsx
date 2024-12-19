@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiCall } from "@/services/endpoint";
 import { BASE_URL } from "@/static";
 import { ApiResponse } from "@/types/studyViewList";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { PlusCircleIcon } from "lucide-react";
 import { useState } from "react";
@@ -36,8 +36,9 @@ const EntriesPage = () => {
     page: 1,
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data, isLoading, refetch } = useQuery<ApiResponse, Error>({
+  const { data, isLoading } = useQuery<ApiResponse, Error>({
     queryKey: ["entries", filter],
     queryFn: async () => {
       const res = await apiCall(
@@ -54,12 +55,27 @@ const EntriesPage = () => {
   const { mutate: deleteEntries, isPending: isDeletePending } = useMutation({
     mutationKey: ["deleteEntries"],
     mutationFn: async (ids: number[]) => {
-      await apiCall(ids, `${BASE_URL}/studies/delete-multiple/`, "post");
+      const res = await Promise.allSettled(
+        ids.map((id) =>
+          apiCall({}, `${BASE_URL}/studies/delete/${id}/`, "delete")
+        )
+      );
+      return res;
     },
-    onSuccess: () => {
-      refetch();
-      setSelectedIds([]);
-      setSelectMultiple(false);
+    onSuccess: (res) => {
+      if (res.every((r) => r.status === "fulfilled")) {
+        toast({
+          title: "Entries deleted successfully",
+          // status: "success",
+        });
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            return query.queryKey[0] === "entries";
+          },
+        });
+        setSelectedIds([]);
+        setSelectMultiple(false);
+      }
     },
   });
 

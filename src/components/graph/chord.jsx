@@ -1,13 +1,32 @@
-import { useRef, useEffect } from "react";
+import FileSaver from "file-saver";
+import { useRef, useEffect, useId, useCallback } from "react";
 import * as d3 from "d3";
 import GraphSkeleton from "../skeletons/graph-skeleton";
 import { Card, CardContent } from "../ui/card";
+import { useGenerateImage } from "recharts-to-png";
+import { Button } from "../ui/button";
+import { CloudDownloadIcon } from "lucide-react";
 
 const Chord = ({ data, isLoading, error }) => {
   const dimensions = { width: 800, height: 800 };
 
   const svgContainerRef = useRef(null);
   const legendContainerRef = useRef(null);
+
+  const uniqueId = useId();
+  const [getDivJpeg, { ref: imageRef, isLoading: isDownloadLoading }] =
+    useGenerateImage({
+      quality: 1,
+      type: "image/jpeg",
+    });
+  const chartId = `chart-${uniqueId.replace(/:/g, "")}`;
+
+  const handleDownload = useCallback(async () => {
+    const jpeg = await getDivJpeg();
+    if (jpeg) {
+      FileSaver.saveAs(jpeg, "graph.jpeg");
+    }
+  }, [getDivJpeg]);
 
   useEffect(() => {
     if (!data || !data.matrix || !data.countries || !svgContainerRef.current) {
@@ -436,18 +455,33 @@ const Chord = ({ data, isLoading, error }) => {
             <p className="text-red-500">{error}</p>
           </div>
         ) : (
-          <div className="flex flex-col-reverse lg:flex-row justify-between items-start">
+          <>
             <div
-              ref={legendContainerRef}
-              style={{ padding: "20px", flex: "0 0 200px" }}
-              className="w-full lg:w-1/4"
-            ></div>
-            <div
-              ref={svgContainerRef}
-              style={{ flex: "1 1 auto", minHeight: "500px" }}
-              className="w-full lg:w-3/4"
-            ></div>
-          </div>
+              data-chart={chartId}
+              ref={imageRef}
+              className="flex flex-col-reverse lg:flex-row justify-between items-start"
+            >
+              <div
+                ref={legendContainerRef}
+                style={{ padding: "20px", flex: "0 0 200px" }}
+                className="w-full lg:w-1/4"
+              ></div>
+              <div
+                ref={svgContainerRef}
+                style={{ flex: "1 1 auto", minHeight: "500px" }}
+                className="w-full lg:w-3/4"
+              ></div>
+            </div>
+            <Button
+              onClick={() => handleDownload()}
+              loading={isDownloadLoading}
+              variant={"ghost"}
+              className="h-fit w-[180px] text-sm border mt-8 gap-2"
+            >
+              <CloudDownloadIcon strokeWidth={1.5} />
+              Download Graph
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>

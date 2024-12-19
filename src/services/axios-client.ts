@@ -29,13 +29,14 @@ client.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status;
     if (status === 401) {
+      console.log(window.location.pathname);
       if (
         typeof window !== "undefined" &&
-        window.location.href.startsWith("/admin")
+        window.location.pathname.startsWith("/admin")
       ) {
         Cookies.remove(AUTH_TOKEN);
         Cookies.remove(API_COOKIE);
-        window.history.pushState({}, "", "/admin/login");
+        window.location.href = "/admin/login";
       }
       return null;
     } else if (
@@ -58,6 +59,12 @@ client.interceptors.response.use(
   }
 );
 
-export default async () => {
+export default async (needsAuth = true) => {
+  if (needsAuth) {
+    if (typeof window !== "undefined") {
+      const token = Cookies.get(AUTH_TOKEN);
+      if (token) client.defaults.headers.Authorization = `Bearer ${token}`;
+    }
+  }
   return client;
 };

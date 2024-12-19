@@ -61,11 +61,11 @@ export default function Home() {
               About us
             </h2>
             <p className="font-medium text-muted-foreground md:text-lg text-center">
-              The Psychiatric Genomics Africa Portal (Psych Gen Africa) is a
+              The Psychiatric Genomics Africa Portal (PsychGenAfrica) is a
               pioneering initiative from the PGC Africa working group, designed
               to serve as a centralised platform for psychiatric genomics
               research focused on the African population. By establishing a
-              unified metadata repository, Psych Gen Africa enables researchers,
+              unified metadata repository, PsychGenAfrica enables researchers,
               healthcare professionals, and the public to access vital
               information and explore groundbreaking research in
               neuropsychiatric disorders across Africa.

@@ -1,4 +1,4 @@
-import { navItems } from "@/static";
+import { APP_NAME, navItems } from "@/static";
 import Image from "next/image";
 import Link from "next/link";
 // import Search from "@/app/Search/Page";
@@ -17,8 +17,8 @@ const Footer = () => {
             className="w-80 object-cover shrink-0 object-center"
           />
           <div className="leading-loose text-center">
-            The Psychiatric Genomics Africa Portal (PsychGen Africa) is an
-            initiative of the PGC Africa working group.
+            The Psychiatric Genomics Africa Portal ({APP_NAME}) is an initiative
+            of the PGC Africa working group.
           </div>
           {/* <ul className="space-y-3 lg:space-y-5 text-nowrap text-center">
             <li>Terms of use</li>
@@ -36,7 +36,7 @@ const Footer = () => {
           />
         </div>
         <p className="text-center text-lg pb-5">
-          © 2024 PsychGen Africa. All rights reserved.
+          © 2024 {APP_NAME}. All rights reserved.
         </p>
       </div>
     </section>

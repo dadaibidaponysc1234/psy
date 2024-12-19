@@ -5,6 +5,7 @@ import {
   DragEventHandler,
   ReactNode,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Check, Trash, X } from "lucide-react";
@@ -14,16 +15,20 @@ import { createBlobUrl } from "@/lib/utils";
 const DropBox = ({
   files,
   onFilesSelected,
+  limit = Infinity,
 }: {
   files: File[];
   onFilesSelected: (files: File[]) => void;
+  limit: number;
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     const selectedFiles = event.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
       const newFiles = Array.from(selectedFiles);
+      console.log(newFiles);
       onFilesSelected([...files, ...newFiles]);
     }
   };
@@ -32,6 +37,7 @@ const DropBox = ({
     const droppedFiles = event.dataTransfer.files;
     if (droppedFiles.length > 0) {
       const newFiles = Array.from(droppedFiles);
+      console.log(newFiles);
       onFilesSelected([...files, ...newFiles]);
     }
   };
@@ -43,9 +49,11 @@ const DropBox = ({
     onFilesSelected(files.filter((_, i) => i !== index));
   };
 
-  // useEffect(() => {
-  //   onFilesSelected(files);
-  // }, [files, onFilesSelected]);
+  useEffect(() => {
+    if (files.length === 0 && inputRef.current) {
+      inputRef.current.files = null;
+    }
+  }, [files]);
 
   return (
     <section className="flex flex-col h-full">
@@ -75,6 +83,7 @@ const DropBox = ({
             </p>
           </div>
           <input
+            ref={inputRef}
             type="file"
             hidden
             id="browse"

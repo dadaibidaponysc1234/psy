@@ -5,12 +5,13 @@ import { cn } from "@/lib/utils";
 import NavBar from "@/components/nav";
 import Footer from "@/components/footer";
 import Providers from "@/components/Providers";
+import { APP_NAME } from "@/static";
 
 const syne = Syne({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PsychGen Africa",
-  description: "PsychGen Africa",
+  title: APP_NAME,
+  description: APP_NAME,
 };
 
 export default function RootLayout({
