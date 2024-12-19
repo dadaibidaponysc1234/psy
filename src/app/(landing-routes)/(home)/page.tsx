@@ -35,7 +35,7 @@ export default function Home() {
           }}
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
-          <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white text-center">
             Your gateway to <span className="text-primary">African</span>{" "}
             Psychiatric Genomics Research
           </h1>

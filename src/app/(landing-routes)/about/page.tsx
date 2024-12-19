@@ -37,7 +37,7 @@ export default function Home() {
           }}
         ></div>
         <div className="max-w-5xl space-y-10 flex flex-col items-center z-10">
-          <h1 className="text-5xl lg:text-6xl font-bold text-white text-center">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white text-center">
             Developed in <span className="text-primary">Africa</span> by{" "}
             <span className="text-primary">Africans</span> for{" "}
             <span className="text-primary">Africa</span>.
