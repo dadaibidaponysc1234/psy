@@ -325,8 +325,8 @@ const Chord = ({ data, isLoading, error }) => {
       })
     );
 
-    const width = dimensions.width;
-    const height = dimensions.height;
+    const width = 800;
+    const height = 800;
     const outerRadius = Math.min(width, height) / 2 - 100;
     const innerRadius = outerRadius - 1.5;
 
@@ -443,7 +443,7 @@ const Chord = ({ data, isLoading, error }) => {
       .text((d) => d)
       .style("font-size", "12px")
       .style("alignment-baseline", "middle");
-  }, [data, dimensions.width, dimensions.height]);
+  }, [data]);
 
   return (
     <Card>

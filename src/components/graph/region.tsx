@@ -67,6 +67,13 @@ const RegionalStudyCount: React.FC = () => {
         ) : (
           <ChartContainer config={chartConfig}>
             <BarChart
+              // width={
+              //   typeof window === "undefined"
+              //     ? undefined
+              //     : window.innerWidth > 768
+              //     ? 600
+              //     : window.innerWidth - 40
+              // }
               accessibilityLayer
               data={chartData}
               margin={{
@@ -74,7 +81,7 @@ const RegionalStudyCount: React.FC = () => {
               }}
               onClick={(state) => setClickedRegion(state.activeLabel ?? null)}
             >
-              <Legend
+              {/* <Legend
                 verticalAlign="bottom"
                 content={
                   <AbbreviationLegend
@@ -83,14 +90,14 @@ const RegionalStudyCount: React.FC = () => {
                     }))}
                   />
                 }
-              />
+              /> */}
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="countries__name"
                 tickMargin={10}
                 axisLine={false}
                 tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
-                fontSize={14}
+                className="sm:text-sm text-xs"
                 fontWeight={600}
               />
               <ChartTooltip
@@ -108,6 +115,11 @@ const RegionalStudyCount: React.FC = () => {
             </BarChart>
           </ChartContainer>
         )}
+        {chartData && chartData.length  > 0 && <AbbreviationLegend
+          data={(chartData ?? []).map((val) => ({
+            name: val.countries__name,
+          }))}
+        />}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

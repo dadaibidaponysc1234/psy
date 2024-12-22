@@ -56,21 +56,21 @@ const Analysis = () => {
           Visualise studies by:
         </h1>
         <Tabs defaultValue="region" className="space-y-10">
-          <div className="p-2 border rounded-md">
+          <div className="sm:p-2 p-1 border rounded-md">
             <TabsList className="flex h-full">
-              <TabsTrigger value="region">Country</TabsTrigger>
-              <TabsTrigger value="year">Year</TabsTrigger>
-              <TabsTrigger value="map">Map</TabsTrigger>
-              <TabsTrigger value="word-cloud">Word Cloud</TabsTrigger>
-              <TabsTrigger value="disorder">Disorder</TabsTrigger>
-              <TabsTrigger value="top-five-disorders">
+              <TabsTrigger className="sm:p-3 p-2" value="region">Country</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="year">Year</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="map">Map</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="word-cloud">Word Cloud</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="disorder">Disorder</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="top-five-disorders">
                 Top Five Disorders
               </TabsTrigger>
-              <TabsTrigger value="biologicalModality">
+              <TabsTrigger className="sm:p-3 p-2" value="biologicalModality">
                 Biological Modality
               </TabsTrigger>
-              <TabsTrigger value="geneticSource">Genetic Source</TabsTrigger>
-              <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="geneticSource">Genetic Source</TabsTrigger>
+              <TabsTrigger className="sm:p-3 p-2" value="collaboration">Collaboration</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="year">
