@@ -1,9 +1,9 @@
-"use client";
+"use client"
 
-import FilterButton from "@/components/filterBtn";
-import StudySkeleton from "@/components/skeletons/study-skeleton";
-import StudyList from "@/components/studies/StudyList";
-import { DocumentState } from "@/lib/validators/document-validator";
+import FilterButton from "@/components/filterBtn"
+import StudySkeleton from "@/components/skeletons/study-skeleton"
+import StudyList from "@/components/studies/StudyList"
+import { DocumentState } from "@/lib/validators/document-validator"
 import {
   ChevronDown,
   ChevronUp,
@@ -11,27 +11,27 @@ import {
   Filter,
   Search as SearchIcon,
   TrendingUp,
-} from "lucide-react";
-import React, { useMemo, useRef, useState } from "react";
-import { useGetSearchResult } from "@/hooks/use-get-searchResults";
-import { Input } from "@/components/ui/input";
-import useDebounce from "@/hooks/useDebounce";
-import NotFound from "@/components/NotFound";
+} from "lucide-react"
+import React, { useMemo, useRef, useState } from "react"
+import { useGetSearchResult } from "@/hooks/use-get-searchResults"
+import { Input } from "@/components/ui/input"
+import useDebounce from "@/hooks/useDebounce"
+import NotFound from "@/components/NotFound"
 import {
   Sheet,
   SheetTrigger,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
-import PaginationControls from "@/components/PaginationControls";
-import AdvancedSearch from "@/components/AdvancedSearch";
-import { useGetSuggestion } from "@/hooks/use-get-suggestion";
-import { useOnClickOutside } from "@/hooks/use-on-click-outside";
-import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { BASE_URL } from "@/static";
-import GraphSkeleton from "@/components/skeletons/graph-skeleton";
+} from "@/components/ui/sheet"
+import PaginationControls from "@/components/PaginationControls"
+import AdvancedSearch from "@/components/AdvancedSearch"
+import { useGetSuggestion } from "@/hooks/use-get-suggestion"
+import { useOnClickOutside } from "@/hooks/use-on-click-outside"
+import { Button } from "@/components/ui/button"
+import { useQuery } from "@tanstack/react-query"
+import { BASE_URL } from "@/static"
+import GraphSkeleton from "@/components/skeletons/graph-skeleton"
 import {
   CardTitle,
   CardDescription,
@@ -39,13 +39,13 @@ import {
   CardHeader,
   Card,
   CardFooter,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
+} from "@/components/ui/chart"
 import {
   CartesianGrid,
   XAxis,
@@ -60,32 +60,32 @@ import {
   Sector,
   Label,
   YAxis,
-} from "recharts";
-import axios from "axios";
+} from "recharts"
+import axios from "axios"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { StudyCount } from "@/types/yearApi";
-import { Region } from "@/types/regionData";
-import AbbreviationLegend from "./ui/abbreviation-legend";
-import { Disorder } from "@/types/disorderData";
-import { getRandomColor } from "@/lib/utils";
+} from "./ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
+import { StudyCount } from "@/types/yearApi"
+import { Region } from "@/types/regionData"
+import AbbreviationLegend from "./ui/abbreviation-legend"
+import { Disorder } from "@/types/disorderData"
+import { getRandomColor } from "@/lib/utils"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { PieSectorDataItem } from "recharts/types/polar/Pie";
-import { BiologicalRecord } from "@/types/biological";
-import { Genetics } from "@/types/genetic";
-import Chord from "./graph/chord";
+} from "./ui/select"
+import { PieSectorDataItem } from "recharts/types/polar/Pie"
+import { BiologicalRecord } from "@/types/biological"
+import { Genetics } from "@/types/genetic"
+import Chord from "./graph/chord"
 
 const Search = ({
   title = "",
@@ -106,9 +106,9 @@ const Search = ({
   showFilters = true,
   showVisualize = true,
 }: DocumentState & {
-  showSearchBar?: boolean;
-  showFilters?: boolean;
-  showVisualize?: boolean;
+  showSearchBar?: boolean
+  showFilters?: boolean
+  showVisualize?: boolean
 }) => {
   const defaultFilter = {
     title,
@@ -125,12 +125,12 @@ const Search = ({
     genetic_source_materials,
     biological_modalities,
     page,
-  };
-  const [filter, setFilter] = useState<DocumentState>(defaultFilter);
-  const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false);
-  const [isGraphOpen, setIsGraphOpen] = useState(false);
-  const [clearFilters, setClearFilters] = useState(false);
-  const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700);
+  }
+  const [filter, setFilter] = useState<DocumentState>(defaultFilter)
+  const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false)
+  const [isGraphOpen, setIsGraphOpen] = useState(false)
+  const [clearFilters, setClearFilters] = useState(false)
+  const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700)
 
   const sanitizedFilters = {
     title: debouncedSearchTerm || undefined,
@@ -147,99 +147,97 @@ const Search = ({
     biological_modalities: filter.biological_modalities || undefined,
     genetic_source_materials: filter.genetic_source_materials || undefined,
     page: filter.page || "1",
-  };
+  }
 
   const {
     data: searches,
     isLoading,
     isError,
-  } = useGetSearchResult(sanitizedFilters);
+  } = useGetSearchResult(sanitizedFilters)
 
-  const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "");
+  const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
     {
       queryKey: ["search-genetic-sources"],
       queryFn: async () => {
-        const response = await axios.get(
-          `${BASE_URL}/genetic-source-materials`
-        );
-        return response.data;
+        const response = await axios.get(`${BASE_URL}/genetic-source-materials`)
+        return response.data
       },
       refetchOnMount: false,
     }
-  );
+  )
 
   const { data: disorders, isLoading: isDisorderLoading } = useQuery({
     queryKey: ["search-disorders"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/disorders`);
-      return response.data;
+      const response = await axios.get(`${BASE_URL}/disorders`)
+      return response.data
     },
     refetchOnMount: false,
-  });
+  })
 
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
     queryKey: ["search-article-types"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/article-types`);
-      return response.data;
+      const response = await axios.get(`${BASE_URL}/article-types`)
+      return response.data
     },
     refetchOnMount: false,
-  });
+  })
 
   const nextPage = () =>
-    setFilter((prev) => ({ ...prev, page: `${(Number(prev.page) || 1) + 1}` }));
+    setFilter((prev) => ({ ...prev, page: `${(Number(prev.page) || 1) + 1}` }))
 
   const prevPage = () =>
     setFilter((prev) => ({
       ...prev,
       page: `${Math.max((Number(prev.page) || 1) - 1, 1)}`,
-    }));
+    }))
 
   const applyStringFilter = ({
     category,
     value,
   }: {
-    category: keyof typeof filter;
-    value: string;
+    category: keyof typeof filter
+    value: string
   }) => {
     setFilter((prev) => ({
       ...prev,
       [category]: prev[category] === value ? "" : value,
-    }));
-  };
+    }))
+  }
 
   const handleClearFilters = () => {
-    setClearFilters(true);
-    setFilter(defaultFilter);
-  };
+    setClearFilters(true)
+    setFilter(defaultFilter)
+  }
 
   const handleDownload = () => {
     // Create an object to hold only defined and non-empty parameters
     const params = {
       ...sanitizedFilters,
       export: "csv",
-    };
+    }
 
     // Filter out undefined or empty string parameters
     const filteredParams = Object.fromEntries(
       Object.entries(params).filter(
         ([_, value]) => value !== undefined && value !== ""
       )
-    );
+    )
 
     // Construct the export URL with the filtered parameters
     const exportUrl = `${BASE_URL}/studies?${new URLSearchParams(
       filteredParams as Record<string, string>
-    ).toString()}`;
+    ).toString()}`
 
     // Open the export URL in a new tab
-    window.open(exportUrl, "_blank");
+    window.open(exportUrl, "_blank")
 
     // Return a placeholder to satisfy the function's return type
-    return null;
-  };
+    return null
+  }
 
   const chartConfig: ChartConfig = {
     desktop: {
@@ -250,37 +248,37 @@ const Search = ({
       label: "Desktop",
       color: "hsl(var(--chart-5))",
     },
-  };
+  }
 
   // State to handle the visibility of the suggestion list
-  const [isSuggestionVisible, setIsSuggestionVisible] = useState(true);
+  const [isSuggestionVisible, setIsSuggestionVisible] = useState(true)
 
   // Ref for the suggestion list
-  const suggestionRef = useRef<HTMLUListElement | null>(null);
+  const suggestionRef = useRef<HTMLUListElement | null>(null)
 
   // Close suggestion list when clicking outside of it
-  useOnClickOutside(suggestionRef, () => setIsSuggestionVisible(false));
+  useOnClickOutside(suggestionRef, () => setIsSuggestionVisible(false))
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilter({ ...filter, title: e.target.value });
-    setIsSuggestionVisible(true); // Show the suggestion list when input changes
-  };
+    setFilter({ ...filter, title: e.target.value })
+    setIsSuggestionVisible(true) // Show the suggestion list when input changes
+  }
 
   return (
     <div
-      className={`w-full relative flex flex-col mx-auto mb-10 ${
+      className={`relative mx-auto mb-10 flex w-full flex-col ${
         showSearchBar ? "px-4 lg:px-10" : "p-0"
       }`}
     >
       {showSearchBar && (
         <div
-          className={`sm:w-4/5 w-full relative lg:max-w-2xl flex flex-col sm:p-10 p-6 mx-auto mt-10 lg:mt-16 ${
-            isAdvanceFilterOpen ? "border rounded-lg" : "border-none"
+          className={`relative mx-auto mt-10 flex w-full flex-col p-6 sm:w-4/5 sm:p-10 lg:mt-16 lg:max-w-2xl ${
+            isAdvanceFilterOpen ? "rounded-lg border" : "border-none"
           }`}
         >
-          <div className="flex items-center justify-center ring-1 ring-gray-500 focus-within:ring-gray-400 rounded-md">
+          <div className="flex items-center justify-center rounded-md ring-1 ring-gray-500 focus-within:ring-gray-400">
             <SearchIcon
-              className="size-5 ml-4 text-gray-700 group-hover:text-gray-900 dark:text-white dark:group-hover:text-white"
+              className="ml-4 size-5 text-gray-700 group-hover:text-gray-900 dark:text-white dark:group-hover:text-white"
               aria-hidden="true"
             />
             <Input
@@ -296,21 +294,21 @@ const Search = ({
             className="my-8 flex items-center justify-center"
             onClick={() => setIsAdvanceFilterOpen((prev) => !prev)}
           >
-            <p className="text-[#6666E7] text-sm sm:text-base cursor-pointer font-bold">
+            <p className="cursor-pointer text-sm font-bold text-[#6666E7] sm:text-base">
               {isAdvanceFilterOpen
                 ? "Close Advance Search Options"
                 : "Use Advanced Search"}
             </p>
             <ChevronDown
               strokeWidth={2}
-              className={`ml-1 text-[#6666E7] transition-transform duration-300 size-4 ${
+              className={`ml-1 size-4 text-[#6666E7] transition-transform duration-300 ${
                 isAdvanceFilterOpen ? "rotate-180" : ""
               }`}
             />
           </div>
           {showVisualize && (
             <Button
-              className="sm:h-14 h-12 sm:w-[200px] w-40 mb-8 sm:text-base text-sm mx-auto"
+              className="mx-auto mb-8 h-12 w-40 text-sm sm:h-14 sm:w-[200px] sm:text-base"
               onClick={() => setIsGraphOpen((prev) => !prev)}
             >
               {isGraphOpen ? "Close visuals" : "Visualise"}
@@ -329,7 +327,7 @@ const Search = ({
           {isSuggestionVisible && suggestion?.disorders?.at(1) ? (
             <ul
               ref={suggestionRef}
-              className="w-3/5 lg:max-w-2xl bg-muted flex flex-col justify-center absolute top-[72px] lg:top-24 z-40 mx-auto space-y-2 py-4 rounded-lg"
+              className="absolute top-[72px] z-40 mx-auto flex w-3/5 flex-col justify-center space-y-2 rounded-lg bg-muted py-4 lg:top-24 lg:max-w-2xl"
             >
               {suggestion?.disorders?.map((disorder) => (
                 <li
@@ -339,7 +337,7 @@ const Search = ({
                     setFilter({ ...filter, disorder: disorder.disorder_name })
                   }
                 >
-                  <span className="font-medium tracking-tight text-balance">
+                  <span className="text-balance font-medium tracking-tight">
                     {disorder.disorder_name}
                   </span>
                 </li>
@@ -353,13 +351,10 @@ const Search = ({
         open={isGraphOpen && showVisualize}
         onOpenChange={(open) => setIsGraphOpen(open)}
       >
-        <DialogContent
-          className="max-h-[80%]
-        max-w-screen-md overflow-y-auto"
-        >
+        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto sm:max-h-[80%]">
           <DialogHeader>
-            <Tabs defaultValue="collaboration" className="space-y-10 mt-8 mb-6">
-              <div className="p-2 border rounded-md overflow-auto">
+            <Tabs defaultValue="collaboration" className="mb-6 mt-8 space-y-10">
+              <div className="overflow-auto rounded-md border p-2">
                 <TabsList className="flex h-full">
                   <TabsTrigger value="collaboration" className="w-full">
                     Collaboration
@@ -457,9 +452,9 @@ const Search = ({
         </DialogContent>
       </Dialog>
 
-      <div className="flex gap-6 mt-14">
+      <div className="mt-14 flex gap-6">
         {showFilters && (
-          <div className="hidden md:flex md:flex-col lg:w-80 h-fit shrink sticky top-0 z-30 space-y-10">
+          <div className="sticky top-0 z-30 hidden h-fit shrink space-y-10 md:flex md:flex-col lg:w-80">
             <h2 className="text-4xl font-semibold">Filter by:</h2>
             <div className="flex gap-4 lg:gap-6">
               <FilterButton
@@ -483,19 +478,19 @@ const Search = ({
           </div>
         )}
 
-        <div className="w-full flex flex-col gap-3">
-          <div className="flex sm:items-center justify-between sm:flex-row flex-col-reverse gap-5">
+        <div className="flex w-full flex-col gap-3">
+          <div className="flex flex-col-reverse justify-between gap-5 sm:flex-row sm:items-center">
             {isLoading ? (
               ""
             ) : searches?.results && searches?.results.length > 0 ? (
               <>
-                <h1 className="text-2xl lg:text-2xl font-bold">
+                <h1 className="text-2xl font-bold lg:text-2xl">
                   {searches?.count} Results
                 </h1>
 
-                <div className="flex gap-3 min-[500px]:flex-row flex-col">
+                <div className="flex flex-col gap-3 min-[500px]:flex-row">
                   <Button
-                    className="gap-2 text-white  w-full sm:w-auto"
+                    className="w-full gap-2 text-white sm:w-auto"
                     onClick={() => handleDownload()}
                   >
                     <CloudDownloadIcon strokeWidth={2} />
@@ -506,7 +501,7 @@ const Search = ({
                       <SheetTrigger asChild>
                         <Button
                           variant={"outline"}
-                          className="group flex items-center border rounded-md w-full sm:w-auto md:hidden"
+                          className="group flex w-full items-center rounded-md border sm:w-auto md:hidden"
                         >
                           <Filter
                             aria-hidden="true"
@@ -517,7 +512,7 @@ const Search = ({
                           </span>
                         </Button>
                       </SheetTrigger>
-                      <SheetContent className="flex w-3/6 flex-col pr-0 sm:max-w-lg overflow-y-auto md:hidden">
+                      <SheetContent className="flex w-3/6 flex-col overflow-y-auto pr-0 sm:max-w-lg md:hidden">
                         <SheetHeader className="mt-6 space-y-2.5 pr-6">
                           <SheetTitle>
                             <FilterButton
@@ -546,14 +541,14 @@ const Search = ({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-5 grow">
+          <div className="flex grow flex-col gap-5">
             {isLoading ? (
               new Array(10).fill(null).map((_, i) => <StudySkeleton key={i} />)
             ) : isError ? (
-              <div className="flex items-center col-span-3">
-                <span className="relative flex h-2 w-2 mr-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              <div className="col-span-3 flex items-center">
+                <span className="relative mr-2 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500"></span>
                 </span>
                 <p className="flex text-sm font-medium text-gray-900">
                   Something went wrong
@@ -583,22 +578,22 @@ const Search = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
 const FilterSkeleton = (
   <>
-    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-    <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+    <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
+    <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
   </>
-);
+)
 
 const YearlyStudyCount = ({
   isLoading,
   chartData,
 }: {
-  isLoading: boolean;
-  chartData: StudyCount[];
+  isLoading: boolean
+  chartData: StudyCount[]
 }) => {
   const chartConfig = {
     desktop: {
@@ -609,9 +604,9 @@ const YearlyStudyCount = ({
       label: "Desktop",
       color: "hsl(var(--chart-5))",
     },
-  };
+  }
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Yearly Study-Count</CardTitle>
@@ -784,22 +779,22 @@ const YearlyStudyCount = ({
         </CardFooter> */}
       </Card>
     </div>
-  );
-};
+  )
+}
 
 const RegionalStudyCount = ({
   isLoading,
   chartData,
 }: {
-  isLoading: boolean;
-  chartData: Region[];
+  isLoading: boolean
+  chartData: Region[]
 }) => {
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
   return (
     <Card>
       <CardHeader>
@@ -818,7 +813,7 @@ const RegionalStudyCount = ({
                 top: 20,
               }}
             >
-              <Legend
+              {/* <Legend
                 verticalAlign="bottom"
                 content={
                   <AbbreviationLegend
@@ -827,16 +822,15 @@ const RegionalStudyCount = ({
                     }))}
                   />
                 }
-              />
+              /> */}
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="countries__name"
-                tickLine={false}
                 tickMargin={10}
-                fontSize={14}
-                fontWeight={600}
                 axisLine={false}
                 tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
               />
               <ChartTooltip
                 cursor={false}
@@ -853,6 +847,13 @@ const RegionalStudyCount = ({
             </BarChart>
           </ChartContainer>
         )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.countries__name,
+            }))}
+          />
+        )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
@@ -863,47 +864,47 @@ const RegionalStudyCount = ({
         </div>
       </CardFooter> */}
     </Card>
-  );
-};
+  )
+}
 
 const DisorderStudyCount = ({
   isLoading,
   data,
 }: {
-  isLoading: boolean;
-  data: Disorder[];
+  isLoading: boolean
+  data: Disorder[]
 }) => {
-  const [activeDisorder, setActiveDisorder] = useState("");
+  const [activeDisorder, setActiveDisorder] = useState("")
   const chartData = useMemo(
     () =>
       data
         ?.map((data) => ({
           disorder: data.disorder__disorder_name,
           study_count: data.study_count,
-          fill: getRandomColor(),
+          // fill: getRandomColor(),
         }))
         ?.filter((d) => d.disorder !== null) ?? [],
     [data]
-  );
+  )
 
   const activeIndex = chartData.findIndex(
     (item) => item.disorder === activeDisorder
-  );
+  )
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
   return (
     <Card>
       <CardHeader>
         <CardTitle>Disorder study-count</CardTitle>
         <CardDescription>Number of Publications </CardDescription>
-        <Select value={activeDisorder} onValueChange={setActiveDisorder}>
+        {/* <Select value={activeDisorder} onValueChange={setActiveDisorder}>
           <SelectTrigger
-            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="ml-auto flex h-7 w-fit items-center justify-center rounded-sm border px-4 py-1 font-medium text-gray-700 hover:bg-gray-50"
             aria-label="Select a disorder"
           >
             <SelectValue placeholder="Select disorder" />
@@ -915,7 +916,7 @@ const DisorderStudyCount = ({
                 value={disorder.disorder}
                 className="rounded-lg [&_span]:flex"
               >
-                <div className="w-48 flex items-center gap-2 text-xs">
+                <div className="flex w-48 items-center gap-2 text-xs">
                   <span
                     className="flex h-3 w-3 shrink-0 rounded-sm"
                     style={{
@@ -927,78 +928,52 @@ const DisorderStudyCount = ({
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex justify-center items-center size-full">
-            <GraphSkeleton pie />
+          <div className="flex size-full items-center justify-center">
+            <GraphSkeleton pie={false} />
           </div>
         ) : (
           <ChartContainer config={chartConfig}>
-            <PieChart>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="disorder"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Pie
-                data={chartData}
-                dataKey="study_count"
-                nameKey="disorder" //  Change here to use 'genetic' as the name key
-                innerRadius={60}
-                strokeWidth={5}
-                activeIndex={chartData.findIndex(
-                  (item) => item.disorder === activeDisorder
-                )}
-                activeShape={({
-                  outerRadius = 0,
-                  ...props
-                }: PieSectorDataItem) => (
-                  <g>
-                    <Sector {...props} outerRadius={outerRadius + 10} />
-                    <Sector
-                      {...props}
-                      outerRadius={outerRadius + 25}
-                      innerRadius={outerRadius + 12}
-                    />
-                  </g>
-                )}
-              >
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          // className="text-lg font-medium"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-3xl font-bold"
-                          >
-                            {chartData[
-                              activeIndex
-                            ]?.study_count.toLocaleString()}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 24}
-                            className="fill-muted-foreground"
-                          >
-                            {chartData[activeIndex]?.disorder}{" "}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
                 />
-              </Pie>
-            </PieChart>
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.disorder,
+            }))}
+          />
         )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
@@ -1010,15 +985,15 @@ const DisorderStudyCount = ({
         </div>
       </CardFooter> */}
     </Card>
-  );
-};
+  )
+}
 
 const BiologicalStudyCount = ({
   isLoading,
   data,
 }: {
-  isLoading: boolean;
-  data: BiologicalRecord[];
+  isLoading: boolean
+  data: BiologicalRecord[]
 }) => {
   const chartData =
     data
@@ -1026,16 +1001,16 @@ const BiologicalStudyCount = ({
         biological_modalities__modality_name:
           d.biological_modalities__modality_name,
         study_count: d.study_count,
-        fill: getRandomColor(),
+        // fill: getRandomColor(),
       }))
-      ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [];
+      ?.filter((d) => d.biological_modalities__modality_name !== null) ?? []
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
   return (
     <Card>
       <CardHeader>
@@ -1047,56 +1022,43 @@ const BiologicalStudyCount = ({
           <GraphSkeleton pie />
         ) : (
           <ChartContainer config={chartConfig}>
-            <PieChart>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="biological_modalities__modality_name"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Pie
-                data={chartData}
-                dataKey={"study_count"}
-                nameKey={"biological_modalities__modality_name"}
-                innerRadius={60}
-                strokeWidth={5}
-              >
-                {/* <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          // className="text-lg font-medium"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-3xl font-bold"
-                          >
-                            {chartData[
-                              activeIndex
-                            ]?.study_count.toLocaleString()}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 24}
-                            className="fill-muted-foreground"
-                          >
-                            {
-                              chartData[activeIndex]
-                                ?.biological_modalities__modality_name
-                            }{" "}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
-                /> */}
-              </Pie>
-            </PieChart>
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.biological_modalities__modality_name,
+            }))}
+          />
         )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
@@ -1108,15 +1070,15 @@ const BiologicalStudyCount = ({
         </div>
       </CardFooter> */}
     </Card>
-  );
-};
+  )
+}
 
 const GeneticsStudyCount = ({
   isLoading,
   data,
 }: {
-  isLoading: boolean;
-  data: Genetics[];
+  isLoading: boolean
+  data: Genetics[]
 }) => {
   const chartData =
     data
@@ -1124,16 +1086,16 @@ const GeneticsStudyCount = ({
         genetic_source_materials__material_type:
           d.genetic_source_materials__material_type,
         study_count: d.study_count,
-        fill: getRandomColor(),
+        // fill: getRandomColor(),
       }))
-      ?.filter((d) => d.genetic_source_materials__material_type !== null) ?? [];
+      ?.filter((d) => d.genetic_source_materials__material_type !== null) ?? []
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
   return (
     <Card>
       <CardHeader>
@@ -1144,24 +1106,44 @@ const GeneticsStudyCount = ({
         {isLoading ? (
           <GraphSkeleton pie />
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square w-full max-w-[300px]"
-          >
-            <PieChart>
+          <ChartContainer config={chartConfig} className="w-full">
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="genetic_source_materials__material_type"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Pie
-                data={chartData}
-                dataKey="study_count"
-                nameKey="genetic_source_materials__material_type" // Change here to use 'genetic' as the name key
-                innerRadius={60}
-                strokeWidth={5}
-              ></Pie>
-            </PieChart>
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.genetic_source_materials__material_type,
+            }))}
+          />
         )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
@@ -1173,8 +1155,8 @@ const GeneticsStudyCount = ({
         </div>
       </CardFooter> */}
     </Card>
-  );
-};
+  )
+}
 
 const SideFilters = ({
   filter,
@@ -1187,47 +1169,47 @@ const SideFilters = ({
   isDisorderLoading,
   clearFilters,
 }: {
-  filter: DocumentState;
+  filter: DocumentState
   applyStringFilter: ({
     category,
     value,
   }: {
-    category: keyof typeof filter;
-    value: string;
-  }) => void;
-  isGeneticSourcesLoading: boolean;
-  geneticSources: any[];
-  isArticleTypesLoading: boolean;
-  articleTypes: any[];
-  disorders: any[];
-  isDisorderLoading: boolean;
-  clearFilters: boolean;
+    category: keyof typeof filter
+    value: string
+  }) => void
+  isGeneticSourcesLoading: boolean
+  geneticSources: any[]
+  isArticleTypesLoading: boolean
+  articleTypes: any[]
+  disorders: any[]
+  isDisorderLoading: boolean
+  clearFilters: boolean
 }) => {
-  const [visibleYears, setVisibleYears] = useState(5);
-  const [visibleDisorders, setVisibleDisorders] = useState(5);
-  const [visibleGeneticSources, setVisibleGeneticSources] = useState(5);
-  const [visibleArticleTypes, setVisibleArticleTypes] = useState(5);
+  const [visibleYears, setVisibleYears] = useState(5)
+  const [visibleDisorders, setVisibleDisorders] = useState(5)
+  const [visibleGeneticSources, setVisibleGeneticSources] = useState(5)
+  const [visibleArticleTypes, setVisibleArticleTypes] = useState(5)
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear()
 
   const allYears = Array.from(
     { length: visibleYears },
     (_, i) => currentYear - i
-  );
+  )
 
-  const handleShowMoreYears = () => setVisibleYears((prev) => prev + 5);
-  const handleShowLessYears = () => setVisibleYears(5);
+  const handleShowMoreYears = () => setVisibleYears((prev) => prev + 5)
+  const handleShowLessYears = () => setVisibleYears(5)
 
   const handleShowMore = (
     setVisible: React.Dispatch<React.SetStateAction<number>>,
     total: number
   ) => {
-    setVisible((prev) => (prev + 5 <= total ? prev + 5 : total));
-  };
+    setVisible((prev) => (prev + 5 <= total ? prev + 5 : total))
+  }
 
   const handleShowLess = (setVisible: (value: number) => void) => {
-    setVisible(5);
-  };
+    setVisible(5)
+  }
   return (
     <>
       <div>
@@ -1235,17 +1217,17 @@ const SideFilters = ({
         <div className="pt-6">
           {allYears.length > 5 && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() => handleShowLessYears()}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Newer Years
               </p>
               <p className="text-sm text-muted-foreground group-hover:text-gray-900"></p>
-              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronUp className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
-          <ul className="space-y-4 my-4">
+          <ul className="my-4 space-y-4">
             {allYears
               // .sort((a, b) => a - b)
               .slice(-5)
@@ -1259,7 +1241,7 @@ const SideFilters = ({
                       applyStringFilter({
                         category: "year",
                         value: `${year}`,
-                      });
+                      })
                     }}
                     value={`${year}`}
                     checked={filter.year === `${year}`}
@@ -1275,13 +1257,13 @@ const SideFilters = ({
               ))}
           </ul>
           <button
-            className="flex items-center mt-4 group cursor-pointer"
+            className="group mt-4 flex cursor-pointer items-center"
             onClick={handleShowMoreYears}
           >
             <p className="text-sm text-muted-foreground group-hover:text-gray-900">
               Show Earlier Years
             </p>
-            <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+            <ChevronUp className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
           </button>
         </div>
       </div>
@@ -1291,20 +1273,20 @@ const SideFilters = ({
         <div className="pt-6">
           {visibleDisorders > 5 && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() => handleShowLess(setVisibleDisorders)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Disorders
               </p>
-              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronDown className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
-          <ul className="space-y-4 my-4">
+          <ul className="my-4 space-y-4">
             {isDisorderLoading ? (
               <>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
               </>
             ) : (
               (disorders ? disorders.slice(0, visibleDisorders) : []).map(
@@ -1321,7 +1303,7 @@ const SideFilters = ({
                         applyStringFilter({
                           category: "disorder",
                           value: disorder.disorder_name,
-                        });
+                        })
                       }}
                       value={disorder.disorder_name}
                       checked={filter.disorder === disorder.disorder_name}
@@ -1340,7 +1322,7 @@ const SideFilters = ({
           </ul>
           {disorders.length > visibleDisorders && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() =>
                 handleShowMore(setVisibleDisorders, disorders.length)
               }
@@ -1348,7 +1330,7 @@ const SideFilters = ({
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show More Disorders
               </p>
-              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronUp className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
         </div>
@@ -1358,20 +1340,20 @@ const SideFilters = ({
         <div className="pt-6">
           {visibleGeneticSources > 5 && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() => handleShowLess(setVisibleGeneticSources)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Genetic Sources
               </p>
-              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronDown className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
-          <ul className="space-y-4 my-4">
+          <ul className="my-4 space-y-4">
             {isGeneticSourcesLoading ? (
               <>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
               </>
             ) : (
               (geneticSources
@@ -1391,7 +1373,7 @@ const SideFilters = ({
                         applyStringFilter({
                           category: "genetic_source_materials",
                           value: source.material_type,
-                        });
+                        })
                       }}
                       value={source.material_type}
                       checked={
@@ -1412,7 +1394,7 @@ const SideFilters = ({
           </ul>
           {geneticSources.length > visibleGeneticSources && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() =>
                 handleShowMore(setVisibleGeneticSources, geneticSources.length)
               }
@@ -1420,7 +1402,7 @@ const SideFilters = ({
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show More Genetic Sources
               </p>
-              <ChevronUp className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronUp className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
         </div>
@@ -1431,20 +1413,20 @@ const SideFilters = ({
         <div className="pt-6">
           {visibleArticleTypes > 5 && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() => handleShowLess(setVisibleArticleTypes)}
             >
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show Less Article Types
               </p>
-              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronDown className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
-          <ul className="space-y-4 my-4">
+          <ul className="my-4 space-y-4">
             {isArticleTypesLoading ? (
               <>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
-                <p className="backdrop-blur-lg h-6 w-64 rounded bg-gray-200 animate-pulse"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
+                <p className="h-6 w-64 animate-pulse rounded bg-gray-200 backdrop-blur-lg"></p>
               </>
             ) : (
               (articleTypes
@@ -1464,7 +1446,7 @@ const SideFilters = ({
                         applyStringFilter({
                           category: "article_type",
                           value: articleType.article_name,
-                        });
+                        })
                       }}
                       value={articleType.article_name}
                       checked={filter.article_type === articleType.article_name}
@@ -1483,7 +1465,7 @@ const SideFilters = ({
           </ul>
           {articleTypes.length > visibleArticleTypes && (
             <button
-              className="flex items-center mt-4 group cursor-pointer"
+              className="group mt-4 flex cursor-pointer items-center"
               onClick={() =>
                 handleShowMore(setVisibleArticleTypes, articleTypes.length)
               }
@@ -1491,13 +1473,13 @@ const SideFilters = ({
               <p className="text-sm text-muted-foreground group-hover:text-gray-900">
                 Show More Article Types
               </p>
-              <ChevronDown className="ml-2 w-4 h-4 text-gray-400 group-hover:text-gray-500" />
+              <ChevronDown className="ml-2 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
             </button>
           )}
         </div>
       </div>
     </>
-  );
-};
+  )
+}
 
-export default Search;
+export default Search

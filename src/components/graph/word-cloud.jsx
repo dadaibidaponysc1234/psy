@@ -23,54 +23,46 @@ const WordCloud = ({ data, isLoading, error }) => {
   }, [getDivJpeg])
 
   useEffect(() => {
-    if (!data || data.length === 0) return
-
-    const container = document.getElementById("wordCloudContainer")
-    const width = container.offsetWidth || 400 // Default width
-    const height = container.offsetHeight || 300 // Default height
-
+    if (!data || !data?.length > 0) return
     const words = data.map((item) => ({
       text: item.text,
-      size: Math.max(item.size / 2, 10), // Ensure a minimum font size
+      size: item.size / 2, // Reduce the size for better visibility
     }))
 
-    // Create word cloud layout
+    // Create the word cloud layout
     const layout = d3.layout
       .cloud()
-      .size([width, height])
+      .size([800, 400])
       .words(words)
       .padding(5) // Space between words
       .rotate(0) // Remove rotation
-      .fontSize((d) => d.size)
-      .on("end", draw)
+      .fontSize((d) => d.size) // Font size based on data
+      .on("end", draw) // Call draw function when layout is ready
 
+    // Start the layout
     layout.start()
 
+    // Draw the word cloud
     function draw(words) {
-      d3.select("#wordCloud").selectAll("*").remove() // Clear previous content
-      const svg = d3
-        .select("#wordCloud")
-        .attr("viewBox", `0 0 ${width} ${height}`) // Match dimensions
-        .attr("preserveAspectRatio", "xMidYMid meet")
+      d3.select("#wordCloud").selectAll("*").remove() // Clear previous drawings
+      d3.select("#wordCloud")
         .append("g")
-        .attr("transform", `translate(${width / 2}, ${height / 2})`)
-
-      svg
+        .attr("transform", "translate(400,200)") // Center the words
         .selectAll("text")
         .data(words)
         .enter()
         .append("text")
+        .attr("class", "word")
         .style("font-size", (d) => `${d.size}px`)
         .style(
           "fill",
           () => d3.schemeCategory10[Math.floor(Math.random() * 10)]
-        )
+        ) // Random colors
         .attr("text-anchor", "middle")
-        .attr("transform", (d) => `translate(${d.x},${d.y})`)
+        .attr("transform", (d) => `translate(${d.x},${d.y})`) // Remove rotation from the transformation
         .text((d) => d.text)
     }
   }, [data])
-
   return (
     <Card>
       <CardContent className="flex flex-col items-center justify-center overflow-auto p-5">
@@ -82,9 +74,13 @@ const WordCloud = ({ data, isLoading, error }) => {
               data-chart={chartId}
               ref={imageRef}
               id="wordCloudContainer"
-              className="min-h-0 w-full sm:min-h-80"
+              // style={{
+              //   width: 800,
+              //   height: 400,
+              // }}
+              className="h-full w-full"
             >
-              <svg id="wordCloud" className="h-full w-full"></svg>
+              <svg id="wordCloud" width="800" height="400"></svg>
             </div>
             <Button
               onClick={() => handleDownload()}

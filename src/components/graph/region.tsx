@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react"
 
-import { TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react"
 import {
   CartesianGrid,
   Bar,
@@ -8,7 +8,7 @@ import {
   LabelList,
   XAxis,
   Legend,
-} from "recharts";
+} from "recharts"
 import {
   Card,
   CardContent,
@@ -16,33 +16,33 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { useGetRegion } from "@/hooks/use-get-region";
-import AbbreviationLegend from "../ui/abbreviation-legend";
-import GraphSkeleton from "../skeletons/graph-skeleton";
+} from "@/components/ui/chart"
+import { useGetRegion } from "@/hooks/use-get-region"
+import AbbreviationLegend from "../ui/abbreviation-legend"
+import GraphSkeleton from "../skeletons/graph-skeleton"
 import {
   Dialog,
   DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogContent,
-} from "../ui/dialog";
-import Search from "../Search";
+} from "../ui/dialog"
+import Search from "../Search"
 
 const RegionalStudyCount: React.FC = () => {
-  const { data: year, isLoading, isError } = useGetRegion();
-  const [clickedRegion, setClickedRegion] = useState<string | null>(null);
+  const { data: year, isLoading, isError } = useGetRegion()
+  const [clickedRegion, setClickedRegion] = useState<string | null>(null)
 
   const chartData = year?.map((data) => ({
     countries__name: data.countries__name,
     study_count: data.study_count,
-  }));
+  }))
 
   const chartConfig = {
     desktop: {
@@ -53,7 +53,7 @@ const RegionalStudyCount: React.FC = () => {
       label: "Desktop",
       color: "hsl(var(--chart-5))",
     },
-  };
+  }
 
   return (
     <Card>
@@ -61,19 +61,12 @@ const RegionalStudyCount: React.FC = () => {
         <CardTitle>Country Study-count</CardTitle>
         <CardDescription>Number of Publications</CardDescription>
       </CardHeader>
-      <CardContent className="w-full overflow-x-auto h-full">
+      <CardContent className="h-full w-full overflow-x-auto">
         {isLoading ? (
           <GraphSkeleton />
         ) : (
           <ChartContainer config={chartConfig}>
             <BarChart
-              // width={
-              //   typeof window === "undefined"
-              //     ? undefined
-              //     : window.innerWidth > 768
-              //     ? 600
-              //     : window.innerWidth - 40
-              // }
               accessibilityLayer
               data={chartData}
               margin={{
@@ -97,7 +90,7 @@ const RegionalStudyCount: React.FC = () => {
                 tickMargin={10}
                 axisLine={false}
                 tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
-                className="sm:text-sm text-xs"
+                className="text-xs sm:text-sm"
                 fontWeight={600}
               />
               <ChartTooltip
@@ -115,11 +108,13 @@ const RegionalStudyCount: React.FC = () => {
             </BarChart>
           </ChartContainer>
         )}
-        {chartData && chartData.length  > 0 && <AbbreviationLegend
-          data={(chartData ?? []).map((val) => ({
-            name: val.countries__name,
-          }))}
-        />}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.countries__name,
+            }))}
+          />
+        )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
@@ -133,7 +128,7 @@ const RegionalStudyCount: React.FC = () => {
         open={!!clickedRegion}
         onOpenChange={(open) => !open && setClickedRegion(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
+        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedRegion}&quot;
@@ -148,7 +143,7 @@ const RegionalStudyCount: React.FC = () => {
         </DialogContent>
       </Dialog>
     </Card>
-  );
-};
+  )
+}
 
-export default RegionalStudyCount;
+export default RegionalStudyCount
