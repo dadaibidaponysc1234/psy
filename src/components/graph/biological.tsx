@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react"
 
-import { TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react"
 import {
   CartesianGrid,
   Label,
@@ -11,7 +11,7 @@ import {
   PieChart,
   Sector,
   XAxis,
-} from "recharts";
+} from "recharts"
 import {
   Card,
   CardContent,
@@ -19,36 +19,36 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Bar, BarChart, LabelList } from "recharts";
-import { useGetDisorder } from "@/hooks/use-get-disorder";
-import { useGetBiological } from "@/hooks/use-get-biological";
-import AbbreviationLegend from "../ui/abbreviation-legend";
-import GraphSkeleton from "../skeletons/graph-skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import Search from "../Search";
+} from "@/components/ui/chart"
+import { Bar, BarChart, LabelList } from "recharts"
+import { useGetDisorder } from "@/hooks/use-get-disorder"
+import { useGetBiological } from "@/hooks/use-get-biological"
+import AbbreviationLegend from "../ui/abbreviation-legend"
+import GraphSkeleton from "../skeletons/graph-skeleton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
+import Search from "../Search"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { getRandomColor } from "@/lib/utils";
-import { PieSectorDataItem } from "recharts/types/polar/Pie";
+} from "../ui/select"
+import { getRandomColor } from "@/lib/utils"
+import { PieSectorDataItem } from "recharts/types/polar/Pie"
 
 const BiologicalStudyCount: React.FC = () => {
-  const { data: year, isLoading, isError } = useGetBiological();
-  const [activeBiologicalModality, setActiveBiologicalModality] = useState("");
+  const { data: year, isLoading, isError } = useGetBiological()
+  const [activeBiologicalModality, setActiveBiologicalModality] = useState("")
   const [clickedBiologicalModality, setClickedBiologicalModility] = useState<
     string | null
-  >(null);
+  >(null)
 
   const chartData = useMemo(
     () =>
@@ -57,34 +57,34 @@ const BiologicalStudyCount: React.FC = () => {
           biological_modalities__modality_name:
             data.biological_modalities__modality_name,
           study_count: data.study_count,
-          fill: getRandomColor(),
+          // fill: getRandomColor(),
         }))
         ?.filter((d) => d.biological_modalities__modality_name !== null) ?? [],
     [year]
-  );
+  )
 
   const activeIndex = chartData.findIndex(
     (item) =>
       item.biological_modalities__modality_name === activeBiologicalModality
-  );
+  )
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
   return (
     <Card>
       <CardHeader>
         <CardTitle>Number of studies, by biological modality</CardTitle>
         {/* <CardDescription>Number of Publications </CardDescription> */}
-        <Select
+        {/* <Select
           value={activeBiologicalModality}
           onValueChange={setActiveBiologicalModality}
         >
           <SelectTrigger
-            className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="!mt-4 flex h-7 w-fit items-center justify-center rounded-sm border px-4 py-1 font-medium text-gray-700 hover:bg-gray-50 sm:ml-auto"
             aria-label="Select a biological modality"
           >
             <SelectValue placeholder="Select biological modality" />
@@ -96,7 +96,7 @@ const BiologicalStudyCount: React.FC = () => {
                 value={modality.biological_modalities__modality_name}
                 className="rounded-lg [&_span]:flex"
               >
-                <div className="w-48 flex items-center gap-2 text-xs">
+                <div className="flex w-48 items-center gap-2 text-xs">
                   <span
                     className="flex h-3 w-3 shrink-0 rounded-sm"
                     style={{
@@ -108,17 +108,14 @@ const BiologicalStudyCount: React.FC = () => {
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <GraphSkeleton pie />
+          <GraphSkeleton pie={false} />
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square w-full max-w-[300px]"
-          >
-            <PieChart>
+          <ChartContainer config={chartConfig}>
+            {/* <PieChart>
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
@@ -189,8 +186,47 @@ const BiologicalStudyCount: React.FC = () => {
                   }}
                 />
               </Pie>
-            </PieChart>
+            </PieChart> */}
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+              onClick={(state) =>
+                setClickedBiologicalModility(state.activeLabel ?? null)
+              }
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="biological_modalities__modality_name"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.biological_modalities__modality_name,
+            }))}
+          />
         )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
@@ -205,7 +241,7 @@ const BiologicalStudyCount: React.FC = () => {
         open={!!clickedBiologicalModality}
         onOpenChange={(open) => !open && setClickedBiologicalModility(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
+        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedBiologicalModality}&quot;
@@ -220,7 +256,7 @@ const BiologicalStudyCount: React.FC = () => {
         </DialogContent>
       </Dialog>
     </Card>
-  );
-};
+  )
+}
 
-export default BiologicalStudyCount;
+export default BiologicalStudyCount

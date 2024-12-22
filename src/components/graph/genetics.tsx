@@ -128,49 +128,55 @@
 
 // export default GeneticsStudyCount;
 
-"use client";
+"use client"
 
-import * as React from "react";
-import { Label, Pie, PieChart, Sector } from "recharts";
-import { PieSectorDataItem } from "recharts/types/polar/Pie";
+import * as React from "react"
+import {
+  XAxis,
+  BarChart,
+  CartesianGrid,
+  Label,
+  Legend,
+  Pie,
+  PieChart,
+  Sector,
+  Bar,
+  LabelList,
+} from "recharts"
+import { PieSectorDataItem } from "recharts/types/polar/Pie"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartStyle,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
+} from "@/components/ui/chart"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useGetGenetics } from "@/hooks/use-get-genetics";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import Search from "../Search";
-import { useMemo, useState } from "react";
-import GraphSkeleton from "../skeletons/graph-skeleton";
+} from "@/components/ui/select"
+import { useGetGenetics } from "@/hooks/use-get-genetics"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
+import Search from "../Search"
+import { useMemo, useState } from "react"
+import GraphSkeleton from "../skeletons/graph-skeleton"
+import AbbreviationLegend from "../ui/abbreviation-legend"
+import { getRandomColor } from "@/lib/utils"
 
-export const description = "An interactive pie chart";
-
-const getRandomColor = (): string => {
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = Math.floor(Math.random() * 100) + 1;
-  const lightness = Math.floor(Math.random() * 100) + 1;
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-};
+export const description = "An interactive pie chart"
 
 export function GeneticsStudyCount() {
-  const { data: year, isLoading, isError } = useGetGenetics();
+  const { data: year, isLoading, isError } = useGetGenetics()
 
   // Map genetics data and generate unique colors
   const desktopData = React.useMemo(
@@ -179,20 +185,20 @@ export function GeneticsStudyCount() {
         genetic_source_materials__material_type:
           data.genetic_source_materials__material_type,
         study_count: data.study_count,
-        fill: getRandomColor(),
+        // fill: getRandomColor(),
       })) || [],
     [year]
-  );
+  )
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
 
-  const [activeGenetic, setActiveGenetic] = useState("");
-  const [clickedGenetics, setClickedGenetics] = useState<string | null>(null);
+  const [activeGenetic, setActiveGenetic] = useState("")
+  const [clickedGenetics, setClickedGenetics] = useState<string | null>(null)
 
   const activeIndex = useMemo(
     () =>
@@ -200,16 +206,16 @@ export function GeneticsStudyCount() {
         (item) => item.genetic_source_materials__material_type === activeGenetic
       ),
     [activeGenetic, desktopData]
-  );
+  )
 
   const genetics = useMemo(
     () =>
       desktopData?.map((item) => item.genetic_source_materials__material_type),
     [desktopData]
-  );
+  )
 
-  if (isError) return <div>Error loading data</div>;
-  if (!desktopData.length && !isLoading) return <div>No data available</div>;
+  if (isError) return <div>Error loading data</div>
+  if (!desktopData.length && !isLoading) return <div>No data available</div>
 
   return (
     <Card className="flex flex-col">
@@ -217,9 +223,9 @@ export function GeneticsStudyCount() {
         <CardTitle>Number of studies, by DNA source</CardTitle>
         {/* <CardDescription>Number of Publications</CardDescription> */}
 
-        <Select value={activeGenetic} onValueChange={setActiveGenetic}>
+        {/* <Select value={activeGenetic} onValueChange={setActiveGenetic}>
           <SelectTrigger
-            className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="!mt-4 flex h-7 w-fit items-center justify-center rounded-sm border px-4 py-1 font-medium text-gray-700 hover:bg-gray-50 sm:ml-auto"
             aria-label="Select a genetic source"
           >
             <SelectValue placeholder="Select genetic source" />
@@ -231,7 +237,7 @@ export function GeneticsStudyCount() {
                 value={key}
                 className="rounded-lg [&_span]:flex"
               >
-                <div className="w-48 flex items-center gap-2 text-xs">
+                <div className="flex w-48 items-center gap-2 text-xs">
                   <span
                     className="flex h-3 w-3 shrink-0 rounded-sm"
                     style={{
@@ -246,93 +252,58 @@ export function GeneticsStudyCount() {
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <GraphSkeleton pie />
+          <GraphSkeleton pie={false} />
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square w-full max-w-[300px]"
-          >
-            <PieChart>
+          <ChartContainer config={chartConfig} className="w-full">
+            <BarChart
+              accessibilityLayer
+              data={desktopData}
+              margin={{
+                top: 20,
+              }}
+              onClick={(state) => setClickedGenetics(state.activeLabel ?? null)}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="genetic_source_materials__material_type"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Pie
-                data={desktopData}
-                dataKey="study_count"
-                nameKey="genetic_source_materials__material_type" // Change here to use 'genetic' as the name key
-                innerRadius={60}
-                strokeWidth={5}
-                activeIndex={activeIndex}
-                onClick={(state) => {
-                  setClickedGenetics(
-                    state.genetic_source_materials__material_type ?? null
-                  );
-                }}
-                activeShape={({
-                  outerRadius = 0,
-                  ...props
-                }: PieSectorDataItem) => (
-                  <g>
-                    <Sector {...props} outerRadius={outerRadius + 10} />
-                    <Sector
-                      {...props}
-                      outerRadius={outerRadius + 25}
-                      innerRadius={outerRadius + 12}
-                    />
-                  </g>
-                )}
-              >
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-3xl font-bold"
-                          >
-                            {desktopData[
-                              activeIndex
-                            ]?.study_count.toLocaleString()}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 24}
-                            className="fill-muted-foreground"
-                          >
-                            {
-                              desktopData[activeIndex]
-                                ?.genetic_source_materials__material_type
-                            }{" "}
-                            {/* Display the genetic name */}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                    return null;
-                  }}
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
                 />
-              </Pie>
-            </PieChart>
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {desktopData && desktopData.length > 0 && (
+          <AbbreviationLegend
+            data={(desktopData ?? []).map((val) => ({
+              name: val.genetic_source_materials__material_type,
+            }))}
+          />
         )}
       </CardContent>
       <Dialog
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
+        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedGenetics}&quot;
@@ -347,7 +318,7 @@ export function GeneticsStudyCount() {
         </DialogContent>
       </Dialog>
     </Card>
-  );
+  )
 }
 
-export default GeneticsStudyCount;
+export default GeneticsStudyCount

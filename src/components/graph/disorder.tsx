@@ -1,9 +1,19 @@
-"use client";
+"use client"
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react"
 
-import { TrendingUp } from "lucide-react";
-import { Label, Pie, PieChart, Sector, XAxis } from "recharts";
+import { TrendingUp } from "lucide-react"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Label,
+  LabelList,
+  Pie,
+  PieChart,
+  Sector,
+  XAxis,
+} from "recharts"
 import {
   Card,
   CardContent,
@@ -11,31 +21,32 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { useGetDisorder } from "@/hooks/use-get-disorder";
+} from "@/components/ui/chart"
+import { useGetDisorder } from "@/hooks/use-get-disorder"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { getRandomColor } from "@/lib/utils";
-import { PieSectorDataItem } from "recharts/types/polar/Pie";
-import GraphSkeleton from "../skeletons/graph-skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import Search from "../Search";
+} from "../ui/select"
+import { getRandomColor } from "@/lib/utils"
+import { PieSectorDataItem } from "recharts/types/polar/Pie"
+import GraphSkeleton from "../skeletons/graph-skeleton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
+import Search from "../Search"
+import AbbreviationLegend from "../ui/abbreviation-legend"
 
 const DisorderStudyCount: React.FC = () => {
-  const { data: year, isLoading, isError } = useGetDisorder();
-  const [activeDisorder, setActiveDisorder] = useState("");
-  const [clickedDisorder, setClickedDisorder] = useState<string | null>(null);
+  const { data: year, isLoading, isError } = useGetDisorder()
+  const [activeDisorder, setActiveDisorder] = useState("")
+  const [clickedDisorder, setClickedDisorder] = useState<string | null>(null)
 
   const chartData = useMemo(
     () =>
@@ -43,29 +54,29 @@ const DisorderStudyCount: React.FC = () => {
         ?.map((data) => ({
           disorder: data.disorder__disorder_name,
           study_count: data.study_count,
-          fill: getRandomColor(),
+          // fill: getRandomColor(),
         }))
         ?.filter((d) => d.disorder !== null) ?? [],
     [year]
-  );
+  )
 
   const activeIndex = chartData.findIndex(
     (item) => item.disorder === activeDisorder
-  );
+  )
 
   const chartConfig = {
     desktop: {
       label: "Desktop",
       color: "hsl(var(--chart-1))",
     },
-  };
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Disorder study-count</CardTitle>
         <CardDescription>Number of Publications </CardDescription>
-        <Select value={activeDisorder} onValueChange={setActiveDisorder}>
+        {/* <Select value={activeDisorder} onValueChange={setActiveDisorder}>
           <SelectTrigger
             className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
             aria-label="Select a disorder"
@@ -91,84 +102,53 @@ const DisorderStudyCount: React.FC = () => {
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex justify-center items-center size-full">
-            <GraphSkeleton pie />
+          <div className="flex size-full items-center justify-center">
+            <GraphSkeleton pie={false} />
           </div>
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square w-full max-w-[300px]"
-          >
-            <PieChart>
+          <ChartContainer config={chartConfig}>
+            <BarChart
+              accessibilityLayer
+              data={chartData}
+              margin={{
+                top: 20,
+              }}
+              onClick={(state) => setClickedDisorder(state.activeLabel ?? null)}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="disorder"
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => (value ? value.slice(0, 3) : "-")}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Pie
-                data={chartData}
-                dataKey="study_count"
-                nameKey="disorder" //  Change here to use 'genetic' as the name key
-                innerRadius={60}
-                strokeWidth={5}
-                activeIndex={chartData.findIndex(
-                  (item) => item.disorder === activeDisorder
-                )}
-                onClick={(state) => {
-                  setClickedDisorder(state.disorder ?? null);
-                }}
-                activeShape={({
-                  outerRadius = 0,
-                  ...props
-                }: PieSectorDataItem) => (
-                  <g>
-                    <Sector {...props} outerRadius={outerRadius + 10} />
-                    <Sector
-                      {...props}
-                      outerRadius={outerRadius + 25}
-                      innerRadius={outerRadius + 12}
-                    />
-                  </g>
-                )}
-              >
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          // className="text-lg font-medium"
-                        >
-                          <tspan
-                            x={viewBox.cx}
-                            y={viewBox.cy}
-                            className="fill-foreground text-3xl font-bold"
-                          >
-                            {chartData[
-                              activeIndex
-                            ]?.study_count.toLocaleString()}
-                          </tspan>
-                          <tspan
-                            x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 24}
-                            className="fill-muted-foreground"
-                          >
-                            {chartData[activeIndex]?.disorder}{" "}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
+              <Bar dataKey="study_count" fill="var(--color-desktop)" radius={8}>
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
                 />
-              </Pie>
-            </PieChart>
+              </Bar>
+            </BarChart>
           </ChartContainer>
+        )}
+        {chartData && chartData.length > 0 && (
+          <AbbreviationLegend
+            data={(chartData ?? []).map((val) => ({
+              name: val.disorder,
+            }))}
+          />
         )}
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">
@@ -183,7 +163,7 @@ const DisorderStudyCount: React.FC = () => {
         open={!!clickedDisorder}
         onOpenChange={(open) => !open && setClickedDisorder(null)}
       >
-        <DialogContent className="max-w-screen-md overflow-y-auto max-h-dvh">
+        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedDisorder}&quot;
@@ -198,7 +178,7 @@ const DisorderStudyCount: React.FC = () => {
         </DialogContent>
       </Dialog>
     </Card>
-  );
-};
+  )
+}
 
-export default DisorderStudyCount;
+export default DisorderStudyCount
