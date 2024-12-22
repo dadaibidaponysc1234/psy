@@ -1,6 +1,7 @@
 import KeyFeaturesCarousel from "@/components/key-features-carousel";
 import SearchPublication from "@/components/searchPublications";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { APP_NAME } from "@/static";
 import { CloudDownload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,10 +9,7 @@ import Link from "next/link";
 export default function Home() {
   return (
     <main className=" w-full flex flex-col items-center">
-      {/* <NavBar/>
-      <LandingPage/> */}
-
-      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center mb-12 flex-col p-2 lg:p-8">
+      <section className="relative h-[calc(100dvh-80px)] w-full flex justify-center items-center flex-col p-2 lg:p-8">
         <video
           src="/AboutUs.mov"
           loop
@@ -19,15 +17,6 @@ export default function Home() {
           muted
           className="object-cover absolute inset-0 w-full h-full left-0 top-0"
         ></video>
-        {/* <Image
-          src={"/image-1.jpg"}
-          alt="image"
-          width={1440}
-          height={1099}
-          unoptimized={false}
-          priority
-          className=""
-        /> */}
         <div
           className="absolute inset-0 w-full h-full left-0 top-0"
           style={{
@@ -44,20 +33,20 @@ export default function Home() {
           </h1>
         </div>
       </section>
-      <section className="max-w-5xl flex flex-col gap-24 px-2 lg:p-8">
-        <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9] lg:flex-row justify-evenly text-center lg:text-start lg:gap-x-10">
-          <div className="lg:w-1/2 w-full">
+      <section className="flex flex-col sm:gap-24 gap-20 my-24 md:px-8 px-4 lg:max-w-5xl w-full">
+        <div className="flex flex-col-reverse gap-y-10 bg-[#F5FDF9] md:flex-row justify-evenly text-center md:text-start md:gap-x-10 lg:p-8 p-5 rounded-lg">
+          <div className="md:w-1/2 w-full">
             <Image
               src="/image-4.jpg"
               alt=""
               width={639}
               height={525}
               priority
-              className="rounded-lg object-cover lg:h-full h-[350px] w-full"
+              className="rounded-lg object-cover md:h-full h-[350px] w-full"
             />
           </div>
-          <div className="lg:w-1/2 w-full p-3 flex flex-col justify-center gap-6">
-            <h2 className="text-3xl pt-6 lg:text-5xl font-semibold text-[#5A3A31] text-center">
+          <div className="md:w-1/2 w-full flex flex-col justify-center gap-6">
+            <h2 className="text-3xl lg:text-5xl font-semibold text-[#5A3A31] text-center">
               About us
             </h2>
             <p className="font-medium text-muted-foreground md:text-lg text-center">
@@ -72,22 +61,21 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div className="flex border-[1px] border-gray-300 shadow-sm bg-[#FCF7F7] p-5 rounded-lg flex-col-reverse lg:flex-row  justify-evenly text-center lg:text-start gap-x-10">
-          <div className=" lg:w-[35vw] flex flex-col justify-center gap-6 text-center">
+        <div className="flex border-[1px] border-gray-100 shadow-sm bg-[#FCF7F7] lg:p-8 p-5 rounded-lg flex-col-reverse md:flex-row justify-evenly text-center md:text-start gap-x-10">
+          <div className="md:w-1/2 w-full flex flex-col justify-center gap-6 text-center">
             <h2 className="text-3xl pt-6 lg:text-5xl font-semibold ">
               Mission Statement
             </h2>
             <p className="font-medium text-muted-foreground md:text-lg ">
-              Psych Gen Africa aims to democratise access to psychiatric
-              genomics data by providing free, open, and curated metadata from
-              studies involving African participants or research conducted
-              within the continent. The platform seeks to facilitate realtime
-              analysis, promote collaborative research, and highlight
-              significant trends and findings in the field of psychiatric
-              genomics in Africa.
+              {APP_NAME} aims to democratise access to psychiatric genomics data
+              by providing free, open, and curated metadata from studies
+              involving African participants or research conducted within the
+              continent. The platform seeks to facilitate realtime analysis,
+              promote collaborative research, and highlight significant trends
+              and findings in the field of psychiatric genomics in Africa.
             </p>
           </div>
-          <div className=" my-auto lg:ms-auto">
+          <div className="md:w-1/2 w-full my-auto lg:ms-auto">
             <Image
               src="/mission.svg"
               alt=""
@@ -97,19 +85,19 @@ export default function Home() {
             />
           </div>
         </div>
-        <div className="flex flex-col lg:flex-row gap-x-20 items-center">
+        <div className="flex flex-col md:flex-row gap-x-10 items-center">
           <Image
             src="/Specific-Objectives.jpg"
             alt=""
             width={4500}
             height={3375}
-            className="w-[80vw] lg:w-[30vw] lg:h-full h-[350px] rounded-lg  object-cover object-center"
+            className="md:w-1/2 w-full md:h-full h-[350px] rounded-lg  object-cover object-center"
           />
-          <div className="space-y-6">
-            <h1 className="text-3xl pt-6 lg:text-5xl font-semibold ">
+          <div className="md:w-1/2 w-full space-y-6">
+            <h1 className="text-3xl pt-6 lg:text-5xl font-semibold">
               Specific Objectives
             </h1>
-            <ul className="space-y-3 text-lg font-bold list-disc ml-5">
+            <ul className="space-y-3 md:text-lg text-base font-medium list-disc ml-5">
               <li>
                 Provide open and equitable access to African psychiatric
                 genomics metadata
@@ -128,8 +116,8 @@ export default function Home() {
             </ul>
           </div>
         </div>
-        <div className="lg:border-[1px] border-gray-300 shadow-sm rounded-lg gap-y-10 px-3 py-10 flex items-center gap-x-10">
-          <div className="flex flex-col space-y-8 items-center w-full">
+        <div className="lg:border-[1px] border-gray-300 shadow-sm rounded-lg gap-y-10 lg:p-8 p-5 flex items-center md:flex-row flex-col gap-x-10">
+          <div className="flex flex-col space-y-8 items-center md:w-1/2 w-full">
             <h1 className="text-3xl text-center lg:text-5xl font-semibold">
               Vision Statement
             </h1>
@@ -141,14 +129,14 @@ export default function Home() {
               className="w-full lg:w-[30vw] rounded-lg object-cover object-center"
             ></Image>
           </div>
-          <div className="text-base my-auto items-center text-muted-foreground w-full">
+          <div className="text-base my-auto items-center text-muted-foreground md:w-1/2 w-full">
             <p className="font-bold">
-              Through Psych Gen Africa, we envision a future where African
-              psychiatric genomics research is fully integrated into the global
-              research landscape, fostering collaboration and enhancing the
-              quality and impact of studies on neuropsychiatric disorders. The
-              portal aims to bridge gaps in data access and support equitable
-              advancements in psychiatric research across the continent.
+              Through {APP_NAME}, we envision a future where African psychiatric
+              genomics research is fully integrated into the global research
+              landscape, fostering collaboration and enhancing the quality and
+              impact of studies on neuropsychiatric disorders. The portal aims
+              to bridge gaps in data access and support equitable advancements
+              in psychiatric research across the continent.
             </p>
           </div>
         </div>
@@ -158,14 +146,12 @@ export default function Home() {
           </h2>
           <KeyFeaturesCarousel />
         </div>
-      </section>
-      <section className="lg:px-10 px-2 w-full max-w-5xl">
-        <div className="bg-[#FCF7F7] my-32 px-24 py-10 rounded-xl">
+        <div className="bg-[#FCF7F7] my-14 md:px-24 px-10 py-10 rounded-xl">
           <div className="w-full text-center space-y-8">
             <h2 className="text-2xl font-semibold">
               Technology and Development
             </h2>
-            <div className="flex items-center justify-center gap-5">
+            <div className="flex min-[400px]:flex-row flex-col items-center justify-center gap-5">
               <Image
                 src={"/icons/chart-js.svg"}
                 alt=""

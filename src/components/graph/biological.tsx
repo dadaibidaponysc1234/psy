@@ -84,7 +84,7 @@ const BiologicalStudyCount: React.FC = () => {
           onValueChange={setActiveBiologicalModality}
         >
           <SelectTrigger
-            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
             aria-label="Select a biological modality"
           >
             <SelectValue placeholder="Select biological modality" />

@@ -213,14 +213,13 @@ export function GeneticsStudyCount() {
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex-row items-start space-y-0">
-        <div className="grid gap-1">
-          <CardTitle>Number of studies, by DNA source</CardTitle>
-          {/* <CardDescription>Number of Publications</CardDescription> */}
-        </div>
+      <CardHeader>
+        <CardTitle>Number of studies, by DNA source</CardTitle>
+        {/* <CardDescription>Number of Publications</CardDescription> */}
+
         <Select value={activeGenetic} onValueChange={setActiveGenetic}>
           <SelectTrigger
-            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
             aria-label="Select a genetic source"
           >
             <SelectValue placeholder="Select genetic source" />
@@ -249,7 +248,7 @@ export function GeneticsStudyCount() {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="flex flex-1 justify-center">
+      <CardContent>
         {isLoading ? (
           <GraphSkeleton pie />
         ) : (

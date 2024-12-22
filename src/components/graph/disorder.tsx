@@ -67,7 +67,7 @@ const DisorderStudyCount: React.FC = () => {
         <CardDescription>Number of Publications </CardDescription>
         <Select value={activeDisorder} onValueChange={setActiveDisorder}>
           <SelectTrigger
-            className="ml-auto w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
+            className="sm:ml-auto !mt-4 w-fit h-7 flex justify-center items-center font-medium text-gray-700 hover:bg-gray-50 border px-4 py-1 rounded-sm"
             aria-label="Select a disorder"
           >
             <SelectValue placeholder="Select disorder" />

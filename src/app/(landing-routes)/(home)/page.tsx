@@ -87,7 +87,7 @@ export default function Home() {
                 size: "lg",
                 className: "font-bold h-14 w-fit rounded-[10px] !text-base",
               })}
-              href="/Analysis"
+              href="/analysis"
             >
               Learn more
             </Link>

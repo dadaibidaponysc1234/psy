@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const Footer = () => {
   return (
-    <section className="bg-white text-black">
+    <section className="bg-white text-black shadow-[0_-4px_6px_-4px_rgba(0,_0,_0,_0.1),_0_-2px_4px_-4px_rgba(0,_0,_0,_0.06)]">
       <div className="lg:px-24 px-10 pt-10 space-y-10 mx-auto max-w-[1440px]">
         <div className="flex flex-col lg:flex-row space-y-16 lg:space-y-0 lg:justify-between items-center gap-x-8">
           <Image

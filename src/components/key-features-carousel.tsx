@@ -23,7 +23,7 @@ const KeyFeaturesCarousel = () => {
       }}
       modules={[Autoplay, Pagination, Navigation, A11y]}
     >
-      <SwiperSlide className="max-w-[500px]">
+      <SwiperSlide className="sm:max-w-[500px]">
         <div className="flex items-center justify-center gap-10 p-5 border-gray-300 shadow-sm border-2 rounded-md h-[300px]">
           <Image
             src="/Unified-Metadata-Repo.jpg"
