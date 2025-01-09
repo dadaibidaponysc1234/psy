@@ -102,9 +102,12 @@ export default function Home() {
           Contribute to the community by submitting your latest studies and
           sharing your discoveries with peers.
         </p>
-        <Button className="w-fit px-16 py-7 font-bold h-14 rounded-md !text-base">
+        <a
+          href="mailto:helpdesk@psychgenafrica.org"
+          className="w-fit px-16 flex font-bold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary border border-primary mx-auto h-14 justify-center items-center cursor-pointer"
+        >
           Submit a paper
-        </Button>
+        </a>
       </section>
     </main>
   );
