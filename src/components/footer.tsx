@@ -17,8 +17,19 @@ const Footer = () => {
             className="w-80 object-cover shrink-0 object-center"
           />
           <div className="leading-loose text-center">
-            The Psychiatric Genomics Africa Portal ({APP_NAME}) is an initiative
-            of the PGC Africa working group.
+            <p>
+              The Psychiatric Genomics Africa Portal ({APP_NAME}) is an
+              initiative of the PGC Africa working group.
+            </p>
+            <p className="mt-4">
+              Contact Us:{" "}
+              <a
+                href="mailto:helpdesk@psychgenafrica.org"
+                className="w-fit cursor-pointer text-primary hover:underline"
+              >
+                helpdesk@psychgenafrica.org
+              </a>
+            </p>
           </div>
           {/* <ul className="space-y-3 lg:space-y-5 text-nowrap text-center">
             <li>Terms of use</li>
