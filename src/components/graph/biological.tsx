@@ -7,6 +7,7 @@ import {
   Tooltip,
   Sector,
   Label as RechartsLabel,
+  SectorProps,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +45,7 @@ const getColor = (() => {
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading } = useGetBiological();
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined); // Updated type
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [clickedBiologicalModality, setClickedBiologicalModility] = useState<string | null>(null);
 
   // Generate chart data with unique colors
@@ -61,6 +62,8 @@ const BiologicalStudyCount: React.FC = () => {
 
   // Custom Label Renderer for Pie Slices
   const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, index }: any) => {
+    if (!chartData[index]) return null;
+
     const RADIAN = Math.PI / 180;
     const radius = outerRadius + 20; // Adjust the distance of the label
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -81,6 +84,25 @@ const BiologicalStudyCount: React.FC = () => {
     );
   };
 
+  // Function to download the chart with the legend
+  const downloadGraph = async () => {
+    const element = document.getElementById("chart-container");
+    if (element) {
+      try {
+        const canvas = await html2canvas(element, {
+          useCORS: true,
+          backgroundColor: "#ffffff",
+        });
+        const link = document.createElement("a");
+        link.download = "chart_with_labels.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } catch (error) {
+        console.error("Error capturing chart:", error);
+      }
+    }
+  };
+
   if (isLoading) {
     return <GraphSkeleton pie={false} />;
   }
@@ -93,71 +115,53 @@ const BiologicalStudyCount: React.FC = () => {
       <CardContent>
         <div id="chart-container">
           <ChartContainer config={{}}>
-            <>
-              <PieChart>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                <Pie
-                  data={chartData}
-                  dataKey="study_count"
-                  nameKey="biological_modalities__modality_name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={100}
-                  outerRadius={220}
-                  label={renderCustomLabel} // Add custom labels
-                  activeIndex={activeIndex}
-                  onMouseEnter={(_, index) => setActiveIndex(index)}
-                  onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
-                  onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
-                  activeShape={(props) => (
-                    <Sector
-                      {...props}
-                      outerRadius={props.outerRadius + 10}
-                      innerRadius={props.innerRadius}
-                    />
-                  )}
-                />
-              </PieChart>
+            <PieChart>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={chartData}
+                dataKey="study_count"
+                nameKey="biological_modalities__modality_name"
+                cx="50%"
+                cy="50%"
+                innerRadius={100}
+                outerRadius={220}
+                label={renderCustomLabel} // Add custom labels
+                activeIndex={activeIndex}
+                onMouseEnter={(_, index) => setActiveIndex(index)}
+                onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
+                onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
+                activeShape={(props: SectorProps) => (
+                  <Sector
+                    {...props}
+                    outerRadius={(props.outerRadius ?? 0) + 10}
+                    innerRadius={props.innerRadius}
+                  />
+                )}
+              />
+            </PieChart>
 
-              {/* Legend displayed below the chart */}
-              <div className="flex flex-wrap gap-4 mt-4">
-                {chartData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 text-sm"
-                    style={{ color: item.fill }}
-                  >
-                    <span
-                      className="block w-4 h-4 rounded-full"
-                      style={{ backgroundColor: item.fill }}
-                    ></span>
-                    {item.biological_modalities__modality_name}
-                  </div>
-                ))}
-              </div>
-            </>
+            {/* Legend displayed below the chart */}
+            <div className="flex flex-wrap gap-4 mt-4">
+              {chartData.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: item.fill }}
+                >
+                  <span
+                    className="block w-4 h-4 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  ></span>
+                  {item.biological_modalities__modality_name}
+                </div>
+              ))}
+            </div>
           </ChartContainer>
 
           <div className="mt-5">
             <button
               className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[180px] gap-2 border text-sm font-bold sm:mt-8"
-              onClick={async () => {
-                const element = document.getElementById("chart-container");
-                if (element) {
-                  try {
-                    const canvas = await html2canvas(element, {
-                      useCORS: true,
-                      backgroundColor: "#ffffff",
-                    });
-                    const link = document.createElement("a");
-                    link.download = "chart_with_labels.png";
-                    link.href = canvas.toDataURL("image/png");
-                    link.click();
-                  } catch (error) {
-                    console.error("Error capturing chart:", error);
-                  }
-                }
-              }}
+              onClick={downloadGraph}
             >
               <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
               <span>Download</span>
