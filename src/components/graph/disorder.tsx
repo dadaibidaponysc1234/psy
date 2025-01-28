@@ -12,6 +12,7 @@ import {
   CartesianGrid,
   LabelList,
   SectorProps,
+  ResponsiveContainer,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,7 +115,7 @@ const DisorderStudyCount: React.FC = () => {
         fill="black"
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
-        fontSize="12"
+        fontSize="10"
         fontWeight="bold"
       >
         {`${processedData[index].disorder} (${processedData[index].study_count})`}
@@ -156,6 +157,7 @@ const DisorderStudyCount: React.FC = () => {
       <CardContent>
         <div id="chart-container">
           <ChartContainer config={{}}>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
               <Pie
@@ -164,8 +166,8 @@ const DisorderStudyCount: React.FC = () => {
                 nameKey="disorder"
                 cx="50%"
                 cy="50%"
-                innerRadius={10}
-                outerRadius={220}
+                innerRadius="5%"
+                outerRadius="70%"
                 label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -186,6 +188,7 @@ const DisorderStudyCount: React.FC = () => {
                 )}
               />
             </PieChart>
+            </ResponsiveContainer>
           </ChartContainer>
 
           <button
@@ -204,6 +207,7 @@ const DisorderStudyCount: React.FC = () => {
             <DialogTitle>Breakdown of Other Disorders</DialogTitle>
           </DialogHeader>
           <div id="bar-chart-container">
+            <ResponsiveContainer width="100%" height={300}>
             <BarChart
               width={600}
               height={350}
@@ -227,6 +231,7 @@ const DisorderStudyCount: React.FC = () => {
                 <LabelList dataKey="study_count" position="top" />
               </Bar>
             </BarChart>
+            </ResponsiveContainer>
 
             {/* Color-coded legend for "Other" disorders */}
             <div className="flex flex-wrap gap-4 mt-4">

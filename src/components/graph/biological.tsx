@@ -76,7 +76,7 @@ const BiologicalStudyCount: React.FC = () => {
         fill="black"
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
-        fontSize="12"
+        fontSize="10"
         fontWeight="bold"
       >
         {`${chartData[index].biological_modalities__modality_name} (${chartData[index].study_count})`}
