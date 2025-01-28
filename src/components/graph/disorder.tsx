@@ -31,21 +31,20 @@ const COLOR_RANGE = [
 
 // Function to get unique colors
 const getColor = (() => {
-  let index = 0; // Track the current color index
+  let index = 0;
   return () => {
     const color = COLOR_RANGE[index];
-    index = (index + 1) % COLOR_RANGE.length; // Cycle back to the start if the end is reached
+    index = (index + 1) % COLOR_RANGE.length;
     return color;
   };
 })();
 
 const DisorderStudyCount: React.FC = () => {
   const { data: year, isLoading } = useGetDisorder();
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [clickedDisorder, setClickedDisorder] = useState<string | null>(null);
   const [showOtherModal, setShowOtherModal] = useState(false);
 
-  // Process chart data: group disorders with study_count ≤ 4 into "Other"
   const { processedData, otherData, otherLegend } = useMemo(() => {
     if (!year) return { processedData: [], otherData: [], otherLegend: [] };
 
@@ -58,7 +57,7 @@ const DisorderStudyCount: React.FC = () => {
         if (data.study_count <= 4) {
           otherCount += data.study_count;
           otherItems.push({
-            disorder: `${data.disorder__disorder_name.slice(0, 8)}...`, // Shortened name
+            disorder: `${data.disorder__disorder_name.slice(0, 8)}...`,
             fullName: data.disorder__disorder_name,
             study_count: data.study_count,
             fill: getColor(),
@@ -88,7 +87,6 @@ const DisorderStudyCount: React.FC = () => {
     return { processedData: filteredData, otherData: otherItems, otherLegend: otherLegendItems };
   }, [year]);
 
-  // Custom Label Renderer for Pie Slices
   const renderCustomLabel = ({
     cx,
     cy,
@@ -124,7 +122,6 @@ const DisorderStudyCount: React.FC = () => {
     );
   };
 
-  // Download the chart
   const downloadGraph = async () => {
     const element = document.getElementById("chart-container");
     if (element) {
@@ -136,7 +133,6 @@ const DisorderStudyCount: React.FC = () => {
     }
   };
 
-  // Download the bar chart
   const downloadBarChart = async () => {
     const element = document.getElementById("bar-chart-container");
     if (element) {
@@ -173,7 +169,7 @@ const DisorderStudyCount: React.FC = () => {
                 label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
-                onMouseLeave={() => setActiveIndex(null)}
+                onMouseLeave={() => setActiveIndex(undefined)} // Set to undefined
                 onClick={(state) => {
                   if (state.name === "Other") {
                     setShowOtherModal(true);
@@ -202,13 +198,11 @@ const DisorderStudyCount: React.FC = () => {
         </div>
       </CardContent>
 
-      {/* Dialog for "Other" disorders */}
-      <Dialog open={showOtherModal} onOpenChange={(open) => setShowOtherModal(open)}>
-        <DialogContent className="max-h-[80vh] max-w-[700px] flex flex-col items-center">
+      <Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
+        <DialogContent className="max-h-[100vh] max-w-[800px] flex flex-col items-center">
           <DialogHeader>
             <DialogTitle>Breakdown of Other Disorders</DialogTitle>
           </DialogHeader>
-
           <div id="bar-chart-container">
             <BarChart
               width={600}
@@ -233,19 +227,27 @@ const DisorderStudyCount: React.FC = () => {
                 <LabelList dataKey="study_count" position="top" />
               </Bar>
             </BarChart>
-          </div>
 
+            {/* Color-coded legend for "Other" disorders */}
+            <div className="flex flex-wrap gap-4 mt-4">
+              {otherLegend.map((item, index) => (
+                <div key={index} className="flex items-center gap-2 text-xs">
+                  <span className="block w-4 h-4 rounded-full" style={{ backgroundColor: item.fill }}></span>
+                    {item.disorder}
+          </div>
+        ))}
+      </div>
+          </div>
           <button
             className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold"
             onClick={downloadBarChart}
           >
             <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
-            <span>Download Bar Chart</span>
+            <span>Download Chart</span>
           </button>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for Search Functionality */}
       <Dialog open={!!clickedDisorder} onOpenChange={(open) => !open && setClickedDisorder(null)}>
         <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto">
           <DialogHeader>
