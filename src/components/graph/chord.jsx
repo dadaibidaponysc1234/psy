@@ -242,16 +242,9 @@ const Chord = ({ data, isLoading, error }) => {
     ];
 
     const customColors = [
-      "#17becf",
-      "#8c564b",
-      "#e377c2",
-      "#7f7f7f",
-      "#bcbd22",
-      "#9467bd",
-      "#ff7f0e",
-      "#1f77b4",
-      "#d62728",
-      "#2ca02c",
+      "#00CD6C", "#009ADE", "#AF58BA",
+      "#FFC61E",  "#A6761D","#F28522",
+      "#FFAA00",  "#6E005F","#00B000", "#E9002D",
     ];
 
     const regionColors = d3

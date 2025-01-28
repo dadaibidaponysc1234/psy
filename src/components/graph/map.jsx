@@ -19,9 +19,15 @@ const MapStudyCount = ({ data, isLoading, error }) => {
       locations: locations, // The country names
       z: studyCounts, // Study counts (color intensity)
       text: locations, // Country names for hover text
-      colorscale: "Viridis", // Color scale
+      colorscale: [ // Custom color scale
+        [0, "#E9002D"], // Low
+        [0.25, "#FF1F5B"], // Medium Low
+        [0.5, "#F28522"], // Medium High
+        [0.75, "#FFAA00"], // High
+        [1, "#FFC61E"], // Very High
+      ],
       autocolorscale: false,
-      reversescale: true,
+      reversescale: false, // Do not reverse the scale
       colorbar: {
         title: "Study Count",
       },
@@ -82,28 +88,29 @@ const MapStudyCount = ({ data, isLoading, error }) => {
                 <div className="flex items-center">
                   <span
                     className="block w-4 h-4 rounded-sm"
-                    style={{ backgroundColor: "#440154" }}
+                    style={{ backgroundColor: "#E9002D" }}
+                    
                   ></span>
                   <span className="ml-2 text-xs">Low</span>
                 </div>
                 <div className="flex items-center">
                   <span
                     className="block w-4 h-4 rounded-sm"
-                    style={{ backgroundColor: "#3B528B" }}
+                    style={{ backgroundColor: "#F28522" }}
                   ></span>
                   <span className="ml-2 text-xs">Medium</span>
                 </div>
                 <div className="flex items-center">
                   <span
                     className="block w-4 h-4 rounded-sm"
-                    style={{ backgroundColor: "#5DC863" }}
+                    style={{ backgroundColor: "#FFAA00" }}
                   ></span>
                   <span className="ml-2 text-xs">High</span>
                 </div>
                 <div className="flex items-center">
                   <span
                     className="block w-4 h-4 rounded-sm"
-                    style={{ backgroundColor: "#FDE725" }}
+                    style={{ backgroundColor: "#FFC61E" }}
                   ></span>
                   <span className="ml-2 text-xs">Very High</span>
                 </div>
