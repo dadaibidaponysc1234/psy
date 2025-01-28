@@ -1,27 +1,29 @@
 import React, { useEffect, useState } from "react";
-
-import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import html2canvas from "html2canvas";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useGetYears } from "@/hooks/use-get-yearApi";
 import GraphSkeleton from "../skeletons/graph-skeleton";
-import { StudyCount } from "@/types/yearApi";
+import { CloudDownloadIcon } from "lucide-react";
 
 const YearlyStudyCount: React.FC = () => {
-  const { data: year, isLoading, isError } = useGetYears();
+  const { data: year, isLoading } = useGetYears();
 
   const chartData =
     year?.map((data) => ({
@@ -42,38 +44,31 @@ const YearlyStudyCount: React.FC = () => {
     },
   };
 
-  const calculateTrendLine = (data: any[], dataKey: string) => {
-    const n = data.length;
-    const sumX = data.reduce((sum, d) => sum + d.year, 0);
-    const sumY = data.reduce((sum, d) => sum + d[dataKey], 0);
-    const sumXY = data.reduce((sum, d) => sum + d.year * d[dataKey], 0);
-    const sumX2 = data.reduce((sum, d) => sum + d.year * d.year, 0);
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-
-    // Attach trend line values to the original data
-    return data.map((d) => ({
-      year: d.year,
-      trend: slope * d.year + intercept,
-    }));
+  // Download chart as image
+  const downloadChart = async (chartId: string, fileName: string) => {
+    const element = document.getElementById(chartId);
+    if (element) {
+      const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff" });
+      const link = document.createElement("a");
+      link.download = `${fileName}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
   };
 
-  const studyCountTrendLine = calculateTrendLine(chartData, "study_count");
-  const impactFactorTrendLine = calculateTrendLine(chartData, "impact_factor");
-  const citationTrendLine = calculateTrendLine(chartData, "citation");
+  if (isLoading) {
+    return <GraphSkeleton pie={false} />;
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Study Count Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Yearly Study-Count</CardTitle>
-          <CardDescription>Number of Publications </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <GraphSkeleton />
-          ) : (
+          <div id="study-count-chart">
             <ChartContainer config={chartConfig}>
               <LineChart
                 data={chartData}
@@ -84,8 +79,6 @@ const YearlyStudyCount: React.FC = () => {
                   dataKey="year"
                   axisLine={false}
                   tickMargin={8}
-                  // fontSize={10}
-                  // fontWeight={600}
                 />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
@@ -99,49 +92,40 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                {/* <Line
-                  data={studyCountTrendLine}
-                  dataKey="trend"
-                  type="linear"
-                  stroke="#FF6347"
-                  strokeWidth={2}
-                  dot={false}
-                  strokeDasharray="3 3"
-                /> */}
               </LineChart>
             </ChartContainer>
-          )}
+          </div>
+          {/* Download Button */}
+          <div className="flex justify-center">
+            <button
+              className="px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold sm:mt-8"
+              onClick={() => downloadChart("study-count-chart", "yearly_study_count")}
+            >
+              <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+              <span>Download Chart</span>
+            </button>
+          </div>
         </CardContent>
-        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
-          <div className="flex gap-2 font-medium leading-none">
-            Highlight <TrendingUp className="h-4 w-4" />
-          </div>
-          <div className="leading-none text-muted-foreground">
-            The data on African genomics research reveals a clear upward trend
-            from 2007, with a significant surge in publications starting around
-            2014. This growth reflects increasing global interest and investment
-            in the field, peaking at 14 publications in 2022. The consistent
-            activity over the years highlights the growing importance and
-            recognition of African genomics on the global research stage.
-          </div>
-        </CardFooter> */}
       </Card>
+
+      {/* Citation Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Yearly Citation</CardTitle>
-          <CardDescription>Number of Publications </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <GraphSkeleton />
-          ) : (
-            <ChartContainer config={chartConfig} className="h-full">
+          <div id="citation-chart">
+            <ChartContainer config={chartConfig}>
               <LineChart
                 data={chartData}
                 margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
               >
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
+                <XAxis
+                  dataKey="year"
+                  axisLine={false}
+                  tickMargin={8}
+                />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
@@ -154,49 +138,40 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                {/* <Line
-                  data={citationTrendLine}
-                  dataKey="trend"
-                  type="linear"
-                  stroke="#32CD32"
-                  strokeWidth={2}
-                  dot={false}
-                  strokeDasharray="3 3"
-                /> */}
               </LineChart>
             </ChartContainer>
-          )}
+          </div>
+          {/* Download Button */}
+          <div className="flex justify-center">
+            <button
+              className="px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold sm:mt-8"
+              onClick={() => downloadChart("citation-chart", "yearly_citation")}
+            >
+              <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+              <span>Download Chart</span>
+            </button>
+          </div>
         </CardContent>
-        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
-          <div className="flex gap-2 font-medium leading-none">
-            Highlight <TrendingUp className="h-4 w-4" />
-          </div>
-          <div className="leading-none text-muted-foreground">
-            The data on African genomics research reveals a clear upward trend
-            from 2007, with a significant surge in publications starting around
-            2014. This growth reflects increasing global interest and investment
-            in the field, peaking at 14 publications in 2022. The consistent
-            activity over the years highlights the growing importance and
-            recognition of African genomics on the global research stage.
-          </div>
-        </CardFooter> */}
       </Card>
+
+      {/* Impact Factor Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Yearly Impact factor</CardTitle>
-          <CardDescription>Number of Publications </CardDescription>
+          <CardTitle>Yearly Impact Factor</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <GraphSkeleton />
-          ) : (
-            <ChartContainer config={chartConfig} className="h-full">
+          <div id="impact-factor-chart">
+            <ChartContainer config={chartConfig}>
               <LineChart
                 data={chartData}
                 margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
               >
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="year" axisLine={false} tickMargin={8} />
+                <XAxis
+                  dataKey="year"
+                  axisLine={false}
+                  tickMargin={8}
+                />
                 <YAxis domain={["auto", "auto"]} />
                 <ChartTooltip
                   cursor={false}
@@ -209,32 +184,20 @@ const YearlyStudyCount: React.FC = () => {
                   strokeWidth={2}
                   dot={true}
                 />
-                {/* <Line
-                  data={impactFactorTrendLine}
-                  dataKey="trend"
-                  type="linear"
-                  stroke="#32CD32"
-                  strokeWidth={2}
-                  dot={false}
-                  strokeDasharray="3 3"
-                /> */}
               </LineChart>
             </ChartContainer>
-          )}
+          </div>
+          {/* Download Button */}
+          <div className="flex justify-center">
+            <button
+              className="px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold sm:mt-8"
+              onClick={() => downloadChart("impact-factor-chart", "yearly_impact_factor")}
+            >
+              <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+              <span>Download Chart</span>
+            </button>
+          </div>
         </CardContent>
-        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
-          <div className="flex gap-2 font-medium leading-none">
-            Highlight <TrendingUp className="h-4 w-4" />
-          </div>
-          <div className="leading-none text-muted-foreground">
-            The data on African genomics research reveals a clear upward trend
-            from 2007, with a significant surge in publications starting around
-            2014. This growth reflects increasing global interest and investment
-            in the field, peaking at 14 publications in 2022. The consistent
-            activity over the years highlights the growing importance and
-            recognition of African genomics on the global research stage.
-          </div>
-        </CardFooter> */}
       </Card>
     </div>
   );

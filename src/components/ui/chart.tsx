@@ -44,7 +44,8 @@ const ChartContainer = React.forwardRef<
     config: ChartConfig
     children: React.ComponentProps<
       typeof RechartsPrimitive.ResponsiveContainer
-    >["children"]
+    >["children"];
+    legend?: React.ReactNode; // Add legend prop
   }
 >(({ id, className, children, config, ...props }, forwardRef) => {
   const uniqueId = React.useId()
@@ -80,7 +81,7 @@ const ChartContainer = React.forwardRef<
           {children}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
-      <Button
+      {/* <Button
         onClick={() => handleDownload()}
         loading={isLoading}
         variant={"ghost"}
@@ -88,11 +89,12 @@ const ChartContainer = React.forwardRef<
       >
         <CloudDownloadIcon strokeWidth={1.5} />
         Download Graph
-      </Button>
+      </Button> */}
     </ChartContext.Provider>
   )
 })
 ChartContainer.displayName = "Chart"
+
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
