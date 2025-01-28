@@ -151,6 +151,7 @@ const downloadBarChart = async () => {
       </CardHeader>
       <CardContent>
         <div id="chart-container">
+          
           <ChartContainer config={chartConfig || {}}>
             <PieChart>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
