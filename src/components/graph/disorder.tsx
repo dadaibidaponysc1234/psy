@@ -11,6 +11,7 @@ import {
   XAxis,
   CartesianGrid,
   LabelList,
+  SectorProps,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,7 @@ import { CloudDownloadIcon } from "lucide-react";
 const COLOR_RANGE = [
   "#FF1F5B", "#00CD6C", "#009ADE", "#AF58BA",
   "#FFC61E", "#F28522", "#A0B1BA", "#A6761D",
-  "#E9002D", "#FFAA00", "#00B000"
+  "#E9002D", "#FFAA00", "#00B000",
 ];
 
 // Function to get unique colors
@@ -49,16 +50,16 @@ const DisorderStudyCount: React.FC = () => {
     if (!year) return { processedData: [], otherData: [], otherLegend: [] };
 
     let otherCount = 0;
-    let otherItems: any[] = [];
-    let otherLegendItems: any[] = [];
+    const otherItems: any[] = [];
+    const otherLegendItems: any[] = [];
 
     const filteredData = year
       .map((data) => {
         if (data.study_count <= 4) {
-          otherCount += data.study_count; // Sum counts for "Other"
+          otherCount += data.study_count;
           otherItems.push({
-            disorder: data.disorder__disorder_name.slice(0, 8) + "...", // Shortened name
-            fullName: data.disorder__disorder_name, // Full name for legend & search
+            disorder: `${data.disorder__disorder_name.slice(0, 8)}...`, // Shortened name
+            fullName: data.disorder__disorder_name,
             study_count: data.study_count,
             fill: getColor(),
           });
@@ -74,7 +75,7 @@ const DisorderStudyCount: React.FC = () => {
           fill: getColor(),
         };
       })
-      .filter(Boolean); // Remove null values
+      .filter(Boolean);
 
     if (otherCount > 0) {
       filteredData.push({
@@ -88,9 +89,23 @@ const DisorderStudyCount: React.FC = () => {
   }, [year]);
 
   // Custom Label Renderer for Pie Slices
-  const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, index }: any) => {
+  const renderCustomLabel = ({
+    cx,
+    cy,
+    midAngle,
+    outerRadius,
+    index,
+  }: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    outerRadius: number;
+    index: number;
+  }) => {
+    if (!processedData[index]) return null;
+
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 20; // Adjust the label distance
+    const radius = outerRadius + 20;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -109,13 +124,6 @@ const DisorderStudyCount: React.FC = () => {
     );
   };
 
-  // Chart config
-  const chartConfig = useMemo(() => {
-    return year
-      ? { desktop: { label: "Desktop", color: "hsl(var(--chart-1))" } }
-      : {};
-  }, [year]);
-
   // Download the chart
   const downloadGraph = async () => {
     const element = document.getElementById("chart-container");
@@ -127,18 +135,18 @@ const DisorderStudyCount: React.FC = () => {
       link.click();
     }
   };
-  
-  {/* Function to download the bar chart */}
-const downloadBarChart = async () => {
-  const element = document.getElementById("bar-chart-container");
-  if (element) {
-    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff" });
-    const link = document.createElement("a");
-    link.download = "other_disorders_chart.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  }
-};
+
+  // Download the bar chart
+  const downloadBarChart = async () => {
+    const element = document.getElementById("bar-chart-container");
+    if (element) {
+      const canvas = await html2canvas(element, { useCORS: true, backgroundColor: "#ffffff" });
+      const link = document.createElement("a");
+      link.download = "other_disorders_chart.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+  };
 
   if (isLoading) {
     return <GraphSkeleton pie={false} />;
@@ -151,8 +159,7 @@ const downloadBarChart = async () => {
       </CardHeader>
       <CardContent>
         <div id="chart-container">
-          
-          <ChartContainer config={chartConfig || {}}>
+          <ChartContainer config={{}}>
             <PieChart>
               <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
               <Pie
@@ -161,143 +168,95 @@ const downloadBarChart = async () => {
                 nameKey="disorder"
                 cx="50%"
                 cy="50%"
-                innerRadius={6}
+                innerRadius={100}
                 outerRadius={220}
-                label={renderCustomLabel} // Labels for pie slices
+                label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
                 onClick={(state) => {
                   if (state.name === "Other") {
-                    setShowOtherModal(true); // Open modal for "Other"
+                    setShowOtherModal(true);
                   } else {
-                    setClickedDisorder(state.name ?? null); // Open search results for normal disorders
+                    setClickedDisorder(state.name ?? null);
                   }
                 }}
-                activeShape={(props) => (
-                  <Sector {...props} outerRadius={props.outerRadius + 10} innerRadius={props.innerRadius} />
+                activeShape={(props: SectorProps) => (
+                  <Sector
+                    {...props}
+                    outerRadius={(props.outerRadius ?? 0) + 10}
+                    innerRadius={props.innerRadius}
+                  />
                 )}
               />
             </PieChart>
           </ChartContainer>
 
-          <div className="mt-5">
-            <button
-              className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[180px] gap-2 border text-sm font-bold sm:mt-8"
-              onClick={downloadGraph}
-            >
-              <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
-              <span>Download</span>
-            </button>
-          </div>
+          <button
+            className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[180px] gap-2 border text-sm font-bold sm:mt-8"
+            onClick={downloadGraph}
+          >
+            <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+            <span>Download</span>
+          </button>
         </div>
       </CardContent>
 
-{/*<Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
-  <DialogContent className="max-h-[100vh] max-w-[800px] flex flex-col items-center justify-center">
-   
-    <DialogHeader>
-      <DialogTitle>Breakdown of "Other" Disorders</DialogTitle>
-    </DialogHeader>
+      {/* Dialog for "Other" disorders */}
+      <Dialog open={showOtherModal} onOpenChange={(open) => setShowOtherModal(open)}>
+        <DialogContent className="max-h-[80vh] max-w-[700px] flex flex-col items-center">
+          <DialogHeader>
+            <DialogTitle>Breakdown of Other Disorders</DialogTitle>
+          </DialogHeader>
 
-    <div className="flex flex-col items-center justify-center">
-      <BarChart
-        width={600} // Increased width
-        height={350} // Increased height
-        data={otherData}
-        onClick={(state) => {
-          const selectedDisorder = otherData.find((d) => d.disorder === state.activeLabel);
-          if (selectedDisorder) {
-            setClickedDisorder(selectedDisorder.fullName); // Use full name for search
-          }
-        }}
-      >
-        <CartesianGrid vertical={false} />
-        <XAxis
-          dataKey="disorder"
-          tickMargin={10}
-          axisLine={false}
-          className="text-xs sm:text-sm"
-          fontWeight={600}
-        />
-        <Bar dataKey="study_count" radius={8} />
-      </BarChart>
-
-      
-      <div className="flex flex-wrap gap-4 mt-4">
-        {otherLegend.map((item, index) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <span className="block w-4 h-4 rounded-full" style={{ backgroundColor: item.fill }}></span>
-            {item.disorder}
+          <div id="bar-chart-container">
+            <BarChart
+              width={600}
+              height={350}
+              data={otherData}
+              onClick={(state) => {
+                const selectedDisorder = otherData.find((d) => d.disorder === state.activeLabel);
+                if (selectedDisorder) {
+                  setClickedDisorder(selectedDisorder.fullName);
+                }
+              }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="disorder"
+                tickMargin={10}
+                axisLine={false}
+                className="text-xs sm:text-sm"
+                fontWeight={600}
+              />
+              <Bar dataKey="study_count" fill="#808080" radius={8}>
+                <LabelList dataKey="study_count" position="top" />
+              </Bar>
+            </BarChart>
           </div>
-        ))}
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>*/}
 
-{/* Dialog for "Other" bar chart */}
-<Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
-  <DialogContent className="max-h-[100vh] max-w-[800px] flex flex-col items-center justify-center">
-    <DialogHeader>
-      <DialogTitle>Breakdown of Other Disorders</DialogTitle>
-    </DialogHeader>
-
-    <div id="bar-chart-container" className="flex flex-col items-center justify-center">
-      <BarChart
-        width={600} // Increased width
-        height={350} // Increased height
-        data={otherData}
-        onClick={(state) => {
-          const selectedDisorder = otherData.find((d) => d.disorder === state.activeLabel);
-          if (selectedDisorder) {
-            setClickedDisorder(selectedDisorder.fullName); // Use full name for search
-          }
-        }}
-      >
-        <CartesianGrid vertical={false} />
-        <XAxis
-          dataKey="disorder"
-          tickMargin={10}
-          axisLine={false}
-          className="text-xs sm:text-sm"
-          fontWeight={600}
-        />
-        <Bar dataKey="study_count" radius={8} />
-      </BarChart>
-
-      {/* Color-coded legend for "Other" disorders */}
-      <div className="flex flex-wrap gap-4 mt-4">
-        {otherLegend.map((item, index) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <span className="block w-4 h-4 rounded-full" style={{ backgroundColor: item.fill }}></span>
-            {item.disorder}
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* Download Button */}
-    <div className="">
-      <button
-        className="px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold sm:mt-8"
-        onClick={downloadBarChart}
-      >
-        <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
-        <span>Download</span>
-      </button>
-    </div>
-  </DialogContent>
-</Dialog>
-
+          <button
+            className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[200px] gap-2 border text-sm font-bold"
+            onClick={downloadBarChart}
+          >
+            <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+            <span>Download Bar Chart</span>
+          </button>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog for Search Functionality */}
       <Dialog open={!!clickedDisorder} onOpenChange={(open) => !open && setClickedDisorder(null)}>
-        <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto"> {/* Adjusted height */}
+        <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Search Results for {clickedDisorder}</DialogTitle>
           </DialogHeader>
-          <Search disorder={clickedDisorder || ""} showFilters={false} showSearchBar={false} showVisualize={false} />
+          <Search
+            disorder={clickedDisorder || ""}
+            showFilters={false}
+            showSearchBar={false}
+            showVisualize={false}
+          />
         </DialogContent>
       </Dialog>
     </Card>
