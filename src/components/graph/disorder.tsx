@@ -239,7 +239,7 @@ const downloadBarChart = async () => {
 <Dialog open={showOtherModal} onOpenChange={setShowOtherModal}>
   <DialogContent className="max-h-[100vh] max-w-[800px] flex flex-col items-center justify-center">
     <DialogHeader>
-      <DialogTitle>Breakdown of "Other" Disorders</DialogTitle>
+      <DialogTitle>Breakdown of Other Disorders</DialogTitle>
     </DialogHeader>
 
     <div id="bar-chart-container" className="flex flex-col items-center justify-center">
@@ -294,7 +294,7 @@ const downloadBarChart = async () => {
       <Dialog open={!!clickedDisorder} onOpenChange={(open) => !open && setClickedDisorder(null)}>
         <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto"> {/* Adjusted height */}
           <DialogHeader>
-            <DialogTitle>Search Results for "{clickedDisorder}"</DialogTitle>
+            <DialogTitle>Search Results for {clickedDisorder}</DialogTitle>
           </DialogHeader>
           <Search disorder={clickedDisorder || ""} showFilters={false} showSearchBar={false} showVisualize={false} />
         </DialogContent>
