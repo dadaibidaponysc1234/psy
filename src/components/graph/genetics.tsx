@@ -6,7 +6,7 @@ import {
   Pie,
   Tooltip,
   Sector,
-  Label as RechartsLabel,
+  SectorProps,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,8 +52,7 @@ const GeneticsStudyCount: React.FC = () => {
     if (!year) return [];
     return year
       .map((data) => ({
-        genetic_source_materials__material_type:
-          data.genetic_source_materials__material_type,
+        genetic_source_materials__material_type: data.genetic_source_materials__material_type,
         study_count: data.study_count,
         fill: getColor(),
       }))
@@ -62,7 +61,7 @@ const GeneticsStudyCount: React.FC = () => {
 
   // Custom Label Renderer for Pie Slices
   const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, index }: any) => {
-    if (!chartData[index]) return null; // Ensure the index is valid
+    if (!chartData[index]) return null;
 
     const RADIAN = Math.PI / 180;
     const radius = outerRadius + 20; // Adjust the distance of the label
@@ -84,18 +83,6 @@ const GeneticsStudyCount: React.FC = () => {
     );
   };
 
-  // Chart config
-  const chartConfig = useMemo(() => {
-    return year
-      ? {
-          desktop: {
-            label: "Desktop",
-            color: "hsl(var(--chart-1))",
-          },
-        }
-      : {};
-  }, [year]);
-
   // Function to download the chart with the legend
   const downloadGraph = async () => {
     const element = document.getElementById("chart-container");
@@ -106,11 +93,11 @@ const GeneticsStudyCount: React.FC = () => {
           backgroundColor: "#ffffff",
         });
         const link = document.createElement("a");
-        link.download = "chart.png";
+        link.download = "chart_with_labels.png";
         link.href = canvas.toDataURL("image/png");
         link.click();
       } catch (error) {
-        console.error("Error downloading chart:", error);
+        console.error("Error capturing chart:", error);
       }
     }
   };
@@ -126,9 +113,9 @@ const GeneticsStudyCount: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div id="chart-container">
-          <ChartContainer config={chartConfig || {}}>
+          <ChartContainer config={{}}>
             <PieChart>
-              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Tooltip />
               <Pie
                 data={chartData}
                 dataKey="study_count"
@@ -137,42 +124,42 @@ const GeneticsStudyCount: React.FC = () => {
                 cy="50%"
                 innerRadius={100}
                 outerRadius={220}
-                label={renderCustomLabel} // Add custom labels
+                label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
-                onMouseLeave={() => setActiveIndex(undefined)} // Use undefined instead of null
+                onMouseLeave={() => setActiveIndex(undefined)}
                 onClick={(state) => setClickedGenetics(state.name ?? null)}
-                activeShape={(props) => (
+                activeShape={(props: SectorProps) => (
                   <Sector
                     {...props}
-                    outerRadius={props.outerRadius + 10}
-                    innerRadius={props.innerRadius}
+                    outerRadius={(props.outerRadius ?? 0) + 10}
+                    innerRadius={props.innerRadius ?? 0}
                   />
                 )}
               />
             </PieChart>
-
-            {/* Legend displayed below the chart */}
-            <div className="flex flex-wrap gap-4">
-              {chartData.length > 0 ? (
-                chartData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 text-sm"
-                    style={{ color: item.fill }}
-                  >
-                    <span
-                      className="block w-4 h-4 rounded-full"
-                      style={{ backgroundColor: item.fill }}
-                    ></span>
-                    {item.genetic_source_materials__material_type}
-                  </div>
-                ))
-              ) : (
-                <p>No data available for legend</p>
-              )}
-            </div>
           </ChartContainer>
+
+          {/* Legend displayed below the chart */}
+          <div className="flex flex-wrap gap-4 mt-4">
+            {chartData.length > 0 ? (
+              chartData.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: item.fill }}
+                >
+                  <span
+                    className="block w-4 h-4 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  ></span>
+                  {item.genetic_source_materials__material_type}
+                </div>
+              ))
+            ) : (
+              <p>No data available for legend</p>
+            )}
+          </div>
 
           <div className="mt-5">
             <button

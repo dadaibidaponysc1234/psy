@@ -6,7 +6,6 @@ import {
   Pie,
   Tooltip,
   Sector,
-  Label as RechartsLabel,
   SectorProps,
 } from "recharts";
 import html2canvas from "html2canvas";
@@ -116,7 +115,7 @@ const BiologicalStudyCount: React.FC = () => {
         <div id="chart-container">
           <ChartContainer config={{}}>
             <PieChart>
-              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Tooltip />
               <Pie
                 data={chartData}
                 dataKey="study_count"
@@ -125,38 +124,38 @@ const BiologicalStudyCount: React.FC = () => {
                 cy="50%"
                 innerRadius={100}
                 outerRadius={220}
-                label={renderCustomLabel} // Add custom labels
+                label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
-                onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
+                onMouseLeave={() => setActiveIndex(undefined)}
                 onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
                 activeShape={(props: SectorProps) => (
                   <Sector
                     {...props}
                     outerRadius={(props.outerRadius ?? 0) + 10}
-                    innerRadius={props.innerRadius}
+                    innerRadius={props.innerRadius ?? 0}
                   />
                 )}
               />
             </PieChart>
-
-            {/* Legend displayed below the chart */}
-            <div className="flex flex-wrap gap-4 mt-4">
-              {chartData.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: item.fill }}
-                >
-                  <span
-                    className="block w-4 h-4 rounded-full"
-                    style={{ backgroundColor: item.fill }}
-                  ></span>
-                  {item.biological_modalities__modality_name}
-                </div>
-              ))}
-            </div>
           </ChartContainer>
+
+          {/* Legend displayed below the chart */}
+          <div className="flex flex-wrap gap-4 mt-4">
+            {chartData.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-2 text-sm"
+                style={{ color: item.fill }}
+              >
+                <span
+                  className="block w-4 h-4 rounded-full"
+                  style={{ backgroundColor: item.fill }}
+                ></span>
+                {item.biological_modalities__modality_name}
+              </div>
+            ))}
+          </div>
 
           <div className="mt-5">
             <button
