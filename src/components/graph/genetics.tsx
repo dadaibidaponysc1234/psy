@@ -19,17 +19,10 @@ import { CloudDownloadIcon } from "lucide-react";
 
 // Define a fixed set of unique colors
 const COLOR_RANGE = [
-  "#FF1F5B",
-  "#00CD6C",
-  "#009ADE",
-  "#AF58BA",
-  "#FFC61E",
-  "#F28522",
-  "#A0B1BA",
-  "#A6761D",
-  "#E9002D",
-  "#FFAA00",
-  "#00B000",
+  "#FF1F5B","#F28522", "#FFAA00",
+  "#00CD6C", "#AF58BA","#A6761D", 
+  "#009ADE", "#FFC61E","#A0B1BA",
+  "#E9002D", "#00B000",
 ];
 
 // Function to get unique colors
