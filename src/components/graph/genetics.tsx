@@ -7,6 +7,7 @@ import {
   Tooltip,
   Sector,
   SectorProps,
+  ResponsiveContainer,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,8 +76,7 @@ const GeneticsStudyCount: React.FC = () => {
         fill="black"
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
-        fontSize="12"
-        fontWeight="bold"
+        fontSize="10" // Smaller font for mobile
       >
         {`${chartData[index].genetic_source_materials__material_type} (${chartData[index].study_count})`}
       </text>
@@ -112,8 +112,9 @@ const GeneticsStudyCount: React.FC = () => {
         <CardTitle>Number of studies, by DNA source</CardTitle>
       </CardHeader>
       <CardContent>
-        <div id="chart-container">
-          <ChartContainer config={{}}>
+        <div id="chart-container" className="flex flex-col items-center">
+          {/* ResponsiveContainer for adaptive width */}
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Tooltip />
               <Pie
@@ -122,8 +123,8 @@ const GeneticsStudyCount: React.FC = () => {
                 nameKey="genetic_source_materials__material_type"
                 cx="50%"
                 cy="50%"
-                innerRadius={100}
-                outerRadius={220}
+                innerRadius="40%"
+                outerRadius="90%"
                 label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -138,46 +139,42 @@ const GeneticsStudyCount: React.FC = () => {
                 )}
               />
             </PieChart>
-          </ChartContainer>
+          </ResponsiveContainer>
 
           {/* Legend displayed below the chart */}
-          <div className="flex flex-wrap gap-4 mt-4">
-            {chartData.length > 0 ? (
-              chartData.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: item.fill }}
-                >
-                  <span
-                    className="block w-4 h-4 rounded-full"
-                    style={{ backgroundColor: item.fill }}
-                  ></span>
-                  {item.genetic_source_materials__material_type}
-                </div>
-              ))
-            ) : (
-              <p>No data available for legend</p>
-            )}
+          <div className="flex flex-wrap gap-2 mt-4 justify-center text-sm sm:text-sm">
+            {chartData.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-1"
+                style={{ color: item.fill }}
+              >
+                <span
+                  className="block w-3 h-3 rounded-full"
+                  style={{ backgroundColor: item.fill }}
+                ></span>
+                {item.genetic_source_materials__material_type}
+              </div>
+            ))}
           </div>
 
-          <div className="mt-5">
-            <button
-              className="mt-4 px-4 py-2 flex items-center justify-center rounded-md h-fit w-[180px] gap-2 border text-sm font-bold sm:mt-8"
-              onClick={downloadGraph}
-            >
-              <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
-              <span>Download</span>
-            </button>
-          </div>
+          {/* Download Button */}
+          <button
+            className="mt-4 px-3 py-1 sm:px-4 sm:py-2 flex items-center justify-center rounded-md w-[150px] sm:w-[180px] gap-2 border text-xs sm:text-sm font-bold"
+            onClick={downloadGraph}
+          >
+            <CloudDownloadIcon strokeWidth={2.5} className="w-4 h-4" />
+            <span>Download</span>
+          </button>
         </div>
       </CardContent>
 
+      {/* Dialog for clicked item */}
       <Dialog
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-[95vw] sm:max-w-[700px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedGenetics}&quot;

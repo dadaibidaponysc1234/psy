@@ -7,6 +7,7 @@ import {
   Tooltip,
   Sector,
   SectorProps,
+  ResponsiveContainer,
 } from "recharts";
 import html2canvas from "html2canvas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,6 +115,7 @@ const BiologicalStudyCount: React.FC = () => {
       <CardContent>
         <div id="chart-container">
           <ChartContainer config={{}}>
+            <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Tooltip />
               <Pie
@@ -122,8 +124,8 @@ const BiologicalStudyCount: React.FC = () => {
                 nameKey="biological_modalities__modality_name"
                 cx="50%"
                 cy="50%"
-                innerRadius={100}
-                outerRadius={220}
+                innerRadius="40%"
+                outerRadius="70%"
                 label={renderCustomLabel}
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -138,6 +140,7 @@ const BiologicalStudyCount: React.FC = () => {
                 )}
               />
             </PieChart>
+            </ResponsiveContainer>
           </ChartContainer>
 
           {/* Legend displayed below the chart */}
@@ -145,7 +148,7 @@ const BiologicalStudyCount: React.FC = () => {
             {chartData.map((item, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 text-sm"
+                className="flex items-center gap-2 text-sm sm:text-sm"
                 style={{ color: item.fill }}
               >
                 <span
