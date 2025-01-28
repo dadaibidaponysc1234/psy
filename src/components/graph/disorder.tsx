@@ -164,7 +164,7 @@ const DisorderStudyCount: React.FC = () => {
                 nameKey="disorder"
                 cx="50%"
                 cy="50%"
-                innerRadius={100}
+                innerRadius={10}
                 outerRadius={220}
                 label={renderCustomLabel}
                 activeIndex={activeIndex}

@@ -115,49 +115,47 @@ const BiologicalStudyCount: React.FC = () => {
       <CardContent>
         <div id="chart-container">
           <ChartContainer config={{}}>
-            <>
-              <PieChart>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                <Pie
-                  data={chartData}
-                  dataKey="study_count"
-                  nameKey="biological_modalities__modality_name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={100}
-                  outerRadius={220}
-                  label={renderCustomLabel} // Add custom labels
-                  activeIndex={activeIndex}
-                  onMouseEnter={(_, index) => setActiveIndex(index)}
-                  onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
-                  onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
-                  activeShape={(props: SectorProps) => (
-                    <Sector
-                      {...props}
-                      outerRadius={(props.outerRadius ?? 0) + 10}
-                      innerRadius={props.innerRadius}
-                    />
-                  )}
-                />
-              </PieChart>
+            <PieChart>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={chartData}
+                dataKey="study_count"
+                nameKey="biological_modalities__modality_name"
+                cx="50%"
+                cy="50%"
+                innerRadius={100}
+                outerRadius={220}
+                label={renderCustomLabel} // Add custom labels
+                activeIndex={activeIndex}
+                onMouseEnter={(_, index) => setActiveIndex(index)}
+                onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
+                onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
+                activeShape={(props: SectorProps) => (
+                  <Sector
+                    {...props}
+                    outerRadius={(props.outerRadius ?? 0) + 10}
+                    innerRadius={props.innerRadius}
+                  />
+                )}
+              />
+            </PieChart>
 
-              {/* Legend displayed below the chart */}
-              <div className="flex flex-wrap gap-4 mt-4">
-                {chartData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 text-sm"
-                    style={{ color: item.fill }}
-                  >
-                    <span
-                      className="block w-4 h-4 rounded-full"
-                      style={{ backgroundColor: item.fill }}
-                    ></span>
-                    {item.biological_modalities__modality_name}
-                  </div>
-                ))}
-              </div>
-            </>
+            {/* Legend displayed below the chart */}
+            <div className="flex flex-wrap gap-4 mt-4">
+              {chartData.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: item.fill }}
+                >
+                  <span
+                    className="block w-4 h-4 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  ></span>
+                  {item.biological_modalities__modality_name}
+                </div>
+              ))}
+            </div>
           </ChartContainer>
 
           <div className="mt-5">
