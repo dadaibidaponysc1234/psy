@@ -44,7 +44,7 @@ const getColor = (() => {
 
 const GeneticsStudyCount: React.FC = () => {
   const { data: year, isLoading } = useGetGenetics();
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [clickedGenetics, setClickedGenetics] = useState<string | null>(null);
 
   // Generate chart data with unique colors
@@ -62,6 +62,8 @@ const GeneticsStudyCount: React.FC = () => {
 
   // Custom Label Renderer for Pie Slices
   const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, index }: any) => {
+    if (!chartData[index]) return null; // Ensure the index is valid
+
     const RADIAN = Math.PI / 180;
     const radius = outerRadius + 20; // Adjust the distance of the label
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -98,14 +100,18 @@ const GeneticsStudyCount: React.FC = () => {
   const downloadGraph = async () => {
     const element = document.getElementById("chart-container");
     if (element) {
-      const canvas = await html2canvas(element, {
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-      const link = document.createElement("a");
-      link.download = "chart.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      try {
+        const canvas = await html2canvas(element, {
+          useCORS: true,
+          backgroundColor: "#ffffff",
+        });
+        const link = document.createElement("a");
+        link.download = "chart.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } catch (error) {
+        console.error("Error downloading chart:", error);
+      }
     }
   };
 
@@ -134,7 +140,7 @@ const GeneticsStudyCount: React.FC = () => {
                 label={renderCustomLabel} // Add custom labels
                 activeIndex={activeIndex}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
-                onMouseLeave={() => setActiveIndex(null)}
+                onMouseLeave={() => setActiveIndex(undefined)} // Use undefined instead of null
                 onClick={(state) => setClickedGenetics(state.name ?? null)}
                 activeShape={(props) => (
                   <Sector
@@ -148,19 +154,23 @@ const GeneticsStudyCount: React.FC = () => {
 
             {/* Legend displayed below the chart */}
             <div className="flex flex-wrap gap-4">
-              {chartData.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: item.fill }}
-                >
-                  <span
-                    className="block w-4 h-4 rounded-full"
-                    style={{ backgroundColor: item.fill }}
-                  ></span>
-                  {item.genetic_source_materials__material_type}
-                </div>
-              ))}
+              {chartData.length > 0 ? (
+                chartData.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: item.fill }}
+                  >
+                    <span
+                      className="block w-4 h-4 rounded-full"
+                      style={{ backgroundColor: item.fill }}
+                    ></span>
+                    {item.genetic_source_materials__material_type}
+                  </div>
+                ))
+              ) : (
+                <p>No data available for legend</p>
+              )}
             </div>
           </ChartContainer>
 
@@ -180,7 +190,7 @@ const GeneticsStudyCount: React.FC = () => {
         open={!!clickedGenetics}
         onOpenChange={(open) => !open && setClickedGenetics(null)}
       >
-        <DialogContent className="max-h-dvh max-w-screen-md overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-[700px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Search Results for &quot;{clickedGenetics}&quot;

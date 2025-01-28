@@ -44,7 +44,7 @@ const getColor = (() => {
 
 const BiologicalStudyCount: React.FC = () => {
   const { data: year, isLoading } = useGetBiological();
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined); // Updated type
   const [clickedBiologicalModality, setClickedBiologicalModility] = useState<string | null>(null);
 
   // Generate chart data with unique colors
@@ -107,7 +107,7 @@ const BiologicalStudyCount: React.FC = () => {
                   label={renderCustomLabel} // Add custom labels
                   activeIndex={activeIndex}
                   onMouseEnter={(_, index) => setActiveIndex(index)}
-                  onMouseLeave={() => setActiveIndex(null)}
+                  onMouseLeave={() => setActiveIndex(undefined)} // Use `undefined` instead of `null`
                   onClick={(state) => setClickedBiologicalModility(state.name ?? null)}
                   activeShape={(props) => (
                     <Sector
