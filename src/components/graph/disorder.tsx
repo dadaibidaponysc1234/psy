@@ -212,6 +212,7 @@ const DisorderStudyCount: React.FC = () => {
               width={600}
               height={350}
               data={otherData}
+              
               onClick={(state) => {
                 const selectedDisorder = otherData.find((d) => d.disorder === state.activeLabel);
                 if (selectedDisorder) {
@@ -222,10 +223,10 @@ const DisorderStudyCount: React.FC = () => {
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="disorder"
-                tickMargin={10}
+                tickMargin={10000}
                 axisLine={false}
-                className="text-xs sm:text-sm"
-                fontWeight={600}
+                fontWeight={0}
+                tick={false}
               />
               <Bar dataKey="study_count" fill="#808080" radius={8}>
                 <LabelList dataKey="study_count" position="top" />
@@ -234,7 +235,7 @@ const DisorderStudyCount: React.FC = () => {
             </ResponsiveContainer>
 
             {/* Color-coded legend for "Other" disorders */}
-            <div className="flex flex-wrap gap-4 mt-4">
+            <div className="flex flex-wrap gap-2">
               {otherLegend.map((item, index) => (
                 <div key={index} className="flex items-center gap-2 text-xs">
                   <span className="block w-4 h-4 rounded-full" style={{ backgroundColor: item.fill }}></span>
