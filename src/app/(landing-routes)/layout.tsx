@@ -7,7 +7,7 @@ import { ReactNode } from "react"
 const LandingLayout = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname()
   return (
-    <>
+    <div className="flex flex-col">
       <NavBar />
       <div
         className={`flex ${pathname === "/OpoloAI" ? "h-screen overflow-hidden" : "min-h-dvh"} flex-grow flex-col`}
@@ -15,7 +15,7 @@ const LandingLayout = ({ children }: { children: ReactNode }) => {
         {children}
       </div>
       {pathname !== "/OpoloAI" && <Footer />}
-    </>
+    </div>
   )
 }
 
