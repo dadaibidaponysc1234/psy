@@ -6,6 +6,13 @@ import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
 import { TbSend2 } from "react-icons/tb"
 import chatData from "./chatdata"
+import { IoShareSocialOutline } from "react-icons/io5"
+import { FiCopy } from "react-icons/fi"
+import { FaRegThumbsUp } from "react-icons/fa"
+import { FaRegThumbsDown } from "react-icons/fa"
+import toast from "react-hot-toast"
+import { IoCloudDownloadOutline } from "react-icons/io5"
+import { LuLink } from "react-icons/lu"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
@@ -63,11 +70,45 @@ const Opolo: React.FC = () => {
     setMode(newMode)
     localStorage.setItem("mode", newMode)
   }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success("Copied to clipboard!"))
+      .catch(() => toast.error("Failed to copy"))
+  }
+
+  const handleShare = (message: string) => {
+    const shareText = `✨ “${message}” ✨
+
+— from opoloAI
+
+📢 *Check out more great content at opoloAI!*`
+
+    if (navigator.share) {
+      navigator
+        .share({
+          title: "Check this out",
+          text: shareText,
+        })
+        .then(() => {
+          toast.success("Shared successfully!")
+        })
+        .catch((err) => {
+          toast.error("Share failed.")
+          console.error(err)
+        })
+    } else {
+      navigator.clipboard.writeText(shareText)
+      toast.success("Copied to clipboard (share not supported)")
+    }
+  }
+
   return (
     <div
       className={`h-full overflow-hidden font-[Arial] ${mode !== "light" ? "text-white" : ""}`}
     >
-      <div className="h-full md:grid md:grid-cols-[230px_auto]">
+      <div className="h-full md:grid md:grid-cols-[250px_auto]">
         <div
           className={`hidden h-full overflow-hidden border border-r px-3 py-3 md:block`}
           style={{
@@ -168,7 +209,7 @@ const Opolo: React.FC = () => {
                     const currentTab = chatTab[index] || "Answer"
 
                     return (
-                      <>
+                      <div className="mb-10">
                         <div className="flex justify-end">
                           <div className="mb-10 rounded-t-xl rounded-bl-xl bg-[#EE7527] p-2">
                             <p>{message.response}</p>
@@ -194,26 +235,98 @@ const Opolo: React.FC = () => {
                         </div>
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
-                            <div className="">
+                            <div>
                               <p>{message.answer.text}</p>
-                              <div className="mt-5 flex flex-wrap gap-3 md:gap-6 lg:w-[60%] lg:justify-between lg:gap-0">
-                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
-                                  Share
+                              <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
+                                <button
+                                  className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]"}`}
+                                  onClick={() =>
+                                    handleShare(message.answer.text)
+                                  }
+                                >
+                                  Share{" "}
+                                  <span>
+                                    <IoShareSocialOutline />
+                                  </span>
                                 </button>
-                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
-                                  Copy
+                                <button
+                                  onClick={() =>
+                                    copyToClipboard(message.answer.text)
+                                  }
+                                  className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
+                                >
+                                  Copy{" "}
+                                  <span>
+                                    <FiCopy />
+                                  </span>
                                 </button>
-                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                <button
+                                  className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
+                                >
                                   Good Response
+                                  <span>
+                                    <FaRegThumbsUp />
+                                  </span>
                                 </button>
-                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                <button
+                                  className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
+                                >
                                   Poor Response
+                                  <span>
+                                    <FaRegThumbsDown />
+                                  </span>
                                 </button>
                               </div>
                             </div>
                           )}
+                          {currentTab === "Image" && (
+                            <div className="grid-col-1 grid gap-2 lg:grid-cols-3">
+                              {message.answer.images.map((image, index) => (
+                                <img
+                                  key={index}
+                                  src={image}
+                                  alt={`Generated image ${index + 1}`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {currentTab === "Sources" && (
+                            <div>
+                              {message.answer.sources.map((source, index) => {
+                                return (
+                                  <div
+                                    key={index}
+                                    className="mb-2 flex flex-col items-center justify-between rounded-lg border border-[#8E8E8E] p-2 px-8 text-xs lg:flex-row lg:text-sm"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-[#EE7527]">
+                                        <LuLink size={20} />
+                                      </div>
+                                      <a
+                                        href={source}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="hover:text-[#EE7527] hover:underline"
+                                      >
+                                        {source}
+                                      </a>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
+                                        <IoCloudDownloadOutline />
+                                      </div>
+                                      <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
+                                        <IoShareSocialOutline />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                      </>
+                      </div>
                     )
                   })}
                 </div>
