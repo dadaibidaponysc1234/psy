@@ -4,24 +4,28 @@ import { FaMoon } from "react-icons/fa"
 import React, { useEffect, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
+import { TbSend2 } from "react-icons/tb"
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
   const [mode, setMode] = useState<string>("light")
+  const [selectedChat, setSelectedChat] = useState<number | null>(null)
 
   const [chatData, setChatData] = useState({
     today: [
-      { id: 1, title: "How to learn Python?" },
-      { id: 2, title: "AI for real estate" },
+      { id: 1, title: "Anxiety" },
+      { id: 2, title: "Schizophrenia" },
     ],
     past7Days: [
-      { id: 3, title: "Build a portfolio site" },
-      { id: 4, title: "Dark mode toggle logic" },
-      { id: 4, title: "Dark mode toggle logic" },
-      { id: 4, title: "Dark mode toggle logic" },
-      { id: 4, title: "Dark mode toggle logic" },
+      { id: 3, title: "Depression" },
+      { id: 4, title: "PTSD" },
+      { id: 5, title: "PTSD" },
+      { id: 6, title: "PTSD" },
     ],
-    earlier: [{ id: 5, title: "React performance tips" }],
   })
+
+  const handleChatClick = (id: number) => {
+    setSelectedChat(id)
+  }
 
   useEffect(() => {
     const storedMode = localStorage.getItem("mode")
@@ -90,7 +94,7 @@ const Opolo: React.FC = () => {
             <CiSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
-              className={`w-full rounded-sm border-[1.2px] border-[#5C5C5C] ${mode === "light" ? "bg-white" : "bg-[#212020]"}`}
+              className={`w-full rounded-sm border-[1.5px] border-[#5C5C5C] pl-8 ${mode === "light" ? "bg-white" : "bg-[#212020]"}`}
             />
           </div>
           <div className="no-scrollbar mt-6 h-1/2 space-y-4 overflow-y-auto text-sm">
@@ -108,7 +112,7 @@ const Opolo: React.FC = () => {
                     <li
                       key={chat.id}
                       className="cursor-pointer rounded px-2 py-1 hover:bg-[#D5D6D5]"
-                      // onClick={() => handleChatClick(chat.id)}
+                      onClick={() => handleChatClick(chat.id)}
                     >
                       {chat.title}
                     </li>
@@ -132,12 +136,18 @@ const Opolo: React.FC = () => {
             }}
           >
             <div className="no-scrollbar h-full overflow-y-auto">
-              <p>stuff</p>
+              {selectedChat ? (
+                <div></div>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
+                  <p>Ask a question to get Started....</p>
+                </div>
+              )}
             </div>
-            <div className="flex w-full items-center justify-center px-5 pb-12 md:px-16">
-              <input
-                type="text"
-                className="w-full rounded-lg p-6 font-[Inter] text-sm shadow-lg outline-none placeholder:text-xs placeholder:text-[#B59797] md:placeholder:text-sm"
+            <div className="relative flex w-full items-center justify-center px-5 pb-12 md:px-16">
+              <textarea
+                rows={1}
+                className="no-scrollbar w-full rounded-xl p-6 pr-12 font-[Inter] text-sm shadow-lg outline-none placeholder:text-xs placeholder:text-[#B59797] md:placeholder:text-sm"
                 style={{
                   backgroundColor: mode === "dark" ? "#212020" : "",
                   borderColor: mode === "light" ? "#b59797" : "",
@@ -145,6 +155,9 @@ const Opolo: React.FC = () => {
                 }}
                 placeholder="Ask about a gene, condition or paper..."
               />
+              <div className="absolute right-10 flex items-center md:right-20">
+                <TbSend2 size={24} className="cursor-pointer text-[#ED6D1C]" />
+              </div>
             </div>
             <div
               className="flex flex-col items-center justify-end pb-5 text-xs md:text-sm"
