@@ -37,14 +37,14 @@ const Opolo: React.FC = () => {
     <div
       className={`h-full overflow-hidden font-[Arial] ${mode !== "light" ? "text-white" : ""}`}
     >
-      <div className="grid h-full grid-cols-[230px_auto]">
+      <div className="h-full md:grid md:grid-cols-[230px_auto]">
         <div
-          className={`h-full overflow-hidden border border-r px-3 py-3`}
+          className={`hidden h-full overflow-hidden border border-r px-3 py-3 md:block`}
           style={{
             backgroundImage:
               mode === "light"
-                ? "linear-gradient(to bottom, white 0%, white 85%, #FF8F4C 100%)"
-                : "linear-gradient(to bottom, #212020 0%, #212020 85%, #FF8F4C 100%)",
+                ? "linear-gradient(to bottom, white 0%, white 80%, #FF8F4C 100%)"
+                : "linear-gradient(to bottom, #212020 0%, #212020 80%, #FF8F4C 100%)",
           }}
         >
           <div className="flex items-center justify-between">
@@ -118,19 +118,41 @@ const Opolo: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className="grid h-full w-full grid-rows-[1fr_72px] overflow-y-auto">
+        <div className="h-full w-full overflow-y-auto">
           <div
-            className={`h-full w-full ${mode === "light" ? "bg-[url('/maplight.png')]" : "bg-[#212020] bg-[url('/map-dark.png')]"} bg-cover bg-center`}
-          ></div>
-          <div
+            className="grid h-full w-full grid-rows-[1fr_100px_15px] overflow-hidden bg-cover bg-center"
             style={{
-              background:
+              backgroundImage:
                 mode === "light"
-                  ? "linear-gradient(to bottom, white 0%, white 0%, #FF8F4C 100%)"
-                  : "linear-gradient(to bottom, #212020 0%, #212020 0%, #FF8F4C 100%)",
+                  ? "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 80%, #FF8F4C 100%), url('/maplight.png')"
+                  : "linear-gradient(to bottom, rgba(33,32,32,0) 0%, rgba(33,32,32,0) 80%, #FF8F4C 100%), url('/map-dark.png') ",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundColor: mode === "dark" ? "#212020" : "",
             }}
-            className="h-full w-full"
-          />
+          >
+            <div className="no-scrollbar h-full overflow-y-auto">
+              <p>stuff</p>
+            </div>
+            <div className="flex w-full items-center justify-center px-5 pb-12 md:px-16">
+              <input
+                type="text"
+                className="w-full rounded-lg p-6 font-[Inter] text-sm shadow-lg outline-none placeholder:text-xs placeholder:text-[#B59797] md:placeholder:text-sm"
+                style={{
+                  backgroundColor: mode === "dark" ? "#212020" : "",
+                  borderColor: mode === "light" ? "#b59797" : "",
+                  borderWidth: mode === "light" ? "1.5px" : "",
+                }}
+                placeholder="Ask about a gene, condition or paper..."
+              />
+            </div>
+            <div
+              className="flex flex-col items-center justify-end pb-5 text-xs md:text-sm"
+              style={{ color: mode === "light" ? "#1D1D1D" : "" }}
+            >
+              Ọpọlọ AI isn’t flawless — double-check important info.
+            </div>
+          </div>
         </div>
       </div>
       <FirstModal
