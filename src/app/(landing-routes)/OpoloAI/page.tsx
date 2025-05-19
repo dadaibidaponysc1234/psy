@@ -5,26 +5,52 @@ import React, { useEffect, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
 import { TbSend2 } from "react-icons/tb"
+import chatData from "./chatdata"
+
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
   const [mode, setMode] = useState<string>("light")
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
+  const [chatTab, setChatTab] = useState<{ [key: number]: string }>({})
 
-  const [chatData, setChatData] = useState({
-    today: [
-      { id: 1, title: "Anxiety" },
-      { id: 2, title: "Schizophrenia" },
-    ],
-    past7Days: [
-      { id: 3, title: "Depression" },
-      { id: 4, title: "PTSD" },
-      { id: 5, title: "PTSD" },
-      { id: 6, title: "PTSD" },
-    ],
-  })
+  //Get selected chat
+  const getSelectedChat = (): Chat | null => {
+    for (const chats of Object.values(chatInfo)) {
+      for (const chat of chats) {
+        if (chat.id === selectedChat) {
+          return chat
+        }
+      }
+    }
+    return null
+  }
+
+  interface Message {
+    response: string
+    answer: {
+      text: string
+      images: string[]
+      sources: string[]
+    }
+  }
+
+  interface Chat {
+    id: number
+    title: string
+    messages: Message[]
+  }
+
+  interface ChatData {
+    [key: string]: Chat[]
+  }
+
+  const [chatInfo, setChatInfo] = useState<ChatData>(chatData)
 
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
+  }
+  const handleTabClick = (messageId: number, tab: string) => {
+    setChatTab((prev) => ({ ...prev, [messageId]: tab }))
   }
 
   useEffect(() => {
@@ -98,7 +124,7 @@ const Opolo: React.FC = () => {
             />
           </div>
           <div className="no-scrollbar mt-6 h-1/2 space-y-4 overflow-y-auto text-sm">
-            {Object.entries(chatData).map(([section, chats]) => (
+            {Object.entries(chatInfo).map(([section, chats]) => (
               <div className="" key={section}>
                 <p className="mb-2 font-bold">
                   {section === "today"
@@ -122,7 +148,7 @@ const Opolo: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className="h-full w-full overflow-y-auto">
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden">
           <div
             className="grid h-full w-full grid-rows-[1fr_100px_15px] overflow-hidden bg-cover bg-center"
             style={{
@@ -137,7 +163,60 @@ const Opolo: React.FC = () => {
           >
             <div className="no-scrollbar h-full overflow-y-auto">
               {selectedChat ? (
-                <div></div>
+                <div className="w-full p-5 pt-10" key={selectedChat}>
+                  {getSelectedChat()?.messages.map((message, index) => {
+                    const currentTab = chatTab[index] || "Answer"
+
+                    return (
+                      <>
+                        <div className="flex justify-end">
+                          <div className="mb-10 rounded-t-xl rounded-bl-xl bg-[#EE7527] p-2">
+                            <p>{message.response}</p>
+                          </div>
+                        </div>
+                        <div className="relative mb-5 flex w-full justify-between border-b border-[#8E8E8E] font-bold md:w-[75%]">
+                          {["Answer", "Image", "Sources"].map((tab) => (
+                            <button
+                              key={tab}
+                              onClick={() => handleTabClick(index, tab)}
+                              className={`relative flex w-full items-center justify-center rounded-t-lg ${currentTab === tab ? "bg-[#EE7527]/10" : ""}`}
+                            >
+                              <p
+                                className={`${currentTab === tab ? "text-[#EE7527]" : ""}`}
+                              >
+                                {tab}
+                              </p>
+                              {currentTab === tab && (
+                                <div className="absolute bottom-[-1px] left-0 h-[1.5px] w-full bg-[#EE7527] transition-all duration-300" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="h-full w-full overflow-hidden md:pr-12">
+                          {currentTab === "Answer" && (
+                            <div className="">
+                              <p>{message.answer.text}</p>
+                              <div className="mt-5 flex flex-wrap gap-3 md:gap-6 lg:w-[60%] lg:justify-between lg:gap-0">
+                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                  Share
+                                </button>
+                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                  Copy
+                                </button>
+                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                  Good Response
+                                </button>
+                                <button className="rounded-xl border p-1 px-3 text-xs md:text-sm lg:text-base">
+                                  Poor Response
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                  })}
+                </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
                   <p>Ask a question to get Started....</p>
