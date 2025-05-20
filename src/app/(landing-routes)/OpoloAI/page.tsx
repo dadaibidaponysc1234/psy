@@ -205,11 +205,11 @@ const Opolo: React.FC = () => {
             <div className="no-scrollbar h-full overflow-y-auto">
               {selectedChat ? (
                 <div className="w-full p-5 pt-10" key={selectedChat}>
-                  {getSelectedChat()?.messages.map((message, index) => {
+                  {getSelectedChat()?.messages?.map((message, index) => {
                     const currentTab = chatTab[index] || "Answer"
 
                     return (
-                      <div className="mb-10">
+                      <div className="mb-10" key={index}>
                         <div className="flex justify-end">
                           <div className="mb-10 rounded-t-xl rounded-bl-xl bg-[#EE7527] p-2">
                             <p>{message.response}</p>
