@@ -15,7 +15,7 @@ const LandingLayout = ({ children }: { children: ReactNode }) => {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex flex-col">
       <NavBar mode={mode} />
       <div
         className={`flex ${pathname === "/OpoloAI" ? "h-full overflow-hidden" : "min-h-dvh"} flex-grow flex-col`}

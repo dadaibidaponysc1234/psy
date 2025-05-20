@@ -53,7 +53,10 @@ const FirstModal: React.FC<FirstModalProps> = ({
           </p>
         </div>
         <div className="mb-6 mt-4 flex justify-center">
-          <button className="rounded-full bg-[#FF7116] p-1 px-8 text-white lg:px-5">
+          <button
+            onClick={() => setModalOpen(false)}
+            className="rounded-full bg-[#FF7116] p-1 px-8 text-white lg:px-5"
+          >
             Get Started
           </button>
         </div>
