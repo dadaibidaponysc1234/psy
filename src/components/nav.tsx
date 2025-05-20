@@ -9,7 +9,6 @@ import React from "react"
 
 interface FirstModalProps {
   mode: string
-  setMode: (mode: string) => void
 }
 const NavBar: React.FC<FirstModalProps> = ({ mode }) => {
   const pathname = usePathname()
