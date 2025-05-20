@@ -19,6 +19,7 @@ const Opolo: React.FC = () => {
   const [mode, setMode] = useState<string>("light")
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
   const [chatTab, setChatTab] = useState<{ [key: number]: string }>({})
+  const [userInput, setUserInput] = useState<string>("")
 
   //Get selected chat
   const getSelectedChat = (): Chat | null => {
@@ -69,6 +70,7 @@ const Opolo: React.FC = () => {
     const newMode = mode === "light" ? "dark" : "light"
     setMode(newMode)
     localStorage.setItem("mode", newMode)
+    window.location.reload()
   }
 
   const copyToClipboard = (text: string) => {
@@ -110,7 +112,7 @@ const Opolo: React.FC = () => {
     >
       <div className="h-full md:grid md:grid-cols-[250px_auto]">
         <div
-          className={`hidden h-full overflow-hidden border border-r px-3 py-3 md:block`}
+          className={`hidden h-full overflow-hidden border-r px-3 py-3 md:block`}
           style={{
             backgroundImage:
               mode === "light"
@@ -281,48 +283,60 @@ const Opolo: React.FC = () => {
                           )}
                           {currentTab === "Image" && (
                             <div className="grid-col-1 grid gap-2 lg:grid-cols-3">
-                              {message.answer.images.map((image, index) => (
-                                <img
-                                  key={index}
-                                  src={image}
-                                  alt={`Generated image ${index + 1}`}
-                                />
-                              ))}
+                              {message.answer.images.length === 0 ? (
+                                <div className="flex w-full items-center justify-center">
+                                  No Images Available
+                                </div>
+                              ) : (
+                                message.answer.images.map((image, index) => (
+                                  <img
+                                    key={index}
+                                    src={image}
+                                    alt={`Generated image ${index + 1}`}
+                                  />
+                                ))
+                              )}
                             </div>
                           )}
                           {currentTab === "Sources" && (
                             <div>
-                              {message.answer.sources.map((source, index) => {
-                                return (
-                                  <div
-                                    key={index}
-                                    className="mb-2 flex flex-col items-center justify-between rounded-lg border border-[#8E8E8E] p-2 px-8 text-xs lg:flex-row lg:text-sm"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-[#EE7527]">
-                                        <LuLink size={20} />
+                              {message.answer.sources.length === 0 ? (
+                                <div className="flex w-full items-center justify-center">
+                                  No Sources Available
+                                </div>
+                              ) : (
+                                message.answer.sources.map((source, index) => {
+                                  return (
+                                    <div
+                                      key={index}
+                                      className="mb-2 flex flex-col items-center justify-between rounded-lg border border-[#8E8E8E] p-2 px-8 text-xs lg:flex-row lg:text-sm"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-[#EE7527]">
+                                          <LuLink size={20} />
+                                        </div>
+                                        <a
+                                          href={source}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="hover:text-[#EE7527] hover:underline"
+                                        >
+                                          {source}
+                                        </a>
                                       </div>
-                                      <a
-                                        href={source}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="hover:text-[#EE7527] hover:underline"
-                                      >
-                                        {source}
-                                      </a>
-                                    </div>
 
-                                    <div className="flex items-center gap-2">
-                                      <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
-                                        <IoCloudDownloadOutline />
-                                      </div>
-                                      <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
-                                        <IoShareSocialOutline />
+                                      <div className="flex items-center gap-2">
+                                        <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
+                                          <IoCloudDownloadOutline />
+                                        </div>
+                                        <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
+                                          <IoShareSocialOutline />
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                )
-                              })}
+                                  )
+                                })
+                              )}
                             </div>
                           )}
                         </div>
