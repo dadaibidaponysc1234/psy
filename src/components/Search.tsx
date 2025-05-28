@@ -152,23 +152,12 @@ const Search = ({
       ([_, value]) => value !== undefined && value !== "" && value !== null
     )
   )
-  console.log("Filter Debug Info")
-  console.log("Raw filter state:", filter)
-  console.log("Debounced search term:", debouncedSearchTerm)
-  console.log("Original title:", filter.title)
-  console.log("Sanitized filters:", sanitizedFilters)
   const {
     data: searches,
     isLoading,
     isError,
   } = useGetSearchResult(sanitizedFilters)
 
-  console.log("=== Component State Debug ===")
-  console.log("isLoading:", isLoading)
-  console.log("isError:", isError)
-  console.log("searches:", searches)
-  console.log("searches?.results?.length:", searches?.length)
-  console.log("searches?.count:", searches?.count)
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
