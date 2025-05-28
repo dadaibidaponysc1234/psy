@@ -132,36 +132,51 @@ const Search = ({
   const [clearFilters, setClearFilters] = useState(false)
   const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700)
 
-  const sanitizedFilters = {
-    title: debouncedSearchTerm || undefined,
-    journal_name: filter.journal_name || undefined,
-    keyword: filter.keyword || undefined,
-    impact_factor_min: filter.impact_factor_min || undefined,
-    impact_factor_max: filter.impact_factor_max || undefined,
-    year: filter.year || undefined,
-    year_min: filter.year_min || undefined,
-    year_max: filter.year_max || undefined,
-    research_regions: filter.research_regions || undefined,
-    disorder: filter.disorder || undefined,
-    article_type: filter.article_type || undefined,
-    biological_modalities: filter.biological_modalities || undefined,
-    genetic_source_materials: filter.genetic_source_materials || undefined,
-    page: filter.page || "1",
-  }
-
+  const sanitizedFilters = Object.fromEntries(
+    Object.entries({
+      title: debouncedSearchTerm,
+      journal_name: filter.journal_name,
+      keyword: filter.keyword,
+      impact_factor_min: filter.impact_factor_min,
+      impact_factor_max: filter.impact_factor_max,
+      year: filter.year,
+      year_min: filter.year_min,
+      year_max: filter.year_max,
+      research_regions: filter.research_regions,
+      disorder: filter.disorder,
+      article_type: filter.article_type,
+      biological_modalities: filter.biological_modalities,
+      genetic_source_materials: filter.genetic_source_materials,
+      page: filter.page || "1",
+    }).filter(
+      ([_, value]) => value !== undefined && value !== "" && value !== null
+    )
+  )
+  console.log("Filter Debug Info")
+  console.log("Raw filter state:", filter)
+  console.log("Debounced search term:", debouncedSearchTerm)
+  console.log("Original title:", filter.title)
+  console.log("Sanitized filters:", sanitizedFilters)
   const {
     data: searches,
     isLoading,
     isError,
   } = useGetSearchResult(sanitizedFilters)
 
+  console.log("=== Component State Debug ===")
+  console.log("isLoading:", isLoading)
+  console.log("isError:", isError)
+  console.log("searches:", searches)
+  console.log("searches?.count:", searches?.count)
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
     {
       queryKey: ["search-genetic-sources"],
       queryFn: async () => {
-        const response = await axios.get(`${BASE_URL}/genetic-source-materials`)
+        const response = await axios.get(
+          `${BASE_URL}/genetic-source-materials/`
+        )
         return response.data
       },
       refetchOnMount: false,
@@ -171,7 +186,7 @@ const Search = ({
   const { data: disorders, isLoading: isDisorderLoading } = useQuery({
     queryKey: ["search-disorders"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/disorders`)
+      const response = await axios.get(`${BASE_URL}/disorders/`)
       return response.data
     },
     refetchOnMount: false,
@@ -180,7 +195,7 @@ const Search = ({
   const { data: articleTypes, isLoading: isArticleTypesLoading } = useQuery({
     queryKey: ["search-article-types"],
     queryFn: async () => {
-      const response = await axios.get(`${BASE_URL}/article-types`)
+      const response = await axios.get(`${BASE_URL}/article-types/`)
       return response.data
     },
     refetchOnMount: false,
@@ -482,7 +497,7 @@ const Search = ({
           <div className="flex flex-col-reverse justify-between gap-5 sm:flex-row sm:items-center">
             {isLoading ? (
               ""
-            ) : searches?.results && searches?.results.length > 0 ? (
+            ) : searches && searches.length > 0 ? (
               <>
                 <h1 className="text-2xl font-bold lg:text-2xl">
                   {searches?.count} Results
@@ -540,7 +555,7 @@ const Search = ({
               </>
             ) : null}
           </div>
-
+          {/* main result */}
           <div className="flex grow flex-col gap-5">
             {isLoading ? (
               new Array(10).fill(null).map((_, i) => <StudySkeleton key={i} />)
@@ -554,18 +569,16 @@ const Search = ({
                   Something went wrong
                 </p>
               </div>
-            ) : searches?.results && searches?.results.length > 0 ? (
-              searches?.results?.map((study, i: number) => (
+            ) : searches && searches.length > 0 ? (
+              searches.map((study, i: number) => (
                 <StudyList key={i} study={study} />
               ))
             ) : (
               <NotFound searchTerm={filter.title ?? ""} />
             )}
           </div>
-
           <div>
-            {isError ||
-            (searches?.results && searches?.results.length <= 0) ? null : (
+            {isError || (searches && searches.length <= 0) ? null : (
               <PaginationControls
                 prevPage={prevPage}
                 nextPage={nextPage}

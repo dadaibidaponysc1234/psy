@@ -1,24 +1,25 @@
-import { Study } from "@/types/studyViewList";
-import Link from "next/link";
+import { Study } from "@/types/studyViewList"
+import Link from "next/link"
 
 interface studyListProps {
-  study: Study;
+  study: Study
 }
 
 const StudyList = ({ study }: studyListProps) => {
-  // console.log(study);
+  console.log("look at me")
+  console.log(study, "study")
 
   return (
-    <div key={study.id} className="w-full flex flex-col gap-6">
+    <div key={study.id} className="flex w-full flex-col gap-6">
       <div className="max-w-4xl space-y-1">
-        {study.article_type.map((a, index) => (
+        {study.article_type?.map((a, index) => (
           <div key={index} className="font-medium text-[#5A3A31]">
             {a.article_name}
           </div>
         ))}
         <Link
           href={`/search/${study.id}`}
-          className="text-xl font-semibold tracking-tight text-balance hover:text-gray-600"
+          className="text-balance text-xl font-semibold tracking-tight hover:text-gray-600"
         >
           {study.title}
         </Link>
@@ -29,7 +30,7 @@ const StudyList = ({ study }: studyListProps) => {
         <span className="text-muted-foreground">{study.lead_author}</span>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default StudyList;
+export default StudyList
