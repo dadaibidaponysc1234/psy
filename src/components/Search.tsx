@@ -167,6 +167,7 @@ const Search = ({
   console.log("isLoading:", isLoading)
   console.log("isError:", isError)
   console.log("searches:", searches)
+  console.log("searches?.results?.length:", searches?.length)
   console.log("searches?.count:", searches?.count)
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
@@ -569,7 +570,7 @@ const Search = ({
                   Something went wrong
                 </p>
               </div>
-            ) : searches && searches.length > 0 ? (
+            ) : searches && Array.isArray(searches) && searches.length > 0 ? (
               searches.map((study, i: number) => (
                 <StudyList key={i} study={study} />
               ))
@@ -578,7 +579,10 @@ const Search = ({
             )}
           </div>
           <div>
-            {isError || (searches && searches.length <= 0) ? null : (
+            {isError ||
+            (searches &&
+              Array.isArray(searches) &&
+              searches.length <= 0) ? null : (
               <PaginationControls
                 prevPage={prevPage}
                 nextPage={nextPage}
