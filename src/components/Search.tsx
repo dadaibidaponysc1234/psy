@@ -126,6 +126,7 @@ const Search = ({
     biological_modalities,
     page,
   }
+
   const [filter, setFilter] = useState<DocumentState>(defaultFilter)
   const [isAdvanceFilterOpen, setIsAdvanceFilterOpen] = useState(false)
   const [isGraphOpen, setIsGraphOpen] = useState(false)
@@ -567,7 +568,7 @@ const Search = ({
                 </p>
               </div>
             ) : searches ? (
-              (searches as Study[]).map((study, i: number) => (
+              (searches?.results ?? []).map((study, i: number) => (
                 <StudyList key={i} study={study} />
               ))
             ) : (
