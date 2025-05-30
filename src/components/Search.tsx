@@ -149,6 +149,7 @@ const Search = ({
     genetic_source_materials: filter.genetic_source_materials || undefined,
     page: filter.page || "1",
   }
+
   const {
     data: searches,
     isLoading,
@@ -397,7 +398,12 @@ const Search = ({
               <TabsContent value="year">
                 <YearlyStudyCount
                   isLoading={isLoading}
-                  chartData={searches?.yearly_study_counts ?? []}
+                  chartData={(searches?.yearly_study_counts ?? []).map((c) => ({
+                    year: c.year,
+                    study_count: c.study_count,
+                    citation: c.total_citations,
+                    impact_factor: c.average_impact_factor,
+                  }))}
                 />
               </TabsContent>
               <TabsContent value="region">
