@@ -166,6 +166,8 @@ const Search = ({
     "value:",
     searches
   )
+  console.log(searches?.results)
+  console.log(searches)
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
@@ -568,7 +570,7 @@ const Search = ({
                 </p>
               </div>
             ) : searches ? (
-              (searches?.results ?? []).map((study, i: number) => (
+              (searches ?? []).map((study, i) => (
                 <StudyList key={i} study={study} />
               ))
             ) : (
