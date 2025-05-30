@@ -1,6 +1,6 @@
 "use client"
 import { IoSunnySharp } from "react-icons/io5"
-import { FaMoon } from "react-icons/fa"
+import { FaMoon, FaTrash } from "react-icons/fa"
 import React, { useEffect, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
@@ -13,6 +13,12 @@ import { FaRegThumbsDown } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { IoCloudDownloadOutline } from "react-icons/io5"
 import { LuLink } from "react-icons/lu"
+import {
+  chatWithMemory,
+  deleteChatMessage,
+  deleteChatSession,
+  getChatSessions,
+} from "@/services/opolo"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
@@ -20,6 +26,12 @@ const Opolo: React.FC = () => {
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
   const [chatTab, setChatTab] = useState<{ [key: number]: string }>({})
   const [userInput, setUserInput] = useState<string>("")
+  const [isSending, setIsSending] = useState<boolean>(false)
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number
+    mouseY: number
+    chatId: number
+  } | null>(null)
 
   //Get selected chat
   const getSelectedChat = (): Chat | null => {
@@ -52,7 +64,7 @@ const Opolo: React.FC = () => {
     [key: string]: Chat[]
   }
 
-  const [chatInfo, setChatInfo] = useState<ChatData>(chatData)
+  const [chatInfo, setChatInfo] = useState<ChatData>({})
 
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
@@ -60,10 +72,177 @@ const Opolo: React.FC = () => {
   const handleTabClick = (messageId: number, tab: string) => {
     setChatTab((prev) => ({ ...prev, [messageId]: tab }))
   }
+  useEffect(() => {
+    const storedMode = localStorage.getItem("mode")
+    if (storedMode) setMode(storedMode)
+
+    const fetchChats = async () => {
+      try {
+        const email = "oladejiomolabake14@gmail.com"
+        const sessions = await getChatSessions(email)
+
+        const groupChatsByTime = (sessions: any[]): ChatData => {
+          const now = new Date()
+          const grouped: ChatData = {}
+
+          sessions.forEach((session) => {
+            const createdAt = new Date(session.created_at)
+            const diffDays = Math.floor(
+              (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24)
+            )
+
+            let section = ""
+            if (diffDays < 1) section = "Today"
+            else if (diffDays < 7) section = "Past 7 Days"
+            else section = "Earlier"
+
+            const chat: Chat = {
+              id: session.id,
+              title: session.title,
+              messages: session.messages.map((msg) => ({
+                response: msg.question,
+                answer: {
+                  text: msg.answer,
+                  images: msg.image_results,
+                  sources: msg.source_studies,
+                },
+              })),
+            }
+
+            if (!grouped[section]) {
+              grouped[section] = []
+            }
+            grouped[section].push(chat)
+          })
+
+          return grouped
+        }
+
+        const grouped = groupChatsByTime(sessions)
+        setChatInfo(grouped)
+      } catch (err) {
+        console.error("Error loading chat sessions", err)
+      }
+    }
+
+    fetchChats()
+  }, [])
 
   useEffect(() => {
     const storedMode = localStorage.getItem("mode")
     if (storedMode) setMode(storedMode)
+  }, [])
+
+  const handleSend = async () => {
+    if (!userInput.trim() || isSending) return
+    setIsSending(true)
+
+    try {
+      const email = "oladejiomolabake14@gmail.com"
+      const res = await chatWithMemory({
+        email,
+        question: userInput,
+        session_id: selectedChat ?? undefined,
+      })
+
+      const newMessage = {
+        response: userInput,
+        answer: {
+          text: res.answer,
+          images: res.images,
+          sources: res.sources,
+        },
+      }
+
+      setUserInput("")
+
+      setChatInfo((prev) => {
+        const updated = { ...prev }
+        const updatedChat = Object.values(updated)
+          .flat()
+          .find((chat) => chat.id === res.session_id)
+
+        if (updatedChat) {
+          updatedChat.messages.push(newMessage)
+        } else {
+          const newChat: Chat = {
+            id: res.session_id,
+            title: res.title || "New Chat",
+            messages: [newMessage],
+          }
+          updated.today = [newChat, ...(updated.today || [])]
+        }
+
+        return updated
+      })
+
+      setSelectedChat(res.session_id)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to send message")
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  //delete singlemsg
+  const handleDeleteMessage = async (messageIndex: number) => {
+    try {
+      const chat = getSelectedChat()
+      const email = "oladejiomolabake14@gmail.com"
+      const messageId = chat?.messages[messageIndex]?.id // You need to include ID in your message object if not present yet
+      if (!messageId) return
+      await deleteChatMessage(messageId, email)
+
+      setChatInfo((prev) => {
+        const updated = { ...prev }
+        for (const section in updated) {
+          updated[section] = updated[section].map((chat) => {
+            if (chat.id === selectedChat) {
+              const updatedMessages = [...chat.messages]
+              updatedMessages.splice(messageIndex, 1)
+              return { ...chat, messages: updatedMessages }
+            }
+            return chat
+          })
+        }
+        return updated
+      })
+      toast.success("Message deleted")
+    } catch (error) {
+      toast.error("Failed to delete message")
+      console.error(error)
+    }
+  }
+
+  //delete session
+
+  const handleDeleteSession = async (chatId: number) => {
+    try {
+      const email = "oladejiomolabake14@gmail.com"
+      await deleteChatSession(chatId, email)
+      setChatInfo((prev) => {
+        const updated: ChatData = {}
+        for (const section in prev) {
+          updated[section] = prev[section].filter((chat) => chat.id !== chatId)
+        }
+        return updated
+      })
+      if (selectedChat === chatId) setSelectedChat(null)
+      toast.success("Chat deleted successfully.")
+    } catch (error) {
+      toast.error("Failed to delete chat")
+      console.error(error)
+    }
+  }
+  useEffect(() => {
+    const handleClick = () => {
+      setContextMenu(null)
+    }
+    window.addEventListener("click", handleClick)
+    return () => {
+      window.removeEventListener("click", handleClick)
+    }
   }, [])
 
   const handleToggle = () => {
@@ -180,6 +359,14 @@ const Opolo: React.FC = () => {
                   {chats.map((chat) => (
                     <li
                       key={chat.id}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setContextMenu({
+                          mouseX: e.clientX + 2,
+                          mouseY: e.clientY - 6,
+                          chatId: chat.id,
+                        })
+                      }}
                       className="cursor-pointer rounded px-2 py-1 hover:bg-[#D5D6D5]"
                       onClick={() => handleChatClick(chat.id)}
                     >
@@ -311,20 +498,28 @@ const Opolo: React.FC = () => {
                                       key={index}
                                       className="mb-2 flex flex-col items-center justify-between rounded-lg border border-[#8E8E8E] p-2 px-8 text-xs lg:flex-row lg:text-sm"
                                     >
-                                      <div className="flex items-center gap-2">
-                                        <div className="text-[#EE7527]">
-                                          <LuLink size={20} />
-                                        </div>
+                                      <div className="flex flex-col gap-1 text-left">
+                                        <p className="font-semibold">
+                                          {source.title}
+                                        </p>
+                                        <p>
+                                          <span className="font-medium text-[#EE7527]">
+                                            {source.lead_author}
+                                          </span>
+                                          , {source.journal} ({source.year})
+                                        </p>
                                         <a
-                                          href={source}
+                                          href={
+                                            source.pdf_url ||
+                                            `https://doi.org/${source.doi}`
+                                          }
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="hover:text-[#EE7527] hover:underline"
+                                          className="text-blue-600 hover:underline"
                                         >
-                                          {source}
+                                          {source.doi}
                                         </a>
                                       </div>
-
                                       <div className="flex items-center gap-2">
                                         <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
                                           <IoCloudDownloadOutline />
@@ -353,6 +548,8 @@ const Opolo: React.FC = () => {
             <div className="relative flex w-full items-center justify-center px-5 pb-12 md:px-16">
               <textarea
                 rows={1}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
                 className="no-scrollbar w-full rounded-xl p-6 pr-12 font-[Inter] text-sm shadow-lg outline-none placeholder:text-xs placeholder:text-[#B59797] md:placeholder:text-sm"
                 style={{
                   backgroundColor: mode === "dark" ? "#212020" : "",
@@ -361,8 +558,13 @@ const Opolo: React.FC = () => {
                 }}
                 placeholder="Ask about a gene, condition or paper..."
               />
+
               <div className="absolute right-10 flex items-center md:right-20">
-                <TbSend2 size={24} className="cursor-pointer text-[#ED6D1C]" />
+                <TbSend2
+                  size={24}
+                  className="cursor-pointer text-[#ED6D1C]"
+                  onClick={handleSend}
+                />
               </div>
             </div>
             <div
@@ -374,6 +576,30 @@ const Opolo: React.FC = () => {
           </div>
         </div>
       </div>
+      {contextMenu && (
+        <div
+          className="fixed z-50 w-[150px] rounded-lg shadow-lg"
+          style={{
+            top: Math.min(contextMenu.mouseY, window.innerHeight - 60),
+            left: Math.min(contextMenu.mouseX, window.innerWidth - 180),
+          }}
+          onClick={() => setContextMenu(null)}
+        >
+          <button
+            onClick={() => {
+              handleDeleteSession(contextMenu.chatId)
+              setContextMenu(null)
+            }}
+            className="flex w-full items-center justify-between bg-[#ED6D1C] px-4 py-2 text-left hover:bg-white hover:text-[#ED6D1C]"
+          >
+            <span>
+              <FaTrash />
+            </span>
+            Delete Chat
+          </button>
+        </div>
+      )}
+
       <FirstModal
         modalOpen={modalOpen}
         setModalOpen={setModalOpen}
