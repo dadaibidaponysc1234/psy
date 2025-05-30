@@ -99,7 +99,7 @@ const Opolo: React.FC = () => {
             const chat: Chat = {
               id: session.id,
               title: session.title,
-              messages: session.messages.map((msg) => ({
+              messages: session.messages.map((msg: any) => ({
                 response: msg.question,
                 answer: {
                   text: msg.answer,
