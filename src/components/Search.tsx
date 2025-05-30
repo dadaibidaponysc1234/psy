@@ -157,7 +157,14 @@ const Search = ({
     isLoading,
     isError,
   } = useGetSearchResult(sanitizedFilters)
-
+  console.log(
+    "searches type:",
+    typeof searches,
+    "is array:",
+    Array.isArray(searches),
+    "value:",
+    searches
+  )
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
   const { data: geneticSources, isLoading: isGeneticSourcesLoading } = useQuery(
@@ -560,7 +567,7 @@ const Search = ({
                 </p>
               </div>
             ) : searches ? (
-              searches.map((study, i: number) => (
+              (searches as Study[]).map((study, i: number) => (
                 <StudyList key={i} study={study} />
               ))
             ) : (
@@ -570,13 +577,17 @@ const Search = ({
           <div>
             {isError ||
             (searches &&
-              Array.isArray(searches) &&
-              searches.length <= 0) ? null : (
+              ((Array.isArray(searches) && searches.length <= 0) ||
+                (!Array.isArray(searches) &&
+                  searches.results &&
+                  searches.results.length <= 0))) ? null : (
               <PaginationControls
                 prevPage={prevPage}
                 nextPage={nextPage}
                 page={Number(filter.page) || 1}
-                count={searches?.length}
+                count={
+                  Array.isArray(searches) ? searches.length : searches?.count
+                }
                 isLoading={isLoading}
               />
             )}
