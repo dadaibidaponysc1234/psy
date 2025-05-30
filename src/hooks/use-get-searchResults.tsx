@@ -16,6 +16,7 @@ export const useGetSearchResult = (filters: DocumentState) => {
       })
       console.log("API Response status:", response.status)
       console.log("API Response data:", response.data)
+      console.log("API Response :", response)
 
       if (response.status === 500) {
         throw new Error("Failed to fetch search results")

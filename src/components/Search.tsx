@@ -12,7 +12,7 @@ import {
   Search as SearchIcon,
   TrendingUp,
 } from "lucide-react"
-import React, { useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useGetSearchResult } from "@/hooks/use-get-searchResults"
 import { Input } from "@/components/ui/input"
 import useDebounce from "@/hooks/useDebounce"
@@ -133,31 +133,28 @@ const Search = ({
   const [clearFilters, setClearFilters] = useState(false)
   const debouncedSearchTerm = useDebounce(filter?.title ?? "", 700)
 
-  const sanitizedFilters = Object.fromEntries(
-    Object.entries({
-      title: debouncedSearchTerm,
-      journal_name: filter.journal_name,
-      keyword: filter.keyword,
-      impact_factor_min: filter.impact_factor_min,
-      impact_factor_max: filter.impact_factor_max,
-      year: filter.year,
-      year_min: filter.year_min,
-      year_max: filter.year_max,
-      research_regions: filter.research_regions,
-      disorder: filter.disorder,
-      article_type: filter.article_type,
-      biological_modalities: filter.biological_modalities,
-      genetic_source_materials: filter.genetic_source_materials,
-      page: filter.page || "1",
-    }).filter(
-      ([_, value]) => value !== undefined && value !== "" && value !== null
-    )
-  )
+  const sanitizedFilters = {
+    title: debouncedSearchTerm || undefined,
+    journal_name: filter.journal_name || undefined,
+    keyword: filter.keyword || undefined,
+    impact_factor_min: filter.impact_factor_min || undefined,
+    impact_factor_max: filter.impact_factor_max || undefined,
+    year: filter.year || undefined,
+    year_min: filter.year_min || undefined,
+    year_max: filter.year_max || undefined,
+    research_regions: filter.research_regions || undefined,
+    disorder: filter.disorder || undefined,
+    article_type: filter.article_type || undefined,
+    biological_modalities: filter.biological_modalities || undefined,
+    genetic_source_materials: filter.genetic_source_materials || undefined,
+    page: filter.page || "1",
+  }
   const {
     data: searches,
     isLoading,
     isError,
   } = useGetSearchResult(sanitizedFilters)
+
   console.log(
     "searches type:",
     typeof searches,
@@ -166,8 +163,13 @@ const Search = ({
     "value:",
     searches
   )
+  console.log(searches)
   // console.log(searches?.results)
   console.log(searches)
+  // Add this to see what filters are being applied
+  useEffect(() => {
+    console.log("Current filters:", sanitizedFilters)
+  }, [sanitizedFilters])
 
   const { data: suggestion } = useGetSuggestion(debouncedSearchTerm ?? "")
 
@@ -395,12 +397,7 @@ const Search = ({
               <TabsContent value="year">
                 <YearlyStudyCount
                   isLoading={isLoading}
-                  chartData={(searches?.yearly_study_counts ?? []).map((c) => ({
-                    year: c.year,
-                    study_count: c.study_count,
-                    citation: c.total_citations,
-                    impact_factor: c.average_impact_factor,
-                  }))}
+                  chartData={searches?.yearly_study_counts ?? []}
                 />
               </TabsContent>
               <TabsContent value="region">
@@ -498,7 +495,7 @@ const Search = ({
           <div className="flex flex-col-reverse justify-between gap-5 sm:flex-row sm:items-center">
             {isLoading ? (
               ""
-            ) : searches && searches.count > 0 ? (
+            ) : searches?.results && searches?.results.length > 0 ? (
               <>
                 <h1 className="text-2xl font-bold lg:text-2xl">
                   {searches?.count} Results
@@ -570,9 +567,9 @@ const Search = ({
                   Something went wrong
                 </p>
               </div>
-            ) : searches ? (
-              Object.entries(searches || {}).map(([key, value]) => (
-                <StudyList key={key} study={value} />
+            ) : searches?.results && searches?.results.length > 0 ? (
+              searches?.results?.map((study, i: number) => (
+                <StudyList key={i} study={study} />
               ))
             ) : (
               <NotFound searchTerm={filter.title ?? ""} />
@@ -580,11 +577,7 @@ const Search = ({
           </div>
           <div>
             {isError ||
-            (searches &&
-              ((Array.isArray(searches) && searches.length <= 0) ||
-                (!Array.isArray(searches) &&
-                  searches.results &&
-                  searches.results.length <= 0))) ? null : (
+            (searches?.results && searches?.results.length <= 0) ? null : (
               <PaginationControls
                 prevPage={prevPage}
                 nextPage={nextPage}
