@@ -46,6 +46,7 @@ const Opolo: React.FC = () => {
   }
 
   interface Message {
+    id: number
     response: string
     answer: {
       text: string
@@ -100,6 +101,7 @@ const Opolo: React.FC = () => {
               id: session.id,
               title: session.title,
               messages: session.messages.map((msg: any) => ({
+                id: msg.id,
                 response: msg.question,
                 answer: {
                   text: msg.answer,
