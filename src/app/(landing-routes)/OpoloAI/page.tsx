@@ -1,6 +1,6 @@
 "use client"
 import { IoSunnySharp } from "react-icons/io5"
-import { FaMoon, FaTrash, FaTrashAlt } from "react-icons/fa"
+import { FaMoon, FaPlus, FaTrash, FaTrashAlt } from "react-icons/fa"
 import React, { useEffect, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
@@ -140,26 +140,28 @@ const Opolo: React.FC = () => {
 
   const handleSend = async () => {
     if (!userInput.trim() || isSending) return
+
+    // Immediately clear input and set sending state to prevent double calls
+    const currentInput = userInput.trim()
+    setUserInput("")
     setIsSending(true)
 
     try {
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
-        question: userInput,
+        question: currentInput, // Use the saved input
         session_id: selectedChat ?? undefined,
       })
 
       const newMessage = {
-        response: userInput,
+        response: currentInput, // Use the saved input
         answer: {
           text: res.answer,
           images: res.images,
           sources: res.sources,
         },
       }
-
-      setUserInput("")
 
       setChatInfo((prev) => {
         const updated = { ...prev }
@@ -170,7 +172,7 @@ const Opolo: React.FC = () => {
         if (updatedChat) {
           updatedChat.messages.push(newMessage)
         } else {
-          const newChat: Chat = {
+          const newChat = {
             id: res.session_id,
             title: res.title || "New Chat",
             messages: [newMessage],
@@ -185,6 +187,8 @@ const Opolo: React.FC = () => {
     } catch (err) {
       console.error(err)
       toast.error("Failed to send message")
+      // Restore input on error
+      setUserInput(currentInput)
     } finally {
       setIsSending(false)
     }
@@ -291,6 +295,17 @@ const Opolo: React.FC = () => {
     }
   }
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation()
+
+      // Only proceed if we have input and not currently sending
+      if (userInput.trim() && !isSending) {
+        handleSend()
+      }
+    }
+  }
   return (
     <div
       className={`h-full overflow-hidden font-[Arial] ${mode !== "light" ? "text-white" : ""}`}
@@ -341,8 +356,14 @@ const Opolo: React.FC = () => {
               </div>
             )}{" "}
           </div>
-          <div className="mt-6 font-bold">
+          <div className="mt-6 flex items-center justify-between font-bold">
             <p>Chat History</p>
+            <div
+              onClick={() => setSelectedChat(null)}
+              className="flex cursor-pointer items-center justify-center rounded-full hover:h-6 hover:w-6 hover:bg-[#Ed6D1C]/50 hover:text-white"
+            >
+              <FaPlus />
+            </div>
           </div>
           <div className="relative mt-5 w-full">
             <CiSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -554,6 +575,7 @@ const Opolo: React.FC = () => {
               <textarea
                 rows={1}
                 value={userInput}
+                onKeyDown={handleKeyDown}
                 onChange={(e) => setUserInput(e.target.value)}
                 className="no-scrollbar w-full rounded-xl p-6 pr-12 font-[Inter] text-sm shadow-lg outline-none placeholder:text-xs placeholder:text-[#B59797] md:placeholder:text-sm"
                 style={{
