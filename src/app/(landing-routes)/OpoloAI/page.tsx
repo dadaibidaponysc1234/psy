@@ -113,7 +113,7 @@ const Opolo: React.FC = () => {
                 },
               })),
             }
-
+            console.log("chat:", chat)
             if (!grouped[section]) {
               grouped[section] = []
             }
