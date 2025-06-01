@@ -11,9 +11,10 @@ export const fetchShortStudies = async () => {
   }
 }
 
-export const uploadPdf = async (studyId: number, file) => {
+export const uploadPdf = async (studyId: string, file: File) => {
   const formData = new FormData()
   formData.append("study_id", studyId)
+
   formData.append("file", file)
 
   try {
@@ -40,7 +41,11 @@ export const fetchImages = async () => {
 }
 
 // POST /ai/images/upload/ - Upload a new image with caption and study ID
-export const uploadImage = async (studyId, caption, imageFile) => {
+export const uploadImage = async (
+  studyId: string,
+  caption: string,
+  imageFile: File
+) => {
   const formData = new FormData()
   formData.append("study", studyId)
   formData.append("caption", caption)
@@ -64,7 +69,7 @@ export const uploadImage = async (studyId, caption, imageFile) => {
 }
 
 // GET /ai/images/<pk>/ - Get a single image by ID
-export const fetchImageById = async (imageId) => {
+export const fetchImageById = async (imageId: string) => {
   try {
     const response = await axios.get(`${BASE_URL}/ai/images/${imageId}/`)
     return response.data

@@ -36,7 +36,7 @@ const FileUploads = () => {
     }
 
     try {
-      const response = await uploadPdf(Number(selectedId), file)
+      const response = await uploadPdf(selectedId, file)
       toast.success(response.message)
       setFile(null)
     } catch (error) {

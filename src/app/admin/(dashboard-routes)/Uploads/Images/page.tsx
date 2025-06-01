@@ -13,11 +13,18 @@ import toast from "react-hot-toast"
 import { FiUpload } from "react-icons/fi"
 
 const UploadImages = () => {
+  type StudyImage = {
+    id: number
+    image_url: string
+    caption: string
+  }
   const [studies, setStudies] = useState([])
   const [selectedId, setSelectedId] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState("")
-  const [images, setImages] = useState([])
+
+  const [images, setImages] = useState<StudyImage[]>([])
+
   const [currentPage, setCurrentPage] = useState(1)
 
   const pageSize = 6
@@ -57,7 +64,7 @@ const UploadImages = () => {
     }
 
     try {
-      const response = await uploadImage(Number(selectedId), caption, file)
+      const response = await uploadImage(selectedId, caption, file)
       toast.success(response.message)
       setFile(null)
       setCaption("")
@@ -153,7 +160,7 @@ const UploadImages = () => {
                 className="rounded-lg border bg-white p-3 shadow-sm"
               >
                 <img
-                  src={img.image}
+                  src={img.image_url}
                   alt={img.caption}
                   className="mb-2 h-40 w-full rounded object-cover"
                 />

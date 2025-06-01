@@ -1,7 +1,7 @@
 "use client"
 import { IoSunnySharp } from "react-icons/io5"
 import { FaMoon, FaPlus, FaTrash, FaTrashAlt } from "react-icons/fa"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
 import { TbSend2 } from "react-icons/tb"
@@ -13,6 +13,7 @@ import { FaRegThumbsDown } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { IoCloudDownloadOutline } from "react-icons/io5"
 import { LuLink } from "react-icons/lu"
+import { FaFilePdf } from "react-icons/fa6"
 import {
   chatWithMemory,
   deleteChatMessage,
@@ -28,25 +29,20 @@ const Opolo: React.FC = () => {
   const [chatTab, setChatTab] = useState<{ [key: number]: string }>({})
   const [userInput, setUserInput] = useState<string>("")
   const [isSending, setIsSending] = useState<boolean>(false)
-  const [userEmail, setUserEmail] = useState("")
-
-  //Get selected chat
-  const getSelectedChat = (): Chat | null => {
-    for (const chats of Object.values(chatInfo)) {
-      for (const chat of chats) {
-        if (chat.id === selectedChat) {
-          return chat
-        }
-      }
-    }
-    return null
-  }
+  const [userEmail, setUserEmail] = useState<string>("")
+  const [chatInfo, setChatInfo] = useState<ChatData>({})
+  const [streamedText, setStreamedText] = useState<string>("")
+  const endRef = useRef<HTMLDivElement | null>(null)
+  const [atBottom, setAtBottom] = useState<boolean>(true)
 
   interface Message {
     response: string
     answer: {
       text: string
-      images: string[]
+      images: {
+        image_url: string
+        caption: string
+      }[]
       sources: {
         title: string
         lead_author: string
@@ -68,7 +64,17 @@ const Opolo: React.FC = () => {
     [key: string]: Chat[]
   }
 
-  const [chatInfo, setChatInfo] = useState<ChatData>({})
+  //Get selected chat
+  const getSelectedChat = (): Chat | null => {
+    for (const chats of Object.values(chatInfo)) {
+      for (const chat of chats) {
+        if (chat.id === selectedChat) {
+          return chat
+        }
+      }
+    }
+    return null
+  }
 
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
@@ -138,24 +144,36 @@ const Opolo: React.FC = () => {
     if (storedMode) setMode(storedMode)
   }, [])
 
-  const handleSend = async () => {
-    if (!userInput.trim() || isSending) return
+  const simulateTyping = (text: string, callback: (value: string) => void) => {
+    let index = 0
+    const interval = setInterval(() => {
+      callback(text.slice(0, index + 1))
+      index++
+      if (index === text.length) clearInterval(interval)
+    }, 25) // Adjust speed here
+  }
 
-    // Immediately clear input and set sending state to prevent double calls
-    const currentInput = userInput.trim()
-    setUserInput("")
+  const handleSend = async () => {
+    if (isSending) return
+    const trimmedInput = userInput.trim()
+    if (!trimmedInput) return
+
     setIsSending(true)
+    setUserInput("")
+    setStreamedText("")
 
     try {
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
-        question: currentInput, // Use the saved input
+        question: trimmedInput,
         session_id: selectedChat ?? undefined,
       })
 
+      simulateTyping(res.answer, (value) => setStreamedText(value))
+
       const newMessage = {
-        response: currentInput, // Use the saved input
+        response: trimmedInput,
         answer: {
           text: res.answer,
           images: res.images,
@@ -164,31 +182,38 @@ const Opolo: React.FC = () => {
       }
 
       setChatInfo((prev) => {
-        const updated = { ...prev }
-        const updatedChat = Object.values(updated)
-          .flat()
-          .find((chat) => chat.id === res.session_id)
-
-        if (updatedChat) {
-          updatedChat.messages.push(newMessage)
-        } else {
-          const newChat = {
-            id: res.session_id,
-            title: res.title || "New Chat",
-            messages: [newMessage],
-          }
-          updated.today = [newChat, ...(updated.today || [])]
+        const updated: ChatData = {}
+        for (const section in prev) {
+          updated[section] = prev[section].map((chat) => {
+            if (chat.id === res.session_id) {
+              return {
+                ...chat,
+                messages: [...chat.messages, newMessage],
+              }
+            }
+            return chat
+          })
         }
-
+        const chatExists = Object.values(prev)
+          .flat()
+          .some((c) => c.id === res.session_id)
+        if (!chatExists) {
+          updated["Today"] = [
+            {
+              id: res.session_id,
+              title: res.title || "New Chat",
+              messages: [newMessage],
+            },
+            ...(prev["Today"] || []),
+          ]
+        }
         return updated
       })
-
       setSelectedChat(res.session_id)
     } catch (err) {
       console.error(err)
       toast.error("Failed to send message")
-      // Restore input on error
-      setUserInput(currentInput)
+      setUserInput(trimmedInput)
     } finally {
       setIsSending(false)
     }
@@ -269,22 +294,21 @@ const Opolo: React.FC = () => {
       .catch(() => toast.error("Failed to copy"))
   }
 
-  const handleShare = (message: string) => {
-    const shareText = `✨ “${message}” ✨
+  const handleShare = (content: string) => {
+    const isURL = content.startsWith("http") || content.includes("://")
 
-— from opoloAI
-
-📢 *Check out more great content at opoloAI!*`
+    const shareText = isURL
+      ? `📄 Here's a PDF you might find useful:\n${content}\n\n— Shared from ỌpọlọAI`
+      : `✨ “${content}” ✨\n\n— from ỌpọlọAI\n\n📢 *Check out more great content at ỌpọlọAI!*`
 
     if (navigator.share) {
       navigator
         .share({
           title: "Check this out",
           text: shareText,
+          url: isURL ? content : undefined,
         })
-        .then(() => {
-          toast.success("Shared successfully!")
-        })
+        .then(() => toast.success("Shared successfully!"))
         .catch((err) => {
           toast.error("Share failed.")
           console.error(err)
@@ -298,14 +322,24 @@ const Opolo: React.FC = () => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      e.stopPropagation()
-
-      // Only proceed if we have input and not currently sending
-      if (userInput.trim() && !isSending) {
+      if (!isSending) {
         handleSend()
       }
     }
   }
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const bottom =
+        Math.ceil(window.innerHeight + window.scrollY) >=
+        document.documentElement.scrollHeight - 10
+      setAtBottom(bottom)
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
   return (
     <div
       className={`h-full overflow-hidden font-[Arial] ${mode !== "light" ? "text-white" : ""}`}
@@ -494,6 +528,16 @@ const Opolo: React.FC = () => {
                               </div>
                             </div>
                           )}
+                          {isSending && (
+                            <div className="animate-pulse rounded-md p-4">
+                              <p className="font-medium">🤖 AI is typing...</p>
+                              <p className="mt-1 whitespace-pre-line">
+                                {streamedText}
+                                <span className="animate-blink">|</span>
+                              </p>
+                            </div>
+                          )}
+                          <div ref={endRef} />
                           {currentTab === "Image" && (
                             <div className="grid-col-1 grid gap-2 lg:grid-cols-3">
                               {message.answer.images.length === 0 ? (
@@ -504,8 +548,8 @@ const Opolo: React.FC = () => {
                                 message.answer.images.map((image, index) => (
                                   <img
                                     key={index}
-                                    src={image}
-                                    alt={`Generated image ${index + 1}`}
+                                    src={image.image_url}
+                                    alt={image.caption}
                                   />
                                 ))
                               )}
@@ -522,37 +566,52 @@ const Opolo: React.FC = () => {
                                   return (
                                     <div
                                       key={index}
-                                      className="mb-2 flex flex-col items-center justify-between rounded-lg border border-[#8E8E8E] p-2 px-8 text-xs lg:flex-row lg:text-sm"
+                                      className="mb-2 flex w-full items-center gap-5 rounded-lg border border-[#8E8E8E] p-2 px-5 text-xs lg:flex-row lg:text-sm"
                                     >
-                                      <div className="flex flex-col gap-1 text-left">
-                                        <p className="font-semibold">
-                                          {source.title}
-                                        </p>
-                                        <p>
-                                          <span className="font-medium text-[#EE7527]">
-                                            {source.lead_author}
-                                          </span>
-                                          , {source.journal} ({source.year})
-                                        </p>
-                                        <a
-                                          href={
-                                            source.pdf_url ||
-                                            `https://doi.org/${source.doi}`
-                                          }
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-blue-600 hover:underline"
-                                        >
-                                          {source.doi}
-                                        </a>
+                                      <div>
+                                        <img src="/pdflogo.png" alt="" />
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
-                                          <IoCloudDownloadOutline />
+                                      <div className="flex w-full items-center justify-between">
+                                        <div className="flex flex-col gap-1 text-left">
+                                          <p className="font-semibold">
+                                            {source.title}
+                                          </p>
+                                          <p>
+                                            <span className="font-medium text-[#EE7527]">
+                                              {source.lead_author}
+                                            </span>
+                                            , {source.journal} ({source.year})
+                                          </p>
+                                          <a
+                                            href={
+                                              source.pdf_url ||
+                                              `https://doi.org/${source.doi}`
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                          >
+                                            {source.doi}
+                                          </a>
                                         </div>
-                                        <div className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20">
-                                          <IoShareSocialOutline />
-                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div
+                                            onClick={() =>
+                                              window.open(source.pdf_url)
+                                            }
+                                            className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20"
+                                          >
+                                            <IoCloudDownloadOutline />
+                                          </div>
+                                          <div
+                                            onClick={() =>
+                                              handleShare(source.pdf_url)
+                                            }
+                                            className="cursor-pointer rounded-lg border border-[#8E8E8E] p-1 hover:bg-[#EE7527]/20"
+                                          >
+                                            <IoShareSocialOutline />
+                                          </div>
+                                        </div>{" "}
                                       </div>
                                     </div>
                                   )
@@ -564,11 +623,33 @@ const Opolo: React.FC = () => {
                       </div>
                     )
                   })}
+                  {atBottom && (
+                    <button
+                      onClick={() =>
+                        endRef.current?.scrollIntoView({ behavior: "smooth" })
+                      }
+                      className="fixed bottom-20 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
+                      title="Scroll to latest message"
+                    >
+                      ↧
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
-                  <p>Ask a question to get Started....</p>
-                </div>
+                <>
+                  <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
+                    <p>Ask a question to get Started....</p>
+                  </div>
+                  {isSending && (
+                    <div className="animate-pulse rounded-md p-4">
+                      <p className="font-medium">🤖 AI is typing...</p>
+                      <p className="mt-1 whitespace-pre-line">
+                        {streamedText}
+                        <span className="animate-blink">|</span>
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="relative flex w-full items-center justify-center px-5 pb-12 md:px-16">
@@ -590,7 +671,9 @@ const Opolo: React.FC = () => {
                 <TbSend2
                   size={24}
                   className="cursor-pointer text-[#ED6D1C]"
-                  onClick={handleSend}
+                  onClick={() => {
+                    if (!isSending) handleSend()
+                  }}
                 />
               </div>
             </div>
@@ -602,6 +685,21 @@ const Opolo: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <style jsx>{`
+          @keyframes blink {
+            0%,
+            100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0;
+            }
+          }
+          .animate-blink {
+            animation: blink 1s step-end infinite;
+          }
+        `}</style>
       </div>
 
       <FirstModal
