@@ -145,7 +145,7 @@ const Opolo: React.FC = () => {
     if (storedMode) setMode(storedMode)
   }, [])
 
-  const formatMath = (text) => {
+  const formatMath = (text: string) => {
     if (!text) return text
 
     // If text already includes MathJax delimiters, return as is
