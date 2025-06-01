@@ -93,3 +93,15 @@ body,
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.markdown h1 {
+  @apply mb-4 text-2xl font-bold;
+}
+
+.markdown p {
+  @apply mb-4 text-base leading-relaxed;
+}
+
+.markdown ul {
+  @apply mb-4 list-disc pl-5;
+}
