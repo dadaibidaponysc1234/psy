@@ -490,7 +490,9 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              {isSending ? (
+                              {isSending &&
+                              getSelectedChat()?.messages.length - 1 ===
+                                index ? (
                                 <TypewriterMarkdown
                                   text={message.answer.text}
                                 />
