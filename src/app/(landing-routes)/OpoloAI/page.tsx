@@ -5,22 +5,26 @@ import React, { useEffect, useRef, useState } from "react"
 import FirstModal from "./FirstModal"
 import { CiSearch } from "react-icons/ci"
 import { TbSend2 } from "react-icons/tb"
+import chatData from "./chatdata"
 import { IoShareSocialOutline } from "react-icons/io5"
 import { FiCopy } from "react-icons/fi"
 import { FaRegThumbsUp } from "react-icons/fa"
 import { FaRegThumbsDown } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { IoCloudDownloadOutline } from "react-icons/io5"
-import ReactMarkdown from "react-markdown"
+import "katex/dist/katex.min.css"
 import remarkGfm from "remark-gfm"
-import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
+import remarkMath from "remark-math"
+
+import ReactMarkdown from "react-markdown"
 import {
   chatWithMemory,
   deleteChatMessage,
   deleteChatSession,
   getChatSessions,
 } from "@/services/opolo"
+import TypewriterMarkdown from "./Typewrite"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
@@ -145,85 +149,13 @@ const Opolo: React.FC = () => {
     if (storedMode) setMode(storedMode)
   }, [])
 
-  const formatMath = (text: string) => {
-    if (!text) return text
-
-    // If text already includes MathJax delimiters, return as is
-    if (/\\\(.*?\\\)|\\{1,2}\[.*?\\\]|\$\$.*?\$\$|\$.*?\$/.test(text))
-      return text
-
-    // Handle inline formulas: [inline: formula] -> \(formula\)
-    let formatted = text.replace(
-      /\[inline:\s*([\s\S]*?)\]/g,
-      (_, inlineFormula) => `\\(${inlineFormula.trim()}\\)`
-    )
-
-    // Handle block formulas: [ formula ] -> $$formula$$
-    // But be more conservative about what we consider math
-    formatted = formatted.replace(
-      /\[\s*([\s\S]*?)\s*\]/g,
-      (match, blockFormula) => {
-        const trimmedFormula = blockFormula.trim()
-
-        // Skip descriptive text patterns
-        const isDescriptiveText =
-          /^(number of|total number of|text of|individuals with|frequency of|allele|genotype)/i.test(
-            trimmedFormula
-          )
-
-        // Only convert if it looks like actual LaTeX math
-        const hasLatexCommands = /\\[a-zA-Z]+/.test(trimmedFormula)
-        const hasFrac = /\\?frac/.test(trimmedFormula)
-        const hasMathSymbols =
-          /[=+\-*/^_{}()∑∫αβγδ]/.test(trimmedFormula) &&
-          !/^[a-zA-Z\s]+$/.test(trimmedFormula)
-
-        const isMathFormula =
-          (hasLatexCommands || hasFrac || hasMathSymbols) && !isDescriptiveText
-
-        if (isMathFormula) {
-          return `\n\n$$${trimmedFormula}$$\n\n`
-        } else {
-          // Leave descriptive text as is
-          return match
-        }
-      }
-    )
-
-    return formatted
-  }
-  const simulateTyping = (
-    text: string,
-    callback: (value: string) => void,
-    done?: () => void
-  ) => {
+  const simulateTyping = (text: string, callback: (value: string) => void) => {
     let index = 0
-
-    const typingSpeed = (char: string) => {
-      if (char === "." || char === "," || char === ":" || char === ";")
-        return 50
-      if (char === "\n") return 0
-      return 10
-    }
-
-    const typeNext = () => {
-      if (index <= text.length) {
-        const current = text.slice(0, index + 1)
-        callback(current)
-        index++
-
-        // Scroll to latest text during typing
-        endRef.current?.scrollIntoView({ behavior: "smooth" })
-
-        setTimeout(() => {
-          typeNext()
-        }, typingSpeed(text[index]))
-      } else {
-        done?.()
-      }
-    }
-
-    typeNext()
+    const interval = setInterval(() => {
+      callback(text.slice(0, index + 1))
+      index++
+      if (index === text.length) clearInterval(interval)
+    }, 25) // Adjust speed here
   }
 
   const handleSend = async () => {
@@ -242,17 +174,13 @@ const Opolo: React.FC = () => {
         question: trimmedInput,
         session_id: selectedChat ?? undefined,
       })
-      const formattedAnswer = formatMath(res.answer)
 
-      simulateTyping(formattedAnswer, (value) => {
-        setStreamedText(value)
-        endRef.current?.scrollIntoView({ behavior: "smooth" })
-      })
+      simulateTyping(res.answer, (value) => setStreamedText(value))
 
       const newMessage = {
         response: trimmedInput,
         answer: {
-          text: formattedAnswer,
+          text: res.answer,
           images: res.images,
           sources: res.sources,
         },
@@ -562,28 +490,20 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              <article className="markdown">
-                                {isSending &&
-                                index ===
-                                  getSelectedChat()?.messages.length - 1 ? (
-                                  <div className="whitespace-pre-wrap font-medium">
-                                    <ReactMarkdown
-                                      remarkPlugins={[remarkGfm, remarkMath]}
-                                      rehypePlugins={[rehypeKatex]}
-                                    >
-                                      {streamedText}
-                                    </ReactMarkdown>
-                                    <span className="animate-blink">|</span>
-                                  </div>
-                                ) : (
+                              {isSending ? (
+                                <TypewriterMarkdown
+                                  text={message.answer.text}
+                                />
+                              ) : (
+                                <article className="markdown">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm, remarkMath]}
                                     rehypePlugins={[rehypeKatex]}
                                   >
-                                    {formatMath(message.answer.text)}
+                                    {message.answer.text}
                                   </ReactMarkdown>
-                                )}
-                              </article>
+                                </article>
+                              )}
 
                               <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
                                 <button
@@ -627,15 +547,7 @@ const Opolo: React.FC = () => {
                               </div>
                             </div>
                           )}
-                          {isSending && (
-                            <div className="animate-pulse rounded-md p-4">
-                              <p className="font-medium">🤖 AI is typing...</p>
-                              <p className="mt-1 whitespace-pre-line">
-                                {streamedText}
-                                <span className="animate-blink">|</span>
-                              </p>
-                            </div>
-                          )}
+
                           <div ref={endRef} />
                           {currentTab === "Image" && (
                             <div className="grid-col-1 grid gap-2 lg:grid-cols-3">
@@ -727,7 +639,7 @@ const Opolo: React.FC = () => {
                       onClick={() =>
                         endRef.current?.scrollIntoView({ behavior: "smooth" })
                       }
-                      className="fixed bottom-36 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
+                      className="fixed bottom-20 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
                       title="Scroll to latest message"
                     >
                       ↧
