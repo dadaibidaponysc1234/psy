@@ -16,8 +16,6 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
-import "katex/dist/katex.min.css"
-
 import {
   chatWithMemory,
   deleteChatMessage,
@@ -148,23 +146,50 @@ const Opolo: React.FC = () => {
     if (storedMode) setMode(storedMode)
   }, [])
 
-  const formatMath = (text: string) => {
+  const formatMath = (text) => {
     if (!text) return text
 
-    // If text already includes $$ or $...$, skip formatting
+    // If text already includes properly formatted LaTeX ($ or $$), skip formatting
     if (/\${1,2}.*?\${1,2}/.test(text)) return text
 
-    const inlineConverted = text.replace(
+    // Handle inline formulas: [inline: formula] -> $formula$
+    let formatted = text.replace(
       /\[inline:\s*([\s\S]*?)\]/g,
       (_, inlineFormula) => `$${inlineFormula.trim()}$`
     )
 
-    const blockConverted = inlineConverted.replace(
-      /\[(?!inline:)([\s\S]*?)\]/g,
-      (_, blockFormula) => `\n\n$$${blockFormula.trim()}$$\n\n`
+    // Handle block formulas: [ formula ] -> $$formula$$
+    // This pattern looks for [ followed by content that may include spaces,
+    // LaTeX commands, and various mathematical symbols, then closes with ]
+    formatted = formatted.replace(
+      /\[\s*([\s\S]*?)\s*\]/g,
+      (match, blockFormula) => {
+        const trimmedFormula = blockFormula.trim()
+
+        // More specific check for mathematical formulas
+        // Exclude common descriptive text patterns
+        const isDescriptiveText =
+          /^(number of|total number of|text|label|note|description)/i.test(
+            trimmedFormula
+          )
+
+        // Check if this looks like a mathematical formula
+        // (contains LaTeX commands, fractions, mathematical operators, etc.)
+        const isMathFormula =
+          /[\\=+\-*/^_{}\(\)]+|\\[a-zA-Z]+|frac|text|times|cdot|sum|int|alpha|beta|gamma|delta/.test(
+            trimmedFormula
+          ) && !isDescriptiveText
+
+        if (isMathFormula) {
+          return `\n\n$$${trimmedFormula}$$\n\n`
+        } else {
+          // If it doesn't look like math, leave it as is
+          return match
+        }
+      }
     )
 
-    return blockConverted
+    return formatted
   }
 
   const simulateTyping = (
