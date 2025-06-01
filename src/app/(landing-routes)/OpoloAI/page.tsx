@@ -81,6 +81,11 @@ const Opolo: React.FC = () => {
     return null
   }
 
+  const currentChat = getSelectedChat()
+  const lastMessageIndex = currentChat?.messages.length
+    ? currentChat.messages.length - 1
+    : -1
+
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
   }
@@ -490,9 +495,7 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              {isSending &&
-                              getSelectedChat()?.messages.length - 1 ===
-                                index ? (
+                              {isSending && index === lastMessageIndex ? (
                                 <TypewriterMarkdown
                                   text={message.answer.text}
                                 />
