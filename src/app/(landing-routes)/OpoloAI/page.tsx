@@ -149,41 +149,43 @@ const Opolo: React.FC = () => {
   const formatMath = (text) => {
     if (!text) return text
 
-    // If text already includes properly formatted LaTeX ($ or $$), skip formatting
-    if (/\${1,2}.*?\${1,2}/.test(text)) return text
+    // If text already includes MathJax delimiters, return as is
+    if (/\\\(.*?\\\)|\\{1,2}\[.*?\\\]|\$\$.*?\$\$|\$.*?\$/.test(text))
+      return text
 
-    // Handle inline formulas: [inline: formula] -> $formula$
+    // Handle inline formulas: [inline: formula] -> \(formula\)
     let formatted = text.replace(
       /\[inline:\s*([\s\S]*?)\]/g,
-      (_, inlineFormula) => `$${inlineFormula.trim()}$`
+      (_, inlineFormula) => `\\(${inlineFormula.trim()}\\)`
     )
 
     // Handle block formulas: [ formula ] -> $$formula$$
-    // This pattern looks for [ followed by content that may include spaces,
-    // LaTeX commands, and various mathematical symbols, then closes with ]
+    // But be more conservative about what we consider math
     formatted = formatted.replace(
       /\[\s*([\s\S]*?)\s*\]/g,
       (match, blockFormula) => {
         const trimmedFormula = blockFormula.trim()
 
-        // More specific check for mathematical formulas
-        // Exclude common descriptive text patterns
+        // Skip descriptive text patterns
         const isDescriptiveText =
-          /^(number of|total number of|text|label|note|description)/i.test(
+          /^(number of|total number of|text of|individuals with|frequency of|allele|genotype)/i.test(
             trimmedFormula
           )
 
-        // Check if this looks like a mathematical formula
-        // (contains LaTeX commands, fractions, mathematical operators, etc.)
+        // Only convert if it looks like actual LaTeX math
+        const hasLatexCommands = /\\[a-zA-Z]+/.test(trimmedFormula)
+        const hasFrac = /\\?frac/.test(trimmedFormula)
+        const hasMathSymbols =
+          /[=+\-*/^_{}()∑∫αβγδ]/.test(trimmedFormula) &&
+          !/^[a-zA-Z\s]+$/.test(trimmedFormula)
+
         const isMathFormula =
-          /[\\=+\-*/^_{}\(\)]+|\\[a-zA-Z]+|frac|text|times|cdot|sum|int|alpha|beta|gamma|delta/.test(
-            trimmedFormula
-          ) && !isDescriptiveText
+          (hasLatexCommands || hasFrac || hasMathSymbols) && !isDescriptiveText
 
         if (isMathFormula) {
           return `\n\n$$${trimmedFormula}$$\n\n`
         } else {
-          // If it doesn't look like math, leave it as is
+          // Leave descriptive text as is
           return match
         }
       }
@@ -191,7 +193,6 @@ const Opolo: React.FC = () => {
 
     return formatted
   }
-
   const simulateTyping = (
     text: string,
     callback: (value: string) => void,
