@@ -12,9 +12,12 @@ import { FaRegThumbsUp } from "react-icons/fa"
 import { FaRegThumbsDown } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { IoCloudDownloadOutline } from "react-icons/io5"
-import remarkGfm from "remark-gfm"
-
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+import "katex/dist/katex.min.css"
+
 import {
   chatWithMemory,
   deleteChatMessage,
@@ -145,13 +148,57 @@ const Opolo: React.FC = () => {
     if (storedMode) setMode(storedMode)
   }, [])
 
-  const simulateTyping = (text: string, callback: (value: string) => void) => {
+  const formatMath = (text: string) => {
+    if (!text) return text
+
+    // If text already includes $$ or $...$, skip formatting
+    if (/\${1,2}.*?\${1,2}/.test(text)) return text
+
+    const inlineConverted = text.replace(
+      /\[inline:\s*([\s\S]*?)\]/g,
+      (_, inlineFormula) => `$${inlineFormula.trim()}$`
+    )
+
+    const blockConverted = inlineConverted.replace(
+      /\[(?!inline:)([\s\S]*?)\]/g,
+      (_, blockFormula) => `\n\n$$${blockFormula.trim()}$$\n\n`
+    )
+
+    return blockConverted
+  }
+
+  const simulateTyping = (
+    text: string,
+    callback: (value: string) => void,
+    done?: () => void
+  ) => {
     let index = 0
-    const interval = setInterval(() => {
-      callback(text.slice(0, index + 1))
-      index++
-      if (index === text.length) clearInterval(interval)
-    }, 25) // Adjust speed here
+
+    const typingSpeed = (char: string) => {
+      if (char === "." || char === "," || char === ":" || char === ";")
+        return 50
+      if (char === "\n") return 0
+      return 10
+    }
+
+    const typeNext = () => {
+      if (index <= text.length) {
+        const current = text.slice(0, index + 1)
+        callback(current)
+        index++
+
+        // Scroll to latest text during typing
+        endRef.current?.scrollIntoView({ behavior: "smooth" })
+
+        setTimeout(() => {
+          typeNext()
+        }, typingSpeed(text[index]))
+      } else {
+        done?.()
+      }
+    }
+
+    typeNext()
   }
 
   const handleSend = async () => {
@@ -170,13 +217,17 @@ const Opolo: React.FC = () => {
         question: trimmedInput,
         session_id: selectedChat ?? undefined,
       })
+      const formattedAnswer = formatMath(res.answer)
 
-      simulateTyping(res.answer, (value) => setStreamedText(value))
+      simulateTyping(formattedAnswer, (value) => {
+        setStreamedText(value)
+        endRef.current?.scrollIntoView({ behavior: "smooth" })
+      })
 
       const newMessage = {
         response: trimmedInput,
         answer: {
-          text: res.answer,
+          text: formattedAnswer,
           images: res.images,
           sources: res.sources,
         },
@@ -487,9 +538,26 @@ const Opolo: React.FC = () => {
                           {currentTab === "Answer" && (
                             <div>
                               <article className="markdown">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                  {message.answer.text}
-                                </ReactMarkdown>
+                                {isSending &&
+                                index ===
+                                  getSelectedChat()?.messages.length - 1 ? (
+                                  <div className="whitespace-pre-wrap font-medium">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm, remarkMath]}
+                                      rehypePlugins={[rehypeKatex]}
+                                    >
+                                      {streamedText}
+                                    </ReactMarkdown>
+                                    <span className="animate-blink">|</span>
+                                  </div>
+                                ) : (
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
+                                  >
+                                    {formatMath(message.answer.text)}
+                                  </ReactMarkdown>
+                                )}
                               </article>
 
                               <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
@@ -634,7 +702,7 @@ const Opolo: React.FC = () => {
                       onClick={() =>
                         endRef.current?.scrollIntoView({ behavior: "smooth" })
                       }
-                      className="fixed bottom-20 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
+                      className="fixed bottom-36 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
                       title="Scroll to latest message"
                     >
                       ↧

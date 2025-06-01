@@ -105,3 +105,18 @@ body,
 .markdown ul {
   @apply mb-4 list-disc pl-5;
 }
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid #dee2e6;
+  padding: 0.75rem;
+  text-align: left;
+}
+.markdown th {
+  font-weight: bold;
+}
