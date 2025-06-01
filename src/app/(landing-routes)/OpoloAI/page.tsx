@@ -486,9 +486,11 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {message.answer.text}
-                              </ReactMarkdown>
+                              <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {message.answer.text}
+                                </ReactMarkdown>
+                              </div>
 
                               <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
                                 <button
