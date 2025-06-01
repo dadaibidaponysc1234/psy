@@ -12,29 +12,38 @@ interface Props {
 
 const TypewriterMarkdown: React.FC<Props> = ({ text, onDone }) => {
   const [displayedText, setDisplayedText] = useState("")
+  const [isDone, setIsDone] = useState(false)
 
   useEffect(() => {
     let index = 0
     const interval = setInterval(() => {
-      setDisplayedText((prev) => prev + text.charAt(index))
+      setDisplayedText(text.slice(0, index + 1))
       index++
       if (index >= text.length) {
         clearInterval(interval)
-        if (onDone) onDone?.()
+        setIsDone(true)
+        if (onDone) onDone()
       }
-    }, 20) // Speed: 20ms per character
+    }, 15) // typing speed
 
     return () => clearInterval(interval)
   }, [text, onDone])
 
   return (
     <article className="markdown">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-      >
-        {displayedText}
-      </ReactMarkdown>
+      {isDone ? (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+        >
+          {text}
+        </ReactMarkdown>
+      ) : (
+        <pre className="whitespace-pre-wrap font-sans">
+          {displayedText}
+          <span className="animate-blink">|</span>
+        </pre>
+      )}
     </article>
   )
 }

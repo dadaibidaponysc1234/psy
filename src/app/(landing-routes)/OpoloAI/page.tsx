@@ -347,7 +347,7 @@ const Opolo: React.FC = () => {
 
   return (
     <div
-      className={`h-full overflow-hidden font-[Arial] ${mode !== "light" ? "text-white" : ""}`}
+      className={`h-full overflow-hidden font-[Arial] text-xs md:text-base ${mode !== "light" ? "text-white" : ""}`}
     >
       <div className="h-full md:grid md:grid-cols-[250px_auto]">
         <div
