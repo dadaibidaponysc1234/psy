@@ -39,6 +39,7 @@ const Opolo: React.FC = () => {
   const [streamedText, setStreamedText] = useState<string>("")
   const endRef = useRef<HTMLDivElement | null>(null)
   const [atBottom, setAtBottom] = useState<boolean>(true)
+  const [typingIndex, setTypingIndex] = useState<number | null>(null)
 
   interface Message {
     response: string
@@ -165,6 +166,7 @@ const Opolo: React.FC = () => {
 
   const handleSend = async () => {
     if (isSending) return
+
     const trimmedInput = userInput.trim()
     if (!trimmedInput) return
 
@@ -180,8 +182,6 @@ const Opolo: React.FC = () => {
         session_id: selectedChat ?? undefined,
       })
 
-      simulateTyping(res.answer, (value) => setStreamedText(value))
-
       const newMessage = {
         response: trimmedInput,
         answer: {
@@ -191,22 +191,27 @@ const Opolo: React.FC = () => {
         },
       }
 
+      // ---- STEP 1: Update chat ----
       setChatInfo((prev) => {
         const updated: ChatData = {}
+        let chatExists = false
+        let newIndex: number | null = null
+
         for (const section in prev) {
           updated[section] = prev[section].map((chat) => {
             if (chat.id === res.session_id) {
+              chatExists = true
+              const updatedMessages = [...chat.messages, newMessage]
+              newIndex = updatedMessages.length - 1 // ✅ capture typing index
               return {
                 ...chat,
-                messages: [...chat.messages, newMessage],
+                messages: updatedMessages,
               }
             }
             return chat
           })
         }
-        const chatExists = Object.values(prev)
-          .flat()
-          .some((c) => c.id === res.session_id)
+
         if (!chatExists) {
           updated["Today"] = [
             {
@@ -216,12 +221,27 @@ const Opolo: React.FC = () => {
             },
             ...(prev["Today"] || []),
           ]
+          newIndex = 0
         }
+
+        // ✅ store the intended typing index in a ref or temp variable
+        setTimeout(() => setTypingIndex(newIndex), 0) // ✅ ensure this runs after state update
+
         return updated
       })
+
+      // ---- STEP 2: Set current selected chat ----
       setSelectedChat(res.session_id)
+
+      // ---- STEP 3: Animate the answer ----
+      simulateTyping(res.answer, (value) => {
+        setStreamedText(value)
+        if (value === res.answer) {
+          setTypingIndex(null) // ✅ end typewriter animation
+        }
+      })
     } catch (err) {
-      console.error(err)
+      console.error("Error sending message:", err)
       toast.error("Failed to send message")
       setUserInput(trimmedInput)
     } finally {
@@ -495,7 +515,7 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              {isSending && index === lastMessageIndex ? (
+                              {index === typingIndex ? (
                                 <TypewriterMarkdown
                                   text={message.answer.text}
                                 />
@@ -644,7 +664,7 @@ const Opolo: React.FC = () => {
                       onClick={() =>
                         endRef.current?.scrollIntoView({ behavior: "smooth" })
                       }
-                      className="fixed bottom-20 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
+                      className="fixed bottom-36 right-6 z-50 rounded-full bg-orange-500 px-4 py-2 text-white shadow-lg transition-all hover:bg-orange-600"
                       title="Scroll to latest message"
                     >
                       ↧
