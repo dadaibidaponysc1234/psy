@@ -12,8 +12,9 @@ import { FaRegThumbsUp } from "react-icons/fa"
 import { FaRegThumbsDown } from "react-icons/fa"
 import toast from "react-hot-toast"
 import { IoCloudDownloadOutline } from "react-icons/io5"
-import { LuLink } from "react-icons/lu"
-import { FaFilePdf } from "react-icons/fa6"
+import remarkGfm from "remark-gfm"
+
+import ReactMarkdown from "react-markdown"
 import {
   chatWithMemory,
   deleteChatMessage,
@@ -485,7 +486,10 @@ const Opolo: React.FC = () => {
                         <div className="h-full w-full overflow-hidden md:pr-12">
                           {currentTab === "Answer" && (
                             <div>
-                              <p>{message.answer.text}</p>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {message.answer.text}
+                              </ReactMarkdown>
+
                               <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
                                 <button
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]"}`}
