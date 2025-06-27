@@ -2,15 +2,24 @@
 
 import React, { useEffect, useState } from "react"
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select"
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { FiUpload } from "react-icons/fi"
+import { cn } from "@/lib/utils"
+
 import { fetchShortStudies, uploadImage, fetchImages } from "@/services/Admin"
 import toast from "react-hot-toast"
-import { FiUpload } from "react-icons/fi"
 
 const UploadImages = () => {
   type StudyImage = {
@@ -18,17 +27,17 @@ const UploadImages = () => {
     image_url: string
     caption: string
   }
+
   const [studies, setStudies] = useState([])
+  const [selectedStudy, setSelectedStudy] = useState<any>(null)
   const [selectedId, setSelectedId] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState("")
-
   const [images, setImages] = useState<StudyImage[]>([])
+  const [open, setOpen] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
-
   const pageSize = 6
-
   const totalPages = Math.ceil(images.length / pageSize)
   const paginatedImages = images.slice(
     (currentPage - 1) * pageSize,
@@ -58,6 +67,10 @@ const UploadImages = () => {
     loadImages()
   }, [])
 
+  useEffect(() => {
+    if (selectedStudy) setSelectedId(String(selectedStudy.id))
+  }, [selectedStudy])
+
   const handleUpload = async () => {
     if (!selectedId || !file || !caption.trim()) {
       return toast.error("Study, image, and caption are required.")
@@ -69,7 +82,6 @@ const UploadImages = () => {
       setFile(null)
       setCaption("")
 
-      // Refresh image list
       const updated = await fetchImages()
       setImages(updated)
     } catch (error) {
@@ -84,26 +96,57 @@ const UploadImages = () => {
           🖼️ Upload Study Image
         </h2>
 
+        {/* Combobox dropdown */}
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Select Study
           </label>
-          <Select onValueChange={(value) => setSelectedId(value)}>
-            <SelectTrigger className="h-12 w-full rounded-md border border-gray-300 px-4 text-sm shadow-sm focus:border-orange-500 focus:outline-none focus:ring-0">
-              <SelectValue placeholder="Choose a study..." />
-            </SelectTrigger>
-            <SelectContent>
-              {[...Object.values(studies)]
-                .sort((a: any, b: any) => a.title.localeCompare(b.title))
-                .map((study: any) => (
-                  <SelectItem key={study.id} value={String(study.id)}>
-                    {study.title}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="h-12 w-full justify-between text-left"
+              >
+                {selectedStudy ? selectedStudy.title : "Choose a study..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search studies..." />
+                <CommandEmpty>No study found.</CommandEmpty>
+                <CommandList>
+                  {[...Object.values(studies)]
+                    .sort((a: any, b: any) => a.title.localeCompare(b.title))
+                    .map((study: any) => (
+                      <CommandItem
+                        key={study.id}
+                        value={study.title}
+                        onSelect={() => {
+                          setSelectedStudy(study)
+                          setOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedStudy?.id === study.id
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {study.title}
+                      </CommandItem>
+                    ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
+        {/* Caption input */}
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Caption
@@ -117,6 +160,7 @@ const UploadImages = () => {
           />
         </div>
 
+        {/* Drag-and-drop image upload */}
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Upload Image
@@ -159,6 +203,7 @@ const UploadImages = () => {
         </button>
       </div>
 
+      {/* Uploaded Images Grid */}
       <div className="w-full max-w-4xl">
         <h3 className="mb-3 text-lg font-semibold text-gray-700">
           📚 Uploaded Images
@@ -185,6 +230,7 @@ const UploadImages = () => {
           )}
         </div>
 
+        {/* Pagination Controls */}
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}

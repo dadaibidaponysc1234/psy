@@ -2,20 +2,31 @@
 
 import React, { useEffect, useState } from "react"
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select"
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { FiUpload } from "react-icons/fi"
+
 import { fetchShortStudies, uploadPdf } from "@/services/Admin"
 import toast from "react-hot-toast"
-import { FiUpload } from "react-icons/fi"
 
 const FileUploads = () => {
   const [studies, setStudies] = useState([])
+  const [selectedStudy, setSelectedStudy] = useState<any>(null)
   const [selectedId, setSelectedId] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     const loadStudies = async () => {
@@ -29,6 +40,10 @@ const FileUploads = () => {
 
     loadStudies()
   }, [])
+
+  useEffect(() => {
+    if (selectedStudy) setSelectedId(String(selectedStudy.id))
+  }, [selectedStudy])
 
   const handleUpload = async () => {
     if (!selectedId || !file) {
@@ -51,26 +66,57 @@ const FileUploads = () => {
           📄 Upload Study PDF
         </h2>
 
+        {/* Searchable Combobox */}
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Select Study
           </label>
-          <Select onValueChange={(value) => setSelectedId(value)}>
-            <SelectTrigger className="h-12 w-full rounded-md border border-gray-300 px-4 text-sm shadow-sm focus:border-orange-500 focus:outline-none focus:ring-0">
-              <SelectValue placeholder="Choose a study..." />
-            </SelectTrigger>
-            <SelectContent>
-              {[...Object.values(studies)]
-                .sort((a: any, b: any) => a.title.localeCompare(b.title))
-                .map((study: any) => (
-                  <SelectItem key={study.id} value={String(study.id)}>
-                    {study.title}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="h-12 w-full justify-between text-left"
+              >
+                {selectedStudy ? selectedStudy.title : "Choose a study..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search studies..." />
+                <CommandEmpty>No study found.</CommandEmpty>
+                <CommandList>
+                  {[...Object.values(studies)]
+                    .sort((a: any, b: any) => a.title.localeCompare(b.title))
+                    .map((study: any) => (
+                      <CommandItem
+                        key={study.id}
+                        value={study.title}
+                        onSelect={() => {
+                          setSelectedStudy(study)
+                          setOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedStudy?.id === study.id
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {study.title}
+                      </CommandItem>
+                    ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
+        {/* Drag-and-drop PDF Upload */}
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Upload PDF
