@@ -60,11 +60,13 @@ const FileUploads = () => {
               <SelectValue placeholder="Choose a study..." />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(studies).map(([_, study]: [string, any]) => (
-                <SelectItem key={study.id} value={String(study.id)}>
-                  {study.title}
-                </SelectItem>
-              ))}
+              {[...Object.values(studies)]
+                .sort((a: any, b: any) => a.title.localeCompare(b.title))
+                .map((study: any) => (
+                  <SelectItem key={study.id} value={String(study.id)}>
+                    {study.title}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
@@ -73,7 +75,20 @@ const FileUploads = () => {
           <label className="mb-2 block text-sm font-medium text-gray-700">
             Upload PDF
           </label>
-          <div className="flex h-32 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 px-4 text-center text-gray-500 hover:border-orange-500 hover:bg-gray-50">
+          <div
+            className="flex h-32 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 px-4 text-center text-gray-500 hover:border-orange-500 hover:bg-gray-50"
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnter={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const droppedFile = e.dataTransfer.files?.[0]
+              if (droppedFile && droppedFile.type === "application/pdf") {
+                setFile(droppedFile)
+              } else {
+                toast.error("Please drop a valid PDF file.")
+              }
+            }}
+          >
             <input
               type="file"
               accept="application/pdf"
