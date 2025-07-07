@@ -64,6 +64,7 @@ const Opolo: React.FC = () => {
         doi: string
       }[]
     }
+    suggested_questions?: string[]
   }
 
   interface Chat {
@@ -195,8 +196,9 @@ const Opolo: React.FC = () => {
           images: res.images,
           sources: res.sources,
         },
+        suggested_questions: res.suggested_questions || [],
       }
-
+      console.log("New Message with Suggested Questions:", newMessage)
       // ---- STEP 1: Update chat ----
       setChatInfo((prev) => {
         const updated: ChatData = {}
@@ -579,6 +581,29 @@ const Opolo: React.FC = () => {
                                   </span>
                                 </button>
                               </div>
+                              {message.suggested_questions &&
+                                message.suggested_questions.length > 0 && (
+                                  <div className="mt-5 space-y-2">
+                                    <p className="text-sm font-semibold text-[#EE7527]">
+                                      Suggested Questions:
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {message.suggested_questions.map(
+                                        (suggestion, idx) => (
+                                          <button
+                                            key={idx}
+                                            onClick={() =>
+                                              setUserInput(suggestion)
+                                            }
+                                            className="rounded-lg border border-[#ED6D1C] px-3 py-1 text-xs text-[#ED6D1C] transition hover:bg-[#ED6D1C] hover:text-white"
+                                          >
+                                            {suggestion}
+                                          </button>
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                             </div>
                           )}
 
