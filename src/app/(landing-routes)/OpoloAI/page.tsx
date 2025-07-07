@@ -41,6 +41,12 @@ const Opolo: React.FC = () => {
   const [atBottom, setAtBottom] = useState<boolean>(true)
   const [typingIndex, setTypingIndex] = useState<number | null>(null)
 
+  useEffect(() => {
+    if (streamedText && endRef.current) {
+      endRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [streamedText])
+
   interface Message {
     response: string
     answer: {
@@ -307,7 +313,10 @@ const Opolo: React.FC = () => {
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("opolo_email")
-    if (savedEmail) setUserEmail(savedEmail)
+    if (savedEmail) {
+      setUserEmail(savedEmail)
+      setModalOpen(false)
+    }
   }, [])
 
   const handleToggle = () => {
@@ -673,9 +682,11 @@ const Opolo: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
-                    <p>Ask a question to get Started....</p>
-                  </div>
+                  {!isSending && (
+                    <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
+                      <p>Ask a question to get Started....</p>
+                    </div>
+                  )}
                   {isSending && (
                     <div className="animate-pulse rounded-md p-4">
                       <p className="font-medium">🤖 AI is typing...</p>
