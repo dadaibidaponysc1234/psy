@@ -28,7 +28,6 @@ import TypewriterMarkdown from "./Typewrite"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
-  const selectedChatRef = useRef<number | null>(null)
   const [chatHover, setChatHover] = useState<boolean>(false)
   const [mode, setMode] = useState<string>("light")
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
@@ -80,12 +79,13 @@ const Opolo: React.FC = () => {
   }
 
   //Get selected chat
-  const getSelectedChat = () => {
-    for (const section in chatInfo) {
-      const found = chatInfo[section].find(
-        (chat) => chat.id === selectedChatRef.current
-      )
-      if (found) return found
+  const getSelectedChat = (): Chat | null => {
+    for (const chats of Object.values(chatInfo)) {
+      for (const chat of chats) {
+        if (chat.id === selectedChat) {
+          return chat
+        }
+      }
     }
     return null
   }
@@ -97,7 +97,6 @@ const Opolo: React.FC = () => {
 
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
-    selectedChatRef.current = id
   }
   const handleTabClick = (messageId: number, tab: string) => {
     setChatTab((prev) => ({ ...prev, [messageId]: tab }))
@@ -113,51 +112,42 @@ const Opolo: React.FC = () => {
 
         const groupChatsByTime = (sessions: any[]): ChatData => {
           const now = new Date()
-          const grouped: ChatData = {
-            Today: [],
-            "Past 7 Days": [],
-            Earlier: [],
-          }
+          const grouped: ChatData = {}
 
           sessions.forEach((session) => {
             const createdAt = new Date(session.created_at)
-            const diffTime = now.getTime() - createdAt.getTime()
-            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24))
+            const diffDays = Math.floor(
+              (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24)
+            )
 
             let section = ""
-            if (diffDays === 0) {
-              section = "Today"
-            } else if (diffDays < 7) {
-              section = "Past 7 Days"
-            } else {
-              section = "Earlier"
-            }
+            if (diffDays < 1) section = "Today"
+            else if (diffDays < 7) section = "Past 7 Days"
+            else section = "Earlier"
 
             const chat: Chat = {
               id: session.id,
               title: session.title,
               messages: session.messages.map((msg: any) => ({
+                id: msg.id,
                 response: msg.question,
                 answer: {
                   text: msg.answer,
-                  images: msg.image_results || [],
-                  sources: msg.source_studies || [],
+                  images: msg.image_results,
+                  sources: msg.source_studies,
                 },
               })),
             }
-
-            grouped[section].push(chat)
-          })
-
-          // Remove empty sections
-          Object.keys(grouped).forEach((section) => {
-            if (grouped[section].length === 0) {
-              delete grouped[section]
+            console.log("chat:", chat)
+            if (!grouped[section]) {
+              grouped[section] = []
             }
+            grouped[section].push(chat)
           })
 
           return grouped
         }
+
         const grouped = groupChatsByTime(sessions)
         setChatInfo(grouped)
       } catch (err) {
@@ -192,63 +182,12 @@ const Opolo: React.FC = () => {
     setUserInput("")
     setStreamedText("")
 
-    const tempMessage = {
-      response: trimmedInput,
-      answer: {
-        text: "",
-        images: [],
-        sources: [],
-      },
-    }
-
-    const tempId = selectedChatRef.current ?? Date.now()
-
-    // Ensure selectedChat is immediately set
-    if (!selectedChatRef.current) {
-      setSelectedChat(tempId)
-      selectedChatRef.current = tempId
-    }
-
-    setChatInfo((prev) => {
-      const updated = { ...prev }
-      let chatExists = false
-
-      for (const section in updated) {
-        updated[section] = updated[section].map((chat) => {
-          if (chat.id === selectedChatRef.current) {
-            chatExists = true
-            return {
-              ...chat,
-              messages: [...chat.messages, tempMessage],
-            }
-          }
-          return chat
-        })
-      }
-
-      if (!chatExists) {
-        if (!updated["Today"]) updated["Today"] = []
-        updated["Today"] = [
-          {
-            id: tempId,
-            title:
-              trimmedInput.slice(0, 30) +
-              (trimmedInput.length > 30 ? "..." : ""),
-            messages: [tempMessage],
-          },
-          ...updated["Today"],
-        ]
-      }
-
-      return updated
-    })
-
     try {
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
         question: trimmedInput,
-        session_id: selectedChatRef.current ?? undefined,
+        session_id: selectedChat ?? undefined,
       })
 
       const newMessage = {
@@ -260,64 +199,65 @@ const Opolo: React.FC = () => {
         },
         suggested_questions: res.suggested_questions || [],
       }
-
+      console.log("New Message with Suggested Questions:", newMessage)
+      // ---- STEP 1: Update chat ----
       setChatInfo((prev) => {
         const updated: ChatData = {}
+        let chatExists = false
         let newIndex: number | null = null
 
         for (const section in prev) {
           updated[section] = prev[section].map((chat) => {
-            if (chat.id === res.session_id || chat.id === tempId) {
-              const messages = [...chat.messages]
-              messages[messages.length - 1] = newMessage
-              newIndex = messages.length - 1
+            if (chat.id === res.session_id) {
+              chatExists = true
+              const updatedMessages = [...chat.messages, newMessage]
+              newIndex = updatedMessages.length - 1 // ✅ capture typing index
               return {
                 ...chat,
-                id: res.session_id,
-                title: res.title || chat.title,
-                messages,
+                messages: updatedMessages,
               }
             }
             return chat
           })
         }
 
-        setTimeout(() => setTypingIndex(newIndex), 0)
+        if (!chatExists) {
+          updated["Today"] = [
+            {
+              id: res.session_id,
+              title: res.title || "New Chat",
+              messages: [newMessage],
+            },
+            ...(prev["Today"] || []),
+          ]
+          newIndex = 0
+        }
+
+        // ✅ store the intended typing index in a ref or temp variable
+        setTimeout(() => setTypingIndex(newIndex), 0) // ✅ ensure this runs after state update
+
         return updated
       })
 
-      // Sync selected chat
+      // ---- STEP 2: Set current selected chat ----
       setSelectedChat(res.session_id)
-      selectedChatRef.current = res.session_id
 
-      simulateTyping(res.answer, setStreamedText)
+      // ---- STEP 3: Animate the answer ----
+      simulateTyping(res.answer, (value) => {
+        setStreamedText(value)
+        if (value === res.answer) {
+          setTypingIndex(null) // ✅ end typewriter animation
+        }
+      })
     } catch (err) {
       console.error("Error sending message:", err)
       toast.error("Failed to send message")
       setUserInput(trimmedInput)
-
-      // Remove temporary message
-      setChatInfo((prev) => {
-        const updated: ChatData = {}
-        for (const section in prev) {
-          updated[section] = prev[section]
-            .map((chat) => {
-              if (chat.id === selectedChatRef.current || chat.id === tempId) {
-                return {
-                  ...chat,
-                  messages: chat.messages.slice(0, -1),
-                }
-              }
-              return chat
-            })
-            .filter((chat) => chat.messages.length > 0)
-        }
-        return updated
-      })
     } finally {
       setIsSending(false)
     }
   }
+
   //delete singlemsg
   // const handleDeleteMessage = async (messageIndex: number) => {
   //   try {
@@ -559,7 +499,7 @@ const Opolo: React.FC = () => {
             }}
           >
             <div className="no-scrollbar h-full overflow-y-auto">
-              {getSelectedChat() ? (
+              {selectedChat ? (
                 <div className="w-full p-5 pt-10" key={selectedChat}>
                   {getSelectedChat()?.messages?.map((message, index) => {
                     const currentTab = chatTab[index] || "Answer"
