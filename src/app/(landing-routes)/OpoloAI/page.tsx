@@ -28,6 +28,7 @@ import TypewriterMarkdown from "./Typewrite"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
+  const selectedChatRef = useRef<number | null>(null)
   const [chatHover, setChatHover] = useState<boolean>(false)
   const [mode, setMode] = useState<string>("light")
   const [selectedChat, setSelectedChat] = useState<number | null>(null)
@@ -79,13 +80,12 @@ const Opolo: React.FC = () => {
   }
 
   //Get selected chat
-  const getSelectedChat = (): Chat | null => {
-    for (const chats of Object.values(chatInfo)) {
-      for (const chat of chats) {
-        if (chat.id === selectedChat) {
-          return chat
-        }
-      }
+  const getSelectedChat = () => {
+    for (const section in chatInfo) {
+      const found = chatInfo[section].find(
+        (chat) => chat.id === selectedChatRef.current
+      )
+      if (found) return found
     }
     return null
   }
@@ -97,6 +97,7 @@ const Opolo: React.FC = () => {
 
   const handleChatClick = (id: number) => {
     setSelectedChat(id)
+    selectedChatRef.current = id
   }
   const handleTabClick = (messageId: number, tab: string) => {
     setChatTab((prev) => ({ ...prev, [messageId]: tab }))
@@ -191,56 +192,63 @@ const Opolo: React.FC = () => {
     setUserInput("")
     setStreamedText("")
 
-    // Create a temporary message with just the user's question
     const tempMessage = {
       response: trimmedInput,
       answer: {
-        text: "", // Empty answer initially
+        text: "",
         images: [],
         sources: [],
       },
     }
 
-    try {
-      // Update chat state immediately with the user's question
-      setChatInfo((prev) => {
-        const updated: ChatData = { ...prev }
-        let chatExists = false
+    const tempId = selectedChatRef.current ?? Date.now()
 
-        for (const section in updated) {
-          updated[section] = updated[section].map((chat) => {
-            if (chat.id === selectedChat) {
-              chatExists = true
-              return {
-                ...chat,
-                messages: [...chat.messages, tempMessage],
-              }
+    // Ensure selectedChat is immediately set
+    if (!selectedChatRef.current) {
+      setSelectedChat(tempId)
+      selectedChatRef.current = tempId
+    }
+
+    setChatInfo((prev) => {
+      const updated = { ...prev }
+      let chatExists = false
+
+      for (const section in updated) {
+        updated[section] = updated[section].map((chat) => {
+          if (chat.id === selectedChatRef.current) {
+            chatExists = true
+            return {
+              ...chat,
+              messages: [...chat.messages, tempMessage],
             }
-            return chat
-          })
-        }
+          }
+          return chat
+        })
+      }
 
-        if (!chatExists) {
-          updated["Today"] = [
-            {
-              id: Date.now(), // Temporary ID
-              title:
-                trimmedInput.slice(0, 30) +
-                (trimmedInput.length > 30 ? "..." : ""),
-              messages: [tempMessage],
-            },
-            ...(updated["Today"] || []),
-          ]
-        }
+      if (!chatExists) {
+        if (!updated["Today"]) updated["Today"] = []
+        updated["Today"] = [
+          {
+            id: tempId,
+            title:
+              trimmedInput.slice(0, 30) +
+              (trimmedInput.length > 30 ? "..." : ""),
+            messages: [tempMessage],
+          },
+          ...updated["Today"],
+        ]
+      }
 
-        return updated
-      })
+      return updated
+    })
 
+    try {
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
         question: trimmedInput,
-        session_id: selectedChat ?? undefined,
+        session_id: selectedChatRef.current ?? undefined,
       })
 
       const newMessage = {
@@ -253,21 +261,19 @@ const Opolo: React.FC = () => {
         suggested_questions: res.suggested_questions || [],
       }
 
-      // Now update the chat with the complete message (replacing the temporary one)
       setChatInfo((prev) => {
         const updated: ChatData = {}
         let newIndex: number | null = null
 
         for (const section in prev) {
           updated[section] = prev[section].map((chat) => {
-            if (chat.id === res.session_id || chat.id === Date.now()) {
-              // Replace the temporary message with the complete one
+            if (chat.id === res.session_id || chat.id === tempId) {
               const messages = [...chat.messages]
               messages[messages.length - 1] = newMessage
               newIndex = messages.length - 1
               return {
                 ...chat,
-                id: res.session_id, // Ensure we have the correct ID from server
+                id: res.session_id,
                 title: res.title || chat.title,
                 messages,
               }
@@ -280,25 +286,26 @@ const Opolo: React.FC = () => {
         return updated
       })
 
+      // Sync selected chat
       setSelectedChat(res.session_id)
+      selectedChatRef.current = res.session_id
+
       simulateTyping(res.answer, setStreamedText)
     } catch (err) {
       console.error("Error sending message:", err)
       toast.error("Failed to send message")
       setUserInput(trimmedInput)
 
-      // Remove the temporary message if there was an error
+      // Remove temporary message
       setChatInfo((prev) => {
         const updated: ChatData = {}
         for (const section in prev) {
           updated[section] = prev[section]
             .map((chat) => {
-              if (chat.id === selectedChat || chat.id === Date.now()) {
+              if (chat.id === selectedChatRef.current || chat.id === tempId) {
                 return {
                   ...chat,
-                  messages: chat.messages.filter(
-                    (_, i) => i < chat.messages.length - 1
-                  ),
+                  messages: chat.messages.slice(0, -1),
                 }
               }
               return chat
@@ -552,7 +559,7 @@ const Opolo: React.FC = () => {
             }}
           >
             <div className="no-scrollbar h-full overflow-y-auto">
-              {selectedChat ? (
+              {getSelectedChat() ? (
                 <div className="w-full p-5 pt-10" key={selectedChat}>
                   {getSelectedChat()?.messages?.map((message, index) => {
                     const currentTab = chatTab[index] || "Answer"
