@@ -66,6 +66,7 @@ const Opolo: React.FC = () => {
       }[]
     }
     suggested_questions?: string[]
+    tempId?: number // Add this line
   }
 
   interface Chat {
@@ -182,7 +183,70 @@ const Opolo: React.FC = () => {
     setUserInput("")
     setStreamedText("")
 
+    // Create temporary message ID or use timestamp
+    const tempId = Date.now()
+
     try {
+      // ---- STEP 1: Immediately add user's message to chat ----
+      setChatInfo((prev) => {
+        const updated: ChatData = { ...prev }
+        let chatExists = false
+
+        // If we have a selected chat, add message to it
+        if (selectedChat) {
+          for (const section in updated) {
+            updated[section] = updated[section].map((chat) => {
+              if (chat.id === selectedChat) {
+                chatExists = true
+                return {
+                  ...chat,
+                  messages: [
+                    ...chat.messages,
+                    {
+                      response: trimmedInput,
+                      answer: {
+                        text: "", // Empty answer for now
+                        images: [],
+                        sources: [],
+                      },
+                      tempId, // Mark as temporary
+                    },
+                  ],
+                }
+              }
+              return chat
+            })
+          }
+        }
+
+        // If no selected chat or chat not found, create new chat
+        if (!selectedChat || !chatExists) {
+          if (!updated["Today"]) {
+            updated["Today"] = []
+          }
+          updated["Today"].unshift({
+            id: tempId, // Temporary ID until we get real one from API
+            title:
+              trimmedInput.slice(0, 30) +
+              (trimmedInput.length > 30 ? "..." : ""),
+            messages: [
+              {
+                response: trimmedInput,
+                answer: {
+                  text: "", // Empty answer for now
+                  images: [],
+                  sources: [],
+                },
+                tempId, // Mark as temporary
+              },
+            ],
+          })
+          setSelectedChat(tempId) // Set temporary selected chat
+        }
+
+        return updated
+      })
+
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
@@ -190,74 +254,86 @@ const Opolo: React.FC = () => {
         session_id: selectedChat ?? undefined,
       })
 
-      const newMessage = {
-        response: trimmedInput,
-        answer: {
-          text: res.answer,
-          images: res.images,
-          sources: res.sources,
-        },
-        suggested_questions: res.suggested_questions || [],
-      }
-      console.log("New Message with Suggested Questions:", newMessage)
-      // ---- STEP 1: Update chat ----
+      // ---- STEP 2: Update with actual response ----
       setChatInfo((prev) => {
-        const updated: ChatData = {}
-        let chatExists = false
+        const updated: ChatData = { ...prev }
         let newIndex: number | null = null
 
-        for (const section in prev) {
-          updated[section] = prev[section].map((chat) => {
-            if (chat.id === res.session_id) {
-              chatExists = true
-              const updatedMessages = [...chat.messages, newMessage]
-              newIndex = updatedMessages.length - 1 // ✅ capture typing index
+        for (const section in updated) {
+          updated[section] = updated[section].map((chat) => {
+            // Match either by temporary ID or real session ID
+            if (chat.id === tempId || chat.id === res.session_id) {
+              // Find the temporary message and replace it
+              const messages = chat.messages.map((msg) => {
+                if ((msg as any).tempId === tempId) {
+                  return {
+                    response: trimmedInput,
+                    answer: {
+                      text: res.answer,
+                      images: res.images,
+                      sources: res.sources,
+                    },
+                    suggested_questions: res.suggested_questions || [],
+                  }
+                }
+                return msg
+              })
+
+              newIndex = messages.length - 1
               return {
                 ...chat,
-                messages: updatedMessages,
+                id: res.session_id, // Ensure we use the real session ID
+                title: res.title || chat.title,
+                messages,
               }
             }
             return chat
           })
         }
 
-        if (!chatExists) {
-          updated["Today"] = [
-            {
-              id: res.session_id,
-              title: res.title || "New Chat",
-              messages: [newMessage],
-            },
-            ...(prev["Today"] || []),
-          ]
-          newIndex = 0
-        }
-
-        // ✅ store the intended typing index in a ref or temp variable
-        setTimeout(() => setTypingIndex(newIndex), 0) // ✅ ensure this runs after state update
-
+        setTimeout(() => setTypingIndex(newIndex), 0)
         return updated
       })
 
-      // ---- STEP 2: Set current selected chat ----
-      setSelectedChat(res.session_id)
+      setSelectedChat(res.session_id) // Ensure we're using the real session ID
 
       // ---- STEP 3: Animate the answer ----
       simulateTyping(res.answer, (value) => {
         setStreamedText(value)
         if (value === res.answer) {
-          setTypingIndex(null) // ✅ end typewriter animation
+          setTypingIndex(null)
         }
       })
     } catch (err) {
       console.error("Error sending message:", err)
       toast.error("Failed to send message")
+
+      // On error, remove the temporary message
+      setChatInfo((prev) => {
+        const updated: ChatData = { ...prev }
+        for (const section in updated) {
+          updated[section] = updated[section]
+            .map((chat) => {
+              if (chat.id === tempId || chat.id === selectedChat) {
+                return {
+                  ...chat,
+                  messages: chat.messages.filter(
+                    (msg) => (msg as any).tempId !== tempId
+                  ),
+                }
+              }
+              return chat
+            })
+            .filter((chat) => chat.messages.length > 0) // Remove empty chats
+        }
+        return updated
+      })
+
       setUserInput(trimmedInput)
     } finally {
       setIsSending(false)
     }
   }
-
   //delete singlemsg
   // const handleDeleteMessage = async (messageIndex: number) => {
   //   try {
