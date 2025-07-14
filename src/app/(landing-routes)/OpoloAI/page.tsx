@@ -40,12 +40,13 @@ const Opolo: React.FC = () => {
   const endRef = useRef<HTMLDivElement | null>(null)
   const [atBottom, setAtBottom] = useState<boolean>(true)
   const [typingIndex, setTypingIndex] = useState<number | null>(null)
+  const [userScrolledUp, setUserScrolledUp] = useState(false)
 
   useEffect(() => {
-    if (streamedText && endRef.current) {
+    if (streamedText && endRef.current && !userScrolledUp) {
       endRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }, [streamedText])
+  }, [streamedText, userScrolledUp])
 
   interface Message {
     response: string
@@ -111,42 +112,51 @@ const Opolo: React.FC = () => {
 
         const groupChatsByTime = (sessions: any[]): ChatData => {
           const now = new Date()
-          const grouped: ChatData = {}
+          const grouped: ChatData = {
+            Today: [],
+            "Past 7 Days": [],
+            Earlier: [],
+          }
 
           sessions.forEach((session) => {
             const createdAt = new Date(session.created_at)
-            const diffDays = Math.floor(
-              (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24)
-            )
+            const diffTime = now.getTime() - createdAt.getTime()
+            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24))
 
             let section = ""
-            if (diffDays < 1) section = "Today"
-            else if (diffDays < 7) section = "Past 7 Days"
-            else section = "Earlier"
+            if (diffDays === 0) {
+              section = "Today"
+            } else if (diffDays < 7) {
+              section = "Past 7 Days"
+            } else {
+              section = "Earlier"
+            }
 
             const chat: Chat = {
               id: session.id,
               title: session.title,
               messages: session.messages.map((msg: any) => ({
-                id: msg.id,
                 response: msg.question,
                 answer: {
                   text: msg.answer,
-                  images: msg.image_results,
-                  sources: msg.source_studies,
+                  images: msg.image_results || [],
+                  sources: msg.source_studies || [],
                 },
               })),
             }
-            console.log("chat:", chat)
-            if (!grouped[section]) {
-              grouped[section] = []
-            }
+
             grouped[section].push(chat)
+          })
+
+          // Remove empty sections
+          Object.keys(grouped).forEach((section) => {
+            if (grouped[section].length === 0) {
+              delete grouped[section]
+            }
           })
 
           return grouped
         }
-
         const grouped = groupChatsByTime(sessions)
         setChatInfo(grouped)
       } catch (err) {
@@ -181,7 +191,51 @@ const Opolo: React.FC = () => {
     setUserInput("")
     setStreamedText("")
 
+    // Create a temporary message with just the user's question
+    const tempMessage = {
+      response: trimmedInput,
+      answer: {
+        text: "", // Empty answer initially
+        images: [],
+        sources: [],
+      },
+    }
+
     try {
+      // Update chat state immediately with the user's question
+      setChatInfo((prev) => {
+        const updated: ChatData = { ...prev }
+        let chatExists = false
+
+        for (const section in updated) {
+          updated[section] = updated[section].map((chat) => {
+            if (chat.id === selectedChat) {
+              chatExists = true
+              return {
+                ...chat,
+                messages: [...chat.messages, tempMessage],
+              }
+            }
+            return chat
+          })
+        }
+
+        if (!chatExists) {
+          updated["Today"] = [
+            {
+              id: Date.now(), // Temporary ID
+              title:
+                trimmedInput.slice(0, 30) +
+                (trimmedInput.length > 30 ? "..." : ""),
+              messages: [tempMessage],
+            },
+            ...(updated["Today"] || []),
+          ]
+        }
+
+        return updated
+      })
+
       const email = userEmail || localStorage.getItem("opolo_email") || ""
       const res = await chatWithMemory({
         email,
@@ -198,65 +252,65 @@ const Opolo: React.FC = () => {
         },
         suggested_questions: res.suggested_questions || [],
       }
-      console.log("New Message with Suggested Questions:", newMessage)
-      // ---- STEP 1: Update chat ----
+
+      // Now update the chat with the complete message (replacing the temporary one)
       setChatInfo((prev) => {
         const updated: ChatData = {}
-        let chatExists = false
         let newIndex: number | null = null
 
         for (const section in prev) {
           updated[section] = prev[section].map((chat) => {
-            if (chat.id === res.session_id) {
-              chatExists = true
-              const updatedMessages = [...chat.messages, newMessage]
-              newIndex = updatedMessages.length - 1 // ✅ capture typing index
+            if (chat.id === res.session_id || chat.id === Date.now()) {
+              // Replace the temporary message with the complete one
+              const messages = [...chat.messages]
+              messages[messages.length - 1] = newMessage
+              newIndex = messages.length - 1
               return {
                 ...chat,
-                messages: updatedMessages,
+                id: res.session_id, // Ensure we have the correct ID from server
+                title: res.title || chat.title,
+                messages,
               }
             }
             return chat
           })
         }
 
-        if (!chatExists) {
-          updated["Today"] = [
-            {
-              id: res.session_id,
-              title: res.title || "New Chat",
-              messages: [newMessage],
-            },
-            ...(prev["Today"] || []),
-          ]
-          newIndex = 0
-        }
-
-        // ✅ store the intended typing index in a ref or temp variable
-        setTimeout(() => setTypingIndex(newIndex), 0) // ✅ ensure this runs after state update
-
+        setTimeout(() => setTypingIndex(newIndex), 0)
         return updated
       })
 
-      // ---- STEP 2: Set current selected chat ----
       setSelectedChat(res.session_id)
-
-      // ---- STEP 3: Animate the answer ----
-      simulateTyping(res.answer, (value) => {
-        setStreamedText(value)
-        if (value === res.answer) {
-          setTypingIndex(null) // ✅ end typewriter animation
-        }
-      })
+      simulateTyping(res.answer, setStreamedText)
     } catch (err) {
       console.error("Error sending message:", err)
       toast.error("Failed to send message")
       setUserInput(trimmedInput)
+
+      // Remove the temporary message if there was an error
+      setChatInfo((prev) => {
+        const updated: ChatData = {}
+        for (const section in prev) {
+          updated[section] = prev[section]
+            .map((chat) => {
+              if (chat.id === selectedChat || chat.id === Date.now()) {
+                return {
+                  ...chat,
+                  messages: chat.messages.filter(
+                    (_, i) => i < chat.messages.length - 1
+                  ),
+                }
+              }
+              return chat
+            })
+            .filter((chat) => chat.messages.length > 0)
+        }
+        return updated
+      })
     } finally {
       setIsSending(false)
     }
   }
-
   //delete singlemsg
   // const handleDeleteMessage = async (messageIndex: number) => {
   //   try {
@@ -371,10 +425,15 @@ const Opolo: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      const bottom =
-        Math.ceil(window.innerHeight + window.scrollY) >=
-        document.documentElement.scrollHeight - 10
-      setAtBottom(bottom)
+      const scrollTop = window.scrollY || document.documentElement.scrollTop
+      const scrollHeight = document.documentElement.scrollHeight
+      const clientHeight = document.documentElement.clientHeight
+
+      // If user scrolls up more than 100px from bottom, mark as manual scroll
+      setUserScrolledUp(scrollTop + clientHeight < scrollHeight - 100)
+
+      // For atBottom detection (keep your existing logic)
+      setAtBottom(scrollTop + clientHeight >= scrollHeight - 10)
     }
 
     window.addEventListener("scroll", handleScroll)
@@ -547,7 +606,6 @@ const Opolo: React.FC = () => {
                                     handleShare(message.answer.text)
                                   }
                                 >
-                                  Share{" "}
                                   <span>
                                     <IoShareSocialOutline />
                                   </span>
@@ -558,7 +616,6 @@ const Opolo: React.FC = () => {
                                   }
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
                                 >
-                                  Copy{" "}
                                   <span>
                                     <FiCopy />
                                   </span>
@@ -566,7 +623,6 @@ const Opolo: React.FC = () => {
                                 <button
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
                                 >
-                                  Good Response
                                   <span>
                                     <FaRegThumbsUp />
                                   </span>
@@ -574,7 +630,6 @@ const Opolo: React.FC = () => {
                                 <button
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]/40"}`}
                                 >
-                                  Poor Response
                                   <span>
                                     <FaRegThumbsDown />
                                   </span>
