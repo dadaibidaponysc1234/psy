@@ -42,6 +42,20 @@ const Opolo: React.FC = () => {
   const [typingIndex, setTypingIndex] = useState<number | null>(null)
   const [userScrolledUp, setUserScrolledUp] = useState(false)
 
+  // Add typing indicator component
+  const TypingIndicator = () => (
+    <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex space-x-1">
+        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
+        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></div>
+        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400"></div>
+      </div>
+      <span className="text-lg text-gray-500">
+        <span className="text-sm">AI is thinking</span>...
+      </span>
+    </div>
+  )
+
   useEffect(() => {
     if (streamedText && endRef.current && !userScrolledUp) {
       endRef.current.scrollIntoView({ behavior: "smooth" })
@@ -334,37 +348,6 @@ const Opolo: React.FC = () => {
       setIsSending(false)
     }
   }
-  //delete singlemsg
-  // const handleDeleteMessage = async (messageIndex: number) => {
-  //   try {
-  //     const chat = getSelectedChat()
-  //     const email = userEmail || ""
-  //     const messageId = chat?.messages[messageIndex]?.id // You need to include ID in your message object if not present yet
-  //     if (!messageId) return
-  //     await deleteChatMessage(messageId, email)
-
-  //     setChatInfo((prev) => {
-  //       const updated = { ...prev }
-  //       for (const section in updated) {
-  //         updated[section] = updated[section].map((chat) => {
-  //           if (chat.id === selectedChat) {
-  //             const updatedMessages = [...chat.messages]
-  //             updatedMessages.splice(messageIndex, 1)
-  //             return { ...chat, messages: updatedMessages }
-  //           }
-  //           return chat
-  //         })
-  //       }
-  //       return updated
-  //     })
-  //     toast.success("Message deleted")
-  //   } catch (error) {
-  //     toast.error("Failed to delete message")
-  //     console.error(error)
-  //   }
-  // }
-
-  //delete session
 
   const handleDeleteSession = async (chatId: number) => {
     try {
@@ -417,7 +400,7 @@ const Opolo: React.FC = () => {
 
     const shareText = isURL
       ? `📄 Here's a PDF you might find useful:\n${content}\n\n— Shared from ỌpọlọAI`
-      : `✨ “${content}” ✨\n\n— from ỌpọlọAI\n\n📢 *Check out more great content at ỌpọlọAI!*`
+      : `✨ "${content}" ✨\n\n— from ỌpọlọAI\n\n📢 *Check out more great content at ỌpọlọAI!*`
 
     if (navigator.share) {
       navigator
@@ -567,7 +550,7 @@ const Opolo: React.FC = () => {
             style={{
               backgroundImage:
                 mode === "light"
-                  ? "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 80%, #FF8F4C 100%), url('/maplight.png')"
+                  ? "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 80%, #FF8F4C 100%)"
                   : "linear-gradient(to bottom, rgba(33,32,32,0) 0%, rgba(33,32,32,0) 80%, #FF8F4C 100%), url('/map-dark.png') ",
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -579,6 +562,7 @@ const Opolo: React.FC = () => {
                 <div className="w-full p-5 pt-10" key={selectedChat}>
                   {getSelectedChat()?.messages?.map((message, index) => {
                     const currentTab = chatTab[index] || "Answer"
+                    const isTyping = index === typingIndex && isSending
 
                     return (
                       <div className="mb-10" key={index}>
@@ -609,9 +593,12 @@ const Opolo: React.FC = () => {
                           {currentTab === "Answer" && (
                             <div>
                               {index === typingIndex ? (
-                                <TypewriterMarkdown
-                                  text={message.answer.text}
-                                />
+                                <>
+                                  {/* <TypingIndicator /> */}
+                                  <TypewriterMarkdown
+                                    text={message.answer.text}
+                                  />
+                                </>
                               ) : (
                                 <article className="markdown">
                                   <ReactMarkdown
@@ -802,6 +789,11 @@ const Opolo: React.FC = () => {
               )}
             </div>
             <div className="relative flex w-full items-center justify-center px-5 pb-12 md:px-16">
+              {isSending && (
+                <div className="absolute bottom-28 left-1/2 -translate-x-1/2 transform">
+                  <TypingIndicator />
+                </div>
+              )}
               <textarea
                 rows={1}
                 value={userInput}
@@ -830,7 +822,7 @@ const Opolo: React.FC = () => {
               className="flex flex-col items-center justify-end pb-5 text-xs md:text-sm"
               style={{ color: mode === "light" ? "#1D1D1D" : "" }}
             >
-              Ọpọlọ AI isn’t flawless — double-check important info.
+              Ọpọlọ AI isn't flawless — double-check important info.
             </div>
           </div>
         </div>
@@ -847,6 +839,18 @@ const Opolo: React.FC = () => {
           }
           .animate-blink {
             animation: blink 1s step-end infinite;
+          }
+          @keyframes bounce {
+            0%,
+            100% {
+              transform: translateY(0);
+            }
+            50% {
+              transform: translateY(-5px);
+            }
+          }
+          .animate-bounce {
+            animation: bounce 0.6s infinite;
           }
         `}</style>
       </div>
