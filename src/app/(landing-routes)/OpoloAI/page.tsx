@@ -62,6 +62,12 @@ const Opolo: React.FC = () => {
     }
   }, [streamedText, userScrolledUp])
 
+  useEffect(() => {
+    if (endRef.current && atBottom) {
+      endRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [chatInfo])
+
   interface Message {
     response: string
     answer: {
@@ -131,14 +137,17 @@ const Opolo: React.FC = () => {
 
           sessions.forEach((session) => {
             const createdAt = new Date(session.created_at)
-            const diffDays = Math.floor(
-              (now.getTime() - createdAt.getTime()) / (1000 * 3600 * 24)
-            )
+            const diffTime = now.getTime() - createdAt.getTime()
+            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24))
 
             let section = ""
-            if (diffDays < 1) section = "Today"
-            else if (diffDays < 7) section = "Past 7 Days"
-            else section = "Earlier"
+            if (diffDays === 0) {
+              section = "Today"
+            } else if (diffDays < 7) {
+              section = "Past 7 Days"
+            } else {
+              section = "Earlier"
+            }
 
             const chat: Chat = {
               id: session.id,
@@ -153,7 +162,7 @@ const Opolo: React.FC = () => {
                 },
               })),
             }
-            console.log("chat:", chat)
+
             if (!grouped[section]) {
               grouped[section] = []
             }
@@ -162,7 +171,6 @@ const Opolo: React.FC = () => {
 
           return grouped
         }
-
         const grouped = groupChatsByTime(sessions)
         setChatInfo(grouped)
       } catch (err) {
@@ -516,9 +524,9 @@ const Opolo: React.FC = () => {
             {Object.entries(chatInfo).map(([section, chats]) => (
               <div className="" key={section}>
                 <p className="mb-2 font-bold">
-                  {section === "today"
+                  {section === "Today"
                     ? "TODAY"
-                    : section === "past7Days"
+                    : section === "Past 7 Days"
                       ? "PAST 7 DAYS"
                       : "EARLIER"}
                 </p>
@@ -562,7 +570,6 @@ const Opolo: React.FC = () => {
                 <div className="w-full p-5 pt-10" key={selectedChat}>
                   {getSelectedChat()?.messages?.map((message, index) => {
                     const currentTab = chatTab[index] || "Answer"
-                    const isTyping = index === typingIndex && isSending
 
                     return (
                       <div className="mb-10" key={index}>
@@ -594,7 +601,7 @@ const Opolo: React.FC = () => {
                             <div>
                               {index === typingIndex ? (
                                 <>
-                                  {/* <TypingIndicator /> */}
+                                  {!streamedText && <TypingIndicator />}
                                   <TypewriterMarkdown
                                     text={message.answer.text}
                                   />
