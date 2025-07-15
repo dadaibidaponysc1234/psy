@@ -573,7 +573,7 @@ const Opolo: React.FC = () => {
                     const currentTab = chatTab[index] || "Answer"
 
                     return (
-                      <div className="mb-10" key={index}>
+                      <div className="mb-2" key={index}>
                         <div className="flex justify-end">
                           <div className="mb-10 rounded-t-xl rounded-bl-xl bg-[#EE7527] p-2">
                             <p>{message.response}</p>
@@ -655,11 +655,11 @@ const Opolo: React.FC = () => {
                               </div>
                               {message.suggested_questions &&
                                 message.suggested_questions.length > 0 && (
-                                  <div className="mt-5 space-y-2">
-                                    <p className="text-sm font-semibold text-[#EE7527]">
+                                  <div className="mb-5 mt-5 space-y-2">
+                                    {/* <p className="text-sm font-semibold text-[#EE7527]">
                                       Suggested Questions:
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
+                                    </p> */}
+                                    <div className="flex flex-wrap justify-end gap-2">
                                       {message.suggested_questions.map(
                                         (suggestion, idx) => (
                                           <button
@@ -667,7 +667,7 @@ const Opolo: React.FC = () => {
                                             onClick={() =>
                                               handleSend(suggestion)
                                             }
-                                            className="rounded-lg border border-[#ED6D1C] px-3 py-1 text-xs text-[#ED6D1C] transition hover:bg-[#ED6D1C] hover:text-white"
+                                            className="rounded-lg border border-[#ED6D1C] px-3 py-2 text-sm text-[#ED6D1C] transition hover:bg-[#ED6D1C] hover:text-white"
                                           >
                                             {suggestion}
                                           </button>
