@@ -25,6 +25,7 @@ import {
   getChatSessions,
 } from "@/services/opolo"
 import TypewriterMarkdown from "./Typewrite"
+import Image from "next/image"
 
 const Opolo: React.FC = () => {
   const [modalOpen, setModalOpen] = useState<boolean>(true)
@@ -179,7 +180,7 @@ const Opolo: React.FC = () => {
     }
 
     fetchChats()
-  }, [])
+  }, [userEmail])
 
   useEffect(() => {
     const storedMode = localStorage.getItem("mode")
@@ -687,10 +688,13 @@ const Opolo: React.FC = () => {
                                 </div>
                               ) : (
                                 message.answer.images.map((image, index) => (
-                                  <img
+                                  <Image
                                     key={index}
                                     src={image.image_url}
                                     alt={image.caption}
+                                    width={300}
+                                    height={200}
+                                    className="object-contain"
                                   />
                                 ))
                               )}
@@ -710,7 +714,12 @@ const Opolo: React.FC = () => {
                                       className="mb-2 flex w-full items-center gap-5 rounded-lg border border-[#8E8E8E] p-2 px-5 text-xs lg:flex-row lg:text-sm"
                                     >
                                       <div>
-                                        <img src="/pdflogo.png" alt="" />
+                                        <Image
+                                          src="/pdflogo.png"
+                                          alt="PDF icon"
+                                          width={40}
+                                          height={40}
+                                        />
                                       </div>
                                       <div className="flex w-full items-center justify-between">
                                         <div className="flex flex-col gap-1 text-left">
@@ -829,7 +838,7 @@ const Opolo: React.FC = () => {
               className="flex flex-col items-center justify-end pb-5 text-xs md:text-sm"
               style={{ color: mode === "light" ? "#1D1D1D" : "" }}
             >
-              Ọpọlọ AI isn't flawless — double-check important info.
+              {"Ọpọlọ AI isn't flawless — double-check important info."}
             </div>
           </div>
         </div>
