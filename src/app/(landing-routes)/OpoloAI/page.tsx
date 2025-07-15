@@ -617,7 +617,7 @@ const Opolo: React.FC = () => {
                                   </ReactMarkdown>
                                 </article>
                               )}
-                              <div className="mt-5 flex flex-wrap gap-5 md:flex-nowrap">
+                              <div className="mb-5 mt-5 flex flex-wrap gap-5 md:flex-nowrap">
                                 <button
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]"}`}
                                   onClick={() =>
