@@ -685,13 +685,11 @@ const Opolo: React.FC = () => {
                                 </div>
                               ) : (
                                 message.answer.images.map((image, index) => (
-                                  <Image
+                                  <img
                                     key={index}
                                     src={image.image_url}
                                     alt={image.caption}
-                                    width={300}
-                                    height={200}
-                                    className="object-contain"
+                                    className="h-[200px] w-[300px] object-contain"
                                   />
                                 ))
                               )}
