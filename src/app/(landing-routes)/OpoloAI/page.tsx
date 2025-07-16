@@ -617,6 +617,26 @@ const Opolo: React.FC = () => {
                                   </ReactMarkdown>
                                 </article>
                               )}
+                              {message.suggested_questions &&
+                                message.suggested_questions.length > 0 && (
+                                  <div className="mb-5 mt-5 space-y-2">
+                                    <p className="text-sm font-semibold text-[#EE7527]">
+                                      Suggested Questions:
+                                    </p>
+                                    <ol className="flex list-inside list-disc flex-col gap-2">
+                                      {message.suggested_questions.map(
+                                        (suggestion, idx) => (
+                                          <li
+                                            key={idx}
+                                            className="text-sm text-[#000000]"
+                                          >
+                                            {suggestion}
+                                          </li>
+                                        )
+                                      )}
+                                    </ol>
+                                  </div>
+                                )}
                               <div className="mb-5 mt-5 flex flex-wrap gap-5 md:flex-nowrap">
                                 <button
                                   className={`flex items-center gap-2 rounded-xl border border-[#8E8E8E] p-1 px-3 text-sm hover:backdrop-opacity-20 lg:text-base ${mode === "dark" ? "hover:bg-[#8E8E8E]" : "hover:bg-[#8E8E8E]"}`}
@@ -653,26 +673,6 @@ const Opolo: React.FC = () => {
                                   </span>
                                 </button>
                               </div>
-                              {message.suggested_questions &&
-                                message.suggested_questions.length > 0 && (
-                                  <div className="mb-5 mt-5 space-y-2">
-                                    <p className="text-sm font-semibold text-[#EE7527]">
-                                      Suggested Questions:
-                                    </p>
-                                    <ol className="flex list-inside list-disc flex-col gap-2">
-                                      {message.suggested_questions.map(
-                                        (suggestion, idx) => (
-                                          <li
-                                            key={idx}
-                                            className="text-sm text-[#000000]"
-                                          >
-                                            {suggestion}
-                                          </li>
-                                        )
-                                      )}
-                                    </ol>
-                                  </div>
-                                )}
                             </div>
                           )}
 
