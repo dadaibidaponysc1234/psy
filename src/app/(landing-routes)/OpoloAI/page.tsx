@@ -575,7 +575,7 @@ const Opolo: React.FC = () => {
                     return (
                       <div className="mb-2" key={index}>
                         <div className="flex justify-end">
-                          <div className="mb-10 rounded-t-xl rounded-bl-xl bg-[#EE7527] p-2">
+                          <div className="mb-10 rounded-t-xl rounded-bl-xl border-2 border-[#EE7527] bg-[#ffffff] p-2 text-black">
                             <p>{message.response}</p>
                           </div>
                         </div>
@@ -667,7 +667,7 @@ const Opolo: React.FC = () => {
                                             onClick={() =>
                                               handleSend(suggestion)
                                             }
-                                            className="rounded-lg border border-[#ED6D1C] px-3 py-2 text-sm text-[#ED6D1C] transition hover:bg-[#ED6D1C] hover:text-white"
+                                            className="rounded-lg border border-[#ED6D1C] px-3 py-2 text-sm text-[#000000] transition hover:bg-[#ED6D1C] hover:text-white"
                                           >
                                             {suggestion}
                                           </button>
@@ -789,7 +789,7 @@ const Opolo: React.FC = () => {
                 <>
                   {!isSending && (
                     <div className="flex h-full flex-col items-center justify-center text-center text-2xl font-bold">
-                      <p>Ask a question to get Started....</p>
+                      <p>Ask a question to get started....</p>
                     </div>
                   )}
                   {isSending && (
