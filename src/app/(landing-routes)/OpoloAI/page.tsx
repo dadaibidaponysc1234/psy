@@ -656,24 +656,21 @@ const Opolo: React.FC = () => {
                               {message.suggested_questions &&
                                 message.suggested_questions.length > 0 && (
                                   <div className="mb-5 mt-5 space-y-2">
-                                    {/* <p className="text-sm font-semibold text-[#EE7527]">
+                                    <p className="text-sm font-semibold text-[#EE7527]">
                                       Suggested Questions:
-                                    </p> */}
-                                    <div className="flex flex-wrap justify-end gap-2">
+                                    </p>
+                                    <ol className="flex list-inside list-disc flex-col gap-2">
                                       {message.suggested_questions.map(
                                         (suggestion, idx) => (
-                                          <button
+                                          <li
                                             key={idx}
-                                            onClick={() =>
-                                              handleSend(suggestion)
-                                            }
-                                            className="rounded-lg border border-[#ED6D1C] px-3 py-2 text-sm text-[#000000] transition hover:bg-[#ED6D1C] hover:text-white"
+                                            className="text-sm text-[#000000]"
                                           >
                                             {suggestion}
-                                          </button>
+                                          </li>
                                         )
                                       )}
-                                    </div>
+                                    </ol>
                                   </div>
                                 )}
                             </div>
