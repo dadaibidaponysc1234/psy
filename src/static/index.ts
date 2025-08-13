@@ -22,6 +22,10 @@ export const navItems: { name: string; path: string }[] = [
     path: "/search",
   },
   {
+    name: "Benchmarking",
+    path: "/benchmarking",
+  },
+  {
     name: "ỌpọlọAI",
     path: "/OpoloAI",
   },

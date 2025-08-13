@@ -18,6 +18,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```bash
+# Benchmark Backend Configuration
+NEXT_PUBLIC_BENCHMARK_BASE_URL=http://localhost:8000/api/v1/benchmarks
+```
+
+For production, update the URL to point to your production benchmark backend.
+
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
 ## Learn More
