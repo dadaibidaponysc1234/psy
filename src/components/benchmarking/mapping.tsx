@@ -112,33 +112,33 @@ interface PopulationConfig {
 interface ToolConfig {
   target_population: PopulationConfig
   source_population: PopulationConfig
-  output_dir: string
-  column_mappings: Record<string, string>
-  phenotype_config: {
-    target_population: {
-      binary_traits: string[]
-      quantitative_traits: string[]
-    }
-    source_population: {
-      binary_traits: string[]
-      quantitative_traits: string[]
-    }
-  }
-  genotype_config: {
-    file_type: string
-    population_reference: string
-    file_patterns: {
-      bed: string
-      bim: string
-      fam: string
-    }
-  }
-  processing_options: {
-    process_binary_phenotypes: boolean
-    process_quantitative_phenotypes: boolean
-    skip_missing_columns: boolean
-    overwrite_existing: boolean
-  }
+  // output_dir: string
+  // column_mappings: Record<string, string>
+  // phenotype_config: {
+  //   target_population: {
+  //     binary_traits: string[]
+  //     quantitative_traits: string[]
+  //   }
+  //   source_population: {
+  //     binary_traits: string[]
+  //     quantitative_traits: string[]
+  //   }
+  // }
+  // genotype_config: {
+  //   file_type: string
+  //   population_reference: string
+  //   file_patterns: {
+  //     bed: string
+  //     bim: string
+  //     fam: string
+  //   }
+  // }
+  // processing_options: {
+  //   process_binary_phenotypes: boolean
+  //   process_quantitative_phenotypes: boolean
+  //   skip_missing_columns: boolean
+  //   overwrite_existing: boolean
+  // }
 }
 
 interface MappingField {
@@ -184,7 +184,7 @@ const getToolMappingFields = (tool: string): MappingField[] => {
       id: "target_population.phenotype_path",
       label: "Target Population - Phenotype File",
       description: "Phenotype data file for target population",
-      acceptedTypes: [".txt", ".csv"],
+      acceptedTypes: ["Any file"],
       required: true,
       population: "target",
       fieldType: "phenotype_path",
@@ -212,7 +212,7 @@ const getToolMappingFields = (tool: string): MappingField[] => {
       id: "source_population.phenotype_path",
       label: "Source Population - Phenotype File",
       description: "Phenotype data file for source population",
-      acceptedTypes: [".txt", ".csv"],
+      acceptedTypes: ["Any file"],
       required: true,
       population: "source",
       fieldType: "phenotype_path",
@@ -240,11 +240,52 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   // Tool-specific mappings
   const [toolMappings, setToolMappings] = useState<
     Record<string, Record<string, FileInfo | null>>
-  >(data?.toolMappings || {})
+  >({})
 
-  const { jobId } = useBenchmarkingStore()
+  const { jobId, stepData, setStepData } = useBenchmarkingStore()
 
   const selectedTools = toolsData?.selectedTools || []
+
+  // Helper functions for store persistence
+  const getMappingStorageKey = () => `mapping_${jobId}`
+  const getPopulationStorageKey = () => `populations_${jobId}`
+
+  const saveMappingsToStore = (
+    mappings: Record<string, Record<string, FileInfo | null>>
+  ) => {
+    if (jobId) {
+      setStepData(getMappingStorageKey(), mappings)
+    }
+  }
+
+  const savePopulationsToStore = (populations: {
+    targetPopulation: string
+    sourcePopulation: string
+  }) => {
+    if (jobId) {
+      setStepData(getPopulationStorageKey(), populations)
+    }
+  }
+
+  const loadMappingsFromStore = (): Record<
+    string,
+    Record<string, FileInfo | null>
+  > => {
+    if (jobId && stepData[getMappingStorageKey()]) {
+      return stepData[getMappingStorageKey()]
+    }
+    return {}
+  }
+
+  const loadPopulationsFromStore = (): {
+    targetPopulation: string
+    sourcePopulation: string
+  } => {
+    if (jobId && stepData[getPopulationStorageKey()]) {
+      return stepData[getPopulationStorageKey()]
+    }
+    return { targetPopulation: "", sourcePopulation: "" }
+  }
 
   // Initialize active tab to first selected tool
   useEffect(() => {
@@ -253,25 +294,66 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
   }, [selectedTools, activeTab])
 
+  // Load saved data from store when component mounts or jobId changes
+  useEffect(() => {
+    if (jobId) {
+      // Load saved mappings
+      const savedMappings = loadMappingsFromStore()
+      if (Object.keys(savedMappings).length > 0) {
+        setToolMappings(savedMappings)
+      }
+
+      // Load saved population names
+      const savedPopulations = loadPopulationsFromStore()
+      if (
+        savedPopulations.targetPopulation ||
+        savedPopulations.sourcePopulation
+      ) {
+        setPopulationNames(savedPopulations)
+        // If populations are already set, close the form
+        if (
+          savedPopulations.targetPopulation &&
+          savedPopulations.sourcePopulation
+        ) {
+          setIsPopulationFormOpen(false)
+        }
+      }
+    }
+  }, [jobId])
+
+  // Save population names to store whenever they change
+  useEffect(() => {
+    if (
+      jobId &&
+      (populationNames.targetPopulation || populationNames.sourcePopulation)
+    ) {
+      savePopulationsToStore(populationNames)
+    }
+  }, [populationNames, jobId])
+
   // Initialize mappings for each tool
   useEffect(() => {
     const newMappings: Record<string, Record<string, FileInfo | null>> = {}
     selectedTools.forEach((tool: string) => {
-      if (!toolMappings[tool]) {
+      // First try to load from store, then fall back to data prop, then initialize empty
+      if (toolMappings[tool]) {
+        newMappings[tool] = toolMappings[tool]
+      } else if (data?.toolMappings?.[tool]) {
+        newMappings[tool] = data.toolMappings[tool]
+      } else {
         const fields = getToolMappingFields(tool)
         newMappings[tool] = Object.fromEntries(
           fields.map((field) => [field.id, null])
         )
-      } else {
-        newMappings[tool] = toolMappings[tool]
       }
     })
     setToolMappings(newMappings)
-  }, [selectedTools])
+  }, [selectedTools, data?.toolMappings])
 
   useEffect(() => {
     // DEMO MODE: Commented out test data for demo flow
     // TODO: Uncomment this section when returning to test mode
+
     /*
     const testData = {
       job_id: "dc0973dd-5a18-44e5-8b16-625e530e58b4",
@@ -490,6 +572,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     */
 
     // DEMO MODE: Check for existing job and load data if available
+
     if (jobId) {
       checkStatusAndLoadData()
     } else {
@@ -591,37 +674,46 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const mapFileToField = (fieldId: string) => {
     if (!selectedFile) return
 
-    setToolMappings((prev) => ({
-      ...prev,
+    const newMappings = {
+      ...toolMappings,
       [activeTab]: {
-        ...prev[activeTab],
+        ...toolMappings[activeTab],
         [fieldId]: selectedFile,
       },
-    }))
+    }
+
+    setToolMappings(newMappings)
+    saveMappingsToStore(newMappings) // Save to store
     setSelectedFile(null)
     toast.success(`Mapped ${selectedFile.name} to ${fieldId}`)
   }
 
   const removeMapping = (fieldId: string) => {
-    setToolMappings((prev) => ({
-      ...prev,
+    const newMappings = {
+      ...toolMappings,
       [activeTab]: {
-        ...prev[activeTab],
+        ...toolMappings[activeTab],
         [fieldId]: null,
       },
-    }))
+    }
+
+    setToolMappings(newMappings)
+    saveMappingsToStore(newMappings) // Save to store
   }
 
   const selectFileFromDropdown = (fieldId: string, filePath: string) => {
     const file = datasetStructure?.files.find((f) => f.path === filePath)
     if (file) {
-      setToolMappings((prev) => ({
-        ...prev,
+      const newMappings = {
+        ...toolMappings,
         [activeTab]: {
-          ...prev[activeTab],
+          ...toolMappings[activeTab],
           [fieldId]: file,
         },
-      }))
+      }
+
+      setToolMappings(newMappings)
+      saveMappingsToStore(newMappings) // Save to store
       toast.success(`Mapped ${file.name} to ${fieldId}`)
     }
   }
@@ -643,13 +735,16 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     const file = findFileById(draggableId)
     if (file) {
-      setToolMappings((prev) => ({
-        ...prev,
+      const newMappings = {
+        ...toolMappings,
         [activeTab]: {
-          ...prev[activeTab],
+          ...toolMappings[activeTab],
           [destination.droppableId]: file,
         },
-      }))
+      }
+
+      setToolMappings(newMappings)
+      saveMappingsToStore(newMappings) // Save to store
       toast.success(`Mapped ${file.name} to ${destination.droppableId}`)
     }
   }
@@ -660,6 +755,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const isValidFileForField = (file: FileInfo, field: MappingField) => {
+    // Allow any file format for phenotype fields
+    if (field.fieldType === "phenotype_path") {
+      return true
+    }
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || ""
     return field.acceptedTypes.includes(`.${fileExtension}`)
   }
@@ -685,6 +784,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       toast.error("Please provide both target and source population names")
       return
     }
+
+    savePopulationsToStore(populationNames) // Save to store
     setIsPopulationFormOpen(false)
     toast.success("Population names saved! You can now start mapping files.")
   }
@@ -748,41 +849,41 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           phenotype_path:
             toolMappings[tool]["source_population.phenotype_path"]?.path || "",
         },
-        output_dir: `results/preprocessed_data/preprocessed_${tool.toLowerCase()}_output`,
-        column_mappings: {
-          SNP: "RS",
-          CHR: "CHR",
-          BP: "PS",
-          A1: "ALLELE1",
-          A2: "ALLELE0",
-          BETA: "BETA",
-          P: "P_WALD",
-        },
-        phenotype_config: {
-          target_population: {
-            binary_traits: ["PHENOQC_QL"],
-            quantitative_traits: ["PHENO_QT1"],
-          },
-          source_population: {
-            binary_traits: ["PHENOQC_QL"],
-            quantitative_traits: ["PHENO_QT1"],
-          },
-        },
-        genotype_config: {
-          file_type: "merged",
-          population_reference: "target_population",
-          file_patterns: {
-            bed: "*.bed",
-            bim: "*.bim",
-            fam: "*.fam",
-          },
-        },
-        processing_options: {
-          process_binary_phenotypes: true,
-          process_quantitative_phenotypes: true,
-          skip_missing_columns: false,
-          overwrite_existing: false,
-        },
+        // output_dir: `results/preprocessed_data/preprocessed_${tool.toLowerCase()}_output`,
+        // column_mappings: {
+        //   SNP: "RS",
+        //   CHR: "CHR",
+        //   BP: "PS",
+        //   A1: "ALLELE1",
+        //   A2: "ALLELE0",
+        //   BETA: "BETA",
+        //   P: "P_WALD",
+        // },
+        // phenotype_config: {
+        //   target_population: {
+        //     binary_traits: ["PHENOQC_QL"],
+        //     quantitative_traits: ["PHENO_QT1"],
+        //   },
+        //   source_population: {
+        //     binary_traits: ["PHENOQC_QL"],
+        //     quantitative_traits: ["PHENO_QT1"],
+        //   },
+        // },
+        // genotype_config: {
+        //   file_type: "merged",
+        //   population_reference: "target_population",
+        //   file_patterns: {
+        //     bed: "*.bed",
+        //     bim: "*.bim",
+        //     fam: "*.fam",
+        //   },
+        // },
+        // processing_options: {
+        //   process_binary_phenotypes: true,
+        //   process_quantitative_phenotypes: true,
+        //   skip_missing_columns: false,
+        //   overwrite_existing: false,
+        // },
       }
 
       configData[tool] = toolConfig
@@ -1034,6 +1135,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                     <FileExplorer
                       datasetStructure={datasetStructure}
                       onFileSelect={handleFileSelect}
+                      jobId={jobId}
+                      selectedFile={selectedFile}
                     />
                     {provided.placeholder}
                   </div>

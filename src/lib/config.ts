@@ -22,3 +22,9 @@ export const getBenchmarkJobsUrl = () => {
 export const getBenchmarkJobStatusUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}`
 }
+
+// Helper function to get the preview URL: /benchmark/{job_id}/preview/{file_path}
+export const getBenchmarkPreviewUrl = (jobId: string, filePath: string) => {
+  const encodedPath = encodeURIComponent(filePath)
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/preview/${encodedPath}`
+}

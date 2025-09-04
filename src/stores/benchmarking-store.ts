@@ -228,3 +228,10 @@ export const useIsUploading = () =>
   useBenchmarkingStore((state) => state.isUploading)
 export const useUploadProgress = () =>
   useBenchmarkingStore((state) => state.uploadProgress)
+
+// Combined upload state selector for sidebar
+export const useUploadState = () =>
+  useBenchmarkingStore((state) => ({
+    isUploading: state.isUploading,
+    uploadProgress: state.uploadProgress,
+  }))

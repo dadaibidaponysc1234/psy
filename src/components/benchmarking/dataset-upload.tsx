@@ -14,10 +14,12 @@ import {
   File,
   Archive,
   FileText as FileTextIcon,
+  Loader2,
 } from "lucide-react"
 import { getBenchmarkUploadUrl } from "@/lib/config"
 import axios from "axios"
 import { toast, Toaster } from "react-hot-toast"
+import { toastInfo } from "@/hooks/use-toast"
 import {
   useBenchmarkingStore,
   useUploadedFiles,
@@ -95,6 +97,8 @@ export function DatasetUpload({
   } = useBenchmarkingStore()
 
   // Check if there's already an active job and restore uploaded state
+  // This also handles tab switching during upload - when you return to this tab,
+  // it will check the server status and restore the correct state
   useEffect(() => {
     const checkExistingJob = async () => {
       console.log("🔍 Checking existing job:", jobId)
@@ -112,8 +116,9 @@ export function DatasetUpload({
             response.data.status &&
             response.data.status.toLowerCase() !== "created"
           ) {
-            // Files are already uploaded, restore the uploaded state
-            console.log("📁 Files already uploaded, restoring state")
+            // Files are already uploaded (includes 'uploaded', 'processing', etc.)
+            // Any status other than 'created' means files have been handled successfully
+            console.log("📁 Files already uploaded/processed, restoring state")
             console.log(
               "📁 Processing details:",
               response.data.processing_details
@@ -151,7 +156,7 @@ export function DatasetUpload({
               console.log("⚠️ Upload was interrupted, resetting upload state")
               setIsUploading(false)
               setUploadProgress(0)
-              toast.info("Upload was interrupted. Please try uploading again.")
+              toastInfo("Upload was interrupted. Please try uploading again.")
             }
           }
         } catch (error) {
@@ -173,7 +178,7 @@ export function DatasetUpload({
     }
 
     checkExistingJob()
-  }, [jobId, isUploading])
+  }, [jobId])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -321,6 +326,22 @@ export function DatasetUpload({
           preserve directory structures, consider uploading a ZIP file
           containing all your data files.
         </p>
+
+        {/* Upload Status Indicator */}
+        {isUploading && (
+          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">
+                Upload in progress... {uploadProgress}%
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-blue-600">
+              You can safely navigate to other tabs. Upload will continue in the
+              background.
+            </p>
+          </div>
+        )}
 
         {/* Supported File Types Collapsible Section */}
         <div className="mt-4">
@@ -471,13 +492,18 @@ export function DatasetUpload({
                     }
                     className="w-full"
                   >
-                    {isUploading
-                      ? "Uploading..."
-                      : uploadedFileIds.length === uploadedFiles.length
-                        ? "All Files Uploaded"
-                        : uploadedFiles.length === 0
-                          ? "No Files Selected"
-                          : "Upload Files"}
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : uploadedFileIds.length === uploadedFiles.length ? (
+                      "All Files Uploaded"
+                    ) : uploadedFiles.length === 0 ? (
+                      "No Files Selected"
+                    ) : (
+                      "Upload Files"
+                    )}
                   </Button>
                   {isUploading && (
                     <Progress value={uploadProgress} className="mt-2" />
