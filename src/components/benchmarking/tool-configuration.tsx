@@ -29,7 +29,8 @@ import { Input } from "@/components/ui/input"
 import { ChevronDown, ChevronRight, Eye, Loader2, Info } from "lucide-react"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import axios from "axios"
-import { getBenchmarkPreviewUrl } from "@/lib/config"
+import { getBenchmarkPreviewUrl, getBenchmarkConfigUrl } from "@/lib/config"
+import { toast } from "react-hot-toast"
 
 // Type definitions
 interface ColumnMapping {
@@ -96,11 +97,16 @@ interface ToolConfig {
   column_mappings: ColumnMapping
   phenotype_config: PhenotypeConfig
   genotype_config: GenotypeConfig
-  processing_options: ProcessingOptions
+  options: ProcessingOptions
 }
 
 interface ToolConfigurationProps {
-  onNext: (data: Record<string, ToolConfig>) => void
+  onNext: (data: {
+    configs: Record<string, ToolConfig>
+    submitted: boolean
+    jobId: string
+    timestamp: string
+  }) => void
   onPrevious?: () => void
   data?: Record<string, ToolConfig>
   toolsData?: any
@@ -228,7 +234,7 @@ export function ToolConfiguration({
             population_reference: "target_population",
             file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
           },
-          processing_options: {
+          options: {
             process_binary_phenotypes: true,
             process_quantitative_phenotypes: true,
             skip_missing_columns: false,
@@ -260,7 +266,7 @@ export function ToolConfiguration({
             population_reference: "target_population",
             file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
           },
-          processing_options: {
+          options: {
             process_binary_phenotypes: true,
             process_quantitative_phenotypes: true,
             skip_missing_columns: false,
@@ -496,11 +502,158 @@ export function ToolConfiguration({
     return missing.length === 0
   }
 
+  // Validate the complete configuration before proceeding
+  const validateConfiguration = (
+    tool: string
+  ): { isValid: boolean; errors: string[] } => {
+    const config = configs[tool]
+    const errors: string[] = []
+
+    if (!config) {
+      errors.push(`No configuration found for ${tool}`)
+      return { isValid: false, errors }
+    }
+
+    // Check required file paths
+    if (!config.target_population.sumstats_path) {
+      errors.push(`${tool}: Missing target population sumstats path`)
+    }
+    if (!config.target_population.genotype_path) {
+      errors.push(`${tool}: Missing target population genotype path`)
+    }
+    if (!config.target_population.phenotype_path) {
+      errors.push(`${tool}: Missing target population phenotype path`)
+    }
+    if (!config.source_population.sumstats_path) {
+      errors.push(`${tool}: Missing source population sumstats path`)
+    }
+    if (!config.source_population.genotype_path) {
+      errors.push(`${tool}: Missing source population genotype path`)
+    }
+    if (!config.source_population.phenotype_path) {
+      errors.push(`${tool}: Missing source population phenotype path`)
+    }
+
+    // Check column mappings
+    const requirements = getToolRequirements(tool) || []
+    const missingColumns = requirements.filter(
+      (col) => !config.column_mappings[col]
+    )
+    if (missingColumns.length > 0) {
+      errors.push(
+        `${tool}: Missing column mappings: ${missingColumns.join(", ")}`
+      )
+    }
+
+    // Check phenotype configuration
+    if (
+      !config.phenotype_config.target_population.binary_traits.length &&
+      !config.phenotype_config.target_population.quantitative_traits.length
+    ) {
+      errors.push(`${tool}: No traits selected for target population`)
+    }
+    if (
+      !config.phenotype_config.source_population.binary_traits.length &&
+      !config.phenotype_config.source_population.quantitative_traits.length
+    ) {
+      errors.push(`${tool}: No traits selected for source population`)
+    }
+
+    return { isValid: errors.length === 0, errors }
+  }
+
   const isNextDisabled = selectedTools.some((tool) => !isToolComplete(tool))
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isNextDisabled) return
-    onNext(configs)
+
+    // Validate all tool configurations
+    const allErrors: string[] = []
+    selectedTools.forEach((tool) => {
+      const validation = validateConfiguration(tool)
+      if (!validation.isValid) {
+        allErrors.push(...validation.errors)
+      }
+    })
+
+    if (allErrors.length > 0) {
+      console.error("❌ Configuration validation failed:", allErrors)
+      toast.error(
+        `Configuration errors: ${allErrors.slice(0, 3).join(", ")}${allErrors.length > 3 ? "..." : ""}`
+      )
+      return
+    }
+
+    // Log the complete configuration
+    console.log("🚀 Submitting tool configuration:", {
+      jobId,
+      selectedTools,
+      configs,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Log individual tool configs
+    selectedTools.forEach((tool) => {
+      console.log(`📋 ${tool} Configuration:`, configs[tool])
+    })
+
+    // Create the request body
+    const requestBody = {
+      config: {
+        tools_to_run: selectedTools,
+        ...Object.fromEntries(
+          selectedTools.map((tool) => [
+            tool,
+            {
+              pre_processing: configs[tool],
+            },
+          ])
+        ),
+      },
+    }
+
+    // Log the final API request structure
+    console.log("📤 Final API request structure:", {
+      url: jobId ? getBenchmarkConfigUrl(jobId) : "No job ID",
+      method: "POST",
+      body: requestBody,
+    })
+
+    try {
+      // Submit configuration to backend
+      if (!jobId) {
+        throw new Error("No job ID found")
+      }
+
+      console.log("📤 Sending configuration to backend:", {
+        url: getBenchmarkConfigUrl(jobId),
+        body: requestBody,
+      })
+
+      const response = await axios.post(
+        getBenchmarkConfigUrl(jobId),
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      console.log("✅ Configuration submitted successfully:", response.data)
+      toast.success("Configuration submitted! Starting PRS benchmarking...")
+
+      // Navigate to results page
+      onNext({
+        configs,
+        submitted: true,
+        jobId,
+        timestamp: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("❌ Failed to submit configuration:", error)
+      toast.error("Failed to submit configuration. Please try again.")
+    }
   }
 
   if (selectedTools.length === 0) {
@@ -590,34 +743,40 @@ export function ToolConfiguration({
                               </p>
                             )}
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const sumstatsPath =
-                                configs[tool]?.target_population?.sumstats_path
-                              if (sumstatsPath) {
-                                fetchFilePreview(tool, sumstatsPath)
+                          <div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const sumstatsPath =
+                                  configs[tool]?.target_population
+                                    ?.sumstats_path
+                                if (sumstatsPath) {
+                                  fetchFilePreview(tool, sumstatsPath)
+                                }
+                              }}
+                              disabled={
+                                !configs[tool]?.target_population
+                                  ?.sumstats_path || loadingPreviews[tool]
                               }
-                            }}
-                            disabled={
-                              !configs[tool]?.target_population
-                                ?.sumstats_path || loadingPreviews[tool]
-                            }
-                          >
-                            {loadingPreviews[tool] ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Eye className="mr-2 h-4 w-4" />
+                            >
+                              {loadingPreviews[tool] ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="mr-2 h-4 w-4" />
+                              )}
+                              {previews[tool]
+                                ? "Reload Preview"
+                                : "Preview File"}
+                            </Button>
+                            {configs[tool]?.target_population
+                              ?.sumstats_path && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                File:{" "}
+                                {configs[tool].target_population.sumstats_path}
+                              </div>
                             )}
-                            {previews[tool] ? "Reload Preview" : "Preview File"}
-                          </Button>
-                          {configs[tool]?.target_population?.sumstats_path && (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              File:{" "}
-                              {configs[tool].target_population.sumstats_path}
-                            </div>
-                          )}
+                          </div>
                         </div>
                         {previewErrors[tool] && (
                           <div className="rounded-lg border border-red-200 bg-red-50 p-3">
@@ -1325,11 +1484,9 @@ export function ToolConfiguration({
                             className="flex items-center gap-3 rounded-md border p-3"
                           >
                             <Checkbox
-                              checked={
-                                !!configs[tool]?.processing_options?.[key]
-                              }
+                              checked={!!configs[tool]?.options?.[key]}
                               onCheckedChange={(checked) =>
-                                updateConfig(tool, "processing_options", {
+                                updateConfig(tool, "options", {
                                   [key]: Boolean(checked),
                                 })
                               }

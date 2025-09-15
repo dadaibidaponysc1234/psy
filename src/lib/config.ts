@@ -28,3 +28,8 @@ export const getBenchmarkPreviewUrl = (jobId: string, filePath: string) => {
   const encodedPath = encodeURIComponent(filePath)
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/preview/${encodedPath}`
 }
+
+// Helper function to get the config submission URL: /benchmark/{job_id}/config
+export const getBenchmarkConfigUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/config`
+}

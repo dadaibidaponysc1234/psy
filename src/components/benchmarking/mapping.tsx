@@ -148,7 +148,7 @@ interface MappingField {
   acceptedTypes: string[]
   required: boolean
   population: "target" | "source"
-  fieldType: "sumstats_path" | "genotype_path" | "phenotype_path"
+  fieldType: "sumstats_path" | "genotype_directory" | "phenotype_path"
 }
 
 interface MappingProps {
@@ -173,12 +173,13 @@ const getToolMappingFields = (tool: string): MappingField[] => {
     },
     {
       id: "target_population.genotype_path",
-      label: "Target Population - Genotype Files",
-      description: "PLINK format genotype files for target population",
-      acceptedTypes: [".bed", ".bim", ".fam"],
+      label: "Target Population - Genotype Directory",
+      description:
+        "Directory containing PLINK format genotype files (.bed, .bim, .fam) for target population",
+      acceptedTypes: ["Directory"],
       required: true,
       population: "target",
-      fieldType: "genotype_path",
+      fieldType: "genotype_directory",
     },
     {
       id: "target_population.phenotype_path",
@@ -201,12 +202,13 @@ const getToolMappingFields = (tool: string): MappingField[] => {
     },
     {
       id: "source_population.genotype_path",
-      label: "Source Population - Genotype Files",
-      description: "PLINK format genotype files for source population",
-      acceptedTypes: [".bed", ".bim", ".fam"],
+      label: "Source Population - Genotype Directory",
+      description:
+        "Directory containing PLINK format genotype files (.bed, .bim, .fam) for source population",
+      acceptedTypes: ["Directory"],
       required: true,
       population: "source",
-      fieldType: "genotype_path",
+      fieldType: "genotype_directory",
     },
     {
       id: "source_population.phenotype_path",
@@ -231,6 +233,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const [jobStatus, setJobStatus] = useState<JobStatusResponse | null>(null)
   const [isCheckingStatus, setIsCheckingStatus] = useState(false)
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null)
+  const [selectedDirectory, setSelectedDirectory] =
+    useState<DirectoryItem | null>(null)
   const [isPopulationFormOpen, setIsPopulationFormOpen] = useState(true)
   const [populationNames, setPopulationNames] = useState({
     targetPopulation: "",
@@ -239,7 +243,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
   // Tool-specific mappings
   const [toolMappings, setToolMappings] = useState<
-    Record<string, Record<string, FileInfo | null>>
+    Record<string, Record<string, FileInfo | DirectoryItem | null>>
   >({})
 
   const { jobId, stepData, setStepData } = useBenchmarkingStore()
@@ -251,7 +255,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const getPopulationStorageKey = () => `populations_${jobId}`
 
   const saveMappingsToStore = (
-    mappings: Record<string, Record<string, FileInfo | null>>
+    mappings: Record<string, Record<string, FileInfo | DirectoryItem | null>>
   ) => {
     if (jobId) {
       setStepData(getMappingStorageKey(), mappings)
@@ -269,7 +273,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
   const loadMappingsFromStore = (): Record<
     string,
-    Record<string, FileInfo | null>
+    Record<string, FileInfo | DirectoryItem | null>
   > => {
     if (jobId && stepData[getMappingStorageKey()]) {
       return stepData[getMappingStorageKey()]
@@ -333,7 +337,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
   // Initialize mappings for each tool
   useEffect(() => {
-    const newMappings: Record<string, Record<string, FileInfo | null>> = {}
+    const newMappings: Record<string, Record<string, FileInfo | DirectoryItem | null>> = {}
     selectedTools.forEach((tool: string) => {
       // First try to load from store, then fall back to data prop, then initialize empty
       if (toolMappings[tool]) {
@@ -666,8 +670,14 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     console.log("Selected file for mapping:", file)
   }
 
-  const clearSelectedFile = () => {
+  const handleDirectorySelect = (directory: DirectoryItem) => {
+    setSelectedDirectory(directory)
+    console.log("Selected directory for mapping:", directory)
+  }
+
+  const clearSelection = () => {
     setSelectedFile(null)
+    setSelectedDirectory(null)
   }
 
   // Mapping handlers
@@ -686,6 +696,23 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     saveMappingsToStore(newMappings) // Save to store
     setSelectedFile(null)
     toast.success(`Mapped ${selectedFile.name} to ${fieldId}`)
+  }
+
+  const mapDirectoryToField = (fieldId: string) => {
+    if (!selectedDirectory) return
+
+    const newMappings = {
+      ...toolMappings,
+      [activeTab]: {
+        ...toolMappings[activeTab],
+        [fieldId]: selectedDirectory,
+      },
+    }
+
+    setToolMappings(newMappings)
+    saveMappingsToStore(newMappings) // Save to store
+    setSelectedDirectory(null)
+    toast.success(`Mapped ${selectedDirectory.name} to ${fieldId}`)
   }
 
   const removeMapping = (fieldId: string) => {
@@ -718,6 +745,28 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
   }
 
+  const selectDirectoryFromDropdown = (
+    fieldId: string,
+    directoryPath: string
+  ) => {
+    const directory = datasetStructure?.directories.find(
+      (d) => d.path === directoryPath
+    )
+    if (directory) {
+      const newMappings = {
+        ...toolMappings,
+        [activeTab]: {
+          ...toolMappings[activeTab],
+          [fieldId]: directory,
+        },
+      }
+
+      setToolMappings(newMappings)
+      saveMappingsToStore(newMappings) // Save to store
+      toast.success(`Mapped ${directory.name} to ${fieldId}`)
+    }
+  }
+
   // Drag and drop handlers
   const onDragEnd = (result: any) => {
     const { destination, source, draggableId } = result
@@ -733,7 +782,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       return
     }
 
+    // Try to find as file first, then as directory
     const file = findFileById(draggableId)
+    const directory = findDirectoryById(draggableId)
+
     if (file) {
       const newMappings = {
         ...toolMappings,
@@ -746,6 +798,20 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       setToolMappings(newMappings)
       saveMappingsToStore(newMappings) // Save to store
       toast.success(`Mapped ${file.name} to ${destination.droppableId}`)
+    } else if (directory) {
+      const newMappings = {
+        ...toolMappings,
+        [activeTab]: {
+          ...toolMappings[activeTab],
+          [destination.droppableId]: directory,
+        },
+      }
+
+      setToolMappings(newMappings)
+      saveMappingsToStore(newMappings) // Save to store
+      toast.success(
+        `Mapped directory ${directory.name} to ${destination.droppableId}`
+      )
     }
   }
 
@@ -754,13 +820,33 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     return datasetStructure.files.find((file) => file.path === id) || null
   }
 
+  const findDirectoryById = (id: string): DirectoryItem | null => {
+    if (!datasetStructure) return null
+    return datasetStructure.directories.find((dir) => dir.path === id) || null
+  }
+
   const isValidFileForField = (file: FileInfo, field: MappingField) => {
     // Allow any file format for phenotype fields
     if (field.fieldType === "phenotype_path") {
       return true
     }
+    // For genotype directories, we need to check if the file is in a directory
+    if (field.fieldType === "genotype_directory") {
+      return false // Files cannot be mapped to genotype directory fields
+    }
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || ""
     return field.acceptedTypes.includes(`.${fileExtension}`)
+  }
+
+  const isValidDirectoryForField = (
+    directory: DirectoryItem,
+    field: MappingField
+  ) => {
+    // Only genotype directory fields can accept directories
+    if (field.fieldType === "genotype_directory") {
+      return true
+    }
+    return false
   }
 
   const getCompatibleFields = (file: FileInfo) => {
@@ -769,10 +855,23 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     return fields.filter((field) => isValidFileForField(file, field))
   }
 
+  const getCompatibleFieldsForDirectory = (directory: DirectoryItem) => {
+    if (!directory) return []
+    const fields = getToolMappingFields(activeTab)
+    return fields.filter((field) => isValidDirectoryForField(directory, field))
+  }
+
   const getEligibleFilesForField = (field: MappingField) => {
     if (!datasetStructure) return []
     return datasetStructure.files.filter((file) =>
       isValidFileForField(file, field)
+    )
+  }
+
+  const getEligibleDirectoriesForField = (field: MappingField) => {
+    if (!datasetStructure) return []
+    return datasetStructure.directories.filter((directory) =>
+      isValidDirectoryForField(directory, field)
     )
   }
 
@@ -1113,7 +1212,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clearSelectedFile}
+                onClick={clearSelection}
                 className="h-6 w-6 p-0"
               >
                 <X className="h-3 w-3" />
@@ -1135,8 +1234,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                     <FileExplorer
                       datasetStructure={datasetStructure}
                       onFileSelect={handleFileSelect}
+                      onDirectorySelect={handleDirectorySelect}
                       jobId={jobId}
                       selectedFile={selectedFile}
+                      selectedDirectory={selectedDirectory}
                     />
                     {provided.placeholder}
                   </div>
@@ -1181,12 +1282,22 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                       >
                         <div className="h-full space-y-4 overflow-y-auto pr-2">
                           {getToolMappingFields(tool).map((field) => {
-                            const isCompatible = selectedFile
+                            const isFileCompatible = selectedFile
                               ? isValidFileForField(selectedFile, field)
                               : false
+                            const isDirectoryCompatible = selectedDirectory
+                              ? isValidDirectoryForField(
+                                  selectedDirectory,
+                                  field
+                                )
+                              : false
+                            const isCompatible =
+                              isFileCompatible || isDirectoryCompatible
                             const isMapped = toolMappings[tool]?.[field.id]
                             const eligibleFiles =
                               getEligibleFilesForField(field)
+                            const eligibleDirectories =
+                              getEligibleDirectoriesForField(field)
 
                             return (
                               <Card
@@ -1228,9 +1339,19 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                                       {isCompatible && (
                                         <Button
                                           size="sm"
-                                          onClick={() =>
-                                            mapFileToField(field.id)
-                                          }
+                                          onClick={() => {
+                                            if (
+                                              selectedFile &&
+                                              isFileCompatible
+                                            ) {
+                                              mapFileToField(field.id)
+                                            } else if (
+                                              selectedDirectory &&
+                                              isDirectoryCompatible
+                                            ) {
+                                              mapDirectoryToField(field.id)
+                                            }
+                                          }}
                                           className="bg-blue-600 hover:bg-blue-700"
                                         >
                                           <MapPin className="mr-1 h-3 w-3" />
@@ -1255,7 +1376,12 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                                         {isMapped ? (
                                           <div className="flex w-full items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                              <File className="h-4 w-4 text-gray-500" />
+                                              {field.fieldType ===
+                                              "genotype_directory" ? (
+                                                <Folder className="h-4 w-4 text-blue-500" />
+                                              ) : (
+                                                <File className="h-4 w-4 text-gray-500" />
+                                              )}
                                               <div>
                                                 <div className="font-medium">
                                                   {
@@ -1289,33 +1415,72 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                                           <div className="w-full space-y-3">
                                             <div className="text-center text-muted-foreground">
                                               {snapshot.isDraggingOver
-                                                ? "Drop file here"
-                                                : "Drag file here or use dropdown"}
+                                                ? field.fieldType ===
+                                                  "genotype_directory"
+                                                  ? "Drop directory here"
+                                                  : "Drop file here"
+                                                : field.fieldType ===
+                                                    "genotype_directory"
+                                                  ? "Drag directory here or use dropdown"
+                                                  : "Drag file here or use dropdown"}
                                             </div>
                                             <div className="flex items-center gap-2">
                                               <Label className="text-sm">
                                                 Or select:
                                               </Label>
                                               <Select
-                                                onValueChange={(value) =>
-                                                  selectFileFromDropdown(
-                                                    field.id,
-                                                    value
-                                                  )
-                                                }
+                                                onValueChange={(value) => {
+                                                  if (
+                                                    field.fieldType ===
+                                                    "genotype_directory"
+                                                  ) {
+                                                    selectDirectoryFromDropdown(
+                                                      field.id,
+                                                      value
+                                                    )
+                                                  } else {
+                                                    selectFileFromDropdown(
+                                                      field.id,
+                                                      value
+                                                    )
+                                                  }
+                                                }}
                                               >
                                                 <SelectTrigger className="w-full">
-                                                  <SelectValue placeholder="Choose a file..." />
+                                                  <SelectValue
+                                                    placeholder={
+                                                      field.fieldType ===
+                                                      "genotype_directory"
+                                                        ? "Choose a directory..."
+                                                        : "Choose a file..."
+                                                    }
+                                                  />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                  {eligibleFiles.map((file) => (
-                                                    <SelectItem
-                                                      key={file.path}
-                                                      value={file.path}
-                                                    >
-                                                      {file.name}
-                                                    </SelectItem>
-                                                  ))}
+                                                  {field.fieldType ===
+                                                  "genotype_directory"
+                                                    ? eligibleDirectories.map(
+                                                        (directory) => (
+                                                          <SelectItem
+                                                            key={directory.path}
+                                                            value={
+                                                              directory.path
+                                                            }
+                                                          >
+                                                            {directory.path}
+                                                          </SelectItem>
+                                                        )
+                                                      )
+                                                    : eligibleFiles.map(
+                                                        (file) => (
+                                                          <SelectItem
+                                                            key={file.path}
+                                                            value={file.path}
+                                                          >
+                                                            {file.name}
+                                                          </SelectItem>
+                                                        )
+                                                      )}
                                                 </SelectContent>
                                               </Select>
                                             </div>

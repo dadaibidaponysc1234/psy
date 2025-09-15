@@ -45,6 +45,7 @@ import {
 import { useHydration } from "@/hooks/use-hydration"
 import { Configure } from "@/components/benchmarking/configure"
 import { ToolConfiguration } from "@/components/benchmarking/tool-configuration"
+import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
 
 const steps = [
   {
@@ -83,29 +84,6 @@ const steps = [
     shortDesc: "Results",
   },
 ]
-
-function Results({
-  onPrevious,
-  allData,
-}: {
-  onPrevious?: () => void
-  allData?: any
-}) {
-  // Placeholder for results step
-  return (
-    <div className="space-y-6">
-      <h3 className="mb-2 text-xl font-semibold">Results</h3>
-      <p className="text-muted-foreground">
-        Benchmarking results and logs will be displayed here. (Coming soon)
-      </p>
-      {onPrevious && (
-        <Button variant="secondary" onClick={onPrevious}>
-          Back
-        </Button>
-      )}
-    </div>
-  )
-}
 
 const Sidebar = ({
   steps,
@@ -300,6 +278,8 @@ const BenchmarkingPage = () => {
     resetWorkflow,
   } = useBenchmarkingStore()
 
+  const jobId = useJobId()
+
   // Don't render until hydrated to prevent hydration mismatch
   if (!isHydrated) {
     return (
@@ -382,7 +362,7 @@ const BenchmarkingPage = () => {
           />
         )
       case "results":
-        return <Results onPrevious={handleBack} allData={stepData} />
+        return <BenchmarkingResults jobId={jobId || ""} onBack={handleBack} />
       default:
         return null
     }
