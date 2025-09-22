@@ -59,6 +59,7 @@ interface GenotypeConfig {
 }
 
 interface ProcessingOptions {
+  evaluation_type?: "both" | "binary" | "quantitative"
   process_binary_phenotypes: boolean
   process_quantitative_phenotypes: boolean
   skip_missing_columns: boolean
@@ -67,8 +68,6 @@ interface ProcessingOptions {
 
 // Tool-specific processing options configuration
 const BASE_PROCESSING_OPTIONS: [keyof ProcessingOptions, string][] = [
-  ["process_binary_phenotypes", "Process binary phenotypes"],
-  ["process_quantitative_phenotypes", "Process quantitative phenotypes"],
   ["skip_missing_columns", "Skip missing columns"],
   ["overwrite_existing", "Overwrite existing outputs"],
 ]
@@ -235,6 +234,7 @@ export function ToolConfiguration({
             file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
           },
           options: {
+            evaluation_type: "both",
             process_binary_phenotypes: true,
             process_quantitative_phenotypes: true,
             skip_missing_columns: false,
@@ -546,17 +546,45 @@ export function ToolConfiguration({
     }
 
     // Check phenotype configuration
-    if (
-      !config.phenotype_config.target_population.binary_traits.length &&
-      !config.phenotype_config.target_population.quantitative_traits.length
-    ) {
-      errors.push(`${tool}: No traits selected for target population`)
-    }
-    if (
-      !config.phenotype_config.source_population.binary_traits.length &&
-      !config.phenotype_config.source_population.quantitative_traits.length
-    ) {
-      errors.push(`${tool}: No traits selected for source population`)
+    const et = config.options.evaluation_type || "both"
+
+    const targetBinaryCount =
+      config.phenotype_config.target_population.binary_traits.length
+    const targetQuantCount =
+      config.phenotype_config.target_population.quantitative_traits.length
+    const sourceBinaryCount =
+      config.phenotype_config.source_population.binary_traits.length
+    const sourceQuantCount =
+      config.phenotype_config.source_population.quantitative_traits.length
+
+    if (et === "binary") {
+      if (!targetBinaryCount)
+        errors.push(`${tool}: No binary traits selected for target population`)
+      if (!sourceBinaryCount)
+        errors.push(`${tool}: No binary traits selected for source population`)
+    } else if (et === "quantitative") {
+      if (!targetQuantCount)
+        errors.push(
+          `${tool}: No quantitative traits selected for target population`
+        )
+      if (!sourceQuantCount)
+        errors.push(
+          `${tool}: No quantitative traits selected for source population`
+        )
+    } else {
+      // both
+      if (!targetBinaryCount)
+        errors.push(`${tool}: No binary traits selected for target population`)
+      if (!targetQuantCount)
+        errors.push(
+          `${tool}: No quantitative traits selected for target population`
+        )
+      if (!sourceBinaryCount)
+        errors.push(`${tool}: No binary traits selected for source population`)
+      if (!sourceQuantCount)
+        errors.push(
+          `${tool}: No quantitative traits selected for source population`
+        )
     }
 
     return { isValid: errors.length === 0, errors }
@@ -579,25 +607,71 @@ export function ToolConfiguration({
     if (allErrors.length > 0) {
       console.error("❌ Configuration validation failed:", allErrors)
       toast.error(
-        `Configuration errors: ${allErrors.slice(0, 3).join(", ")}${allErrors.length > 3 ? "..." : ""}`
+        `Configuration errors: ${allErrors.slice(0, 3).join(", ")}${
+          allErrors.length > 3 ? "..." : ""
+        }`
       )
       return
     }
+
+    // Build sanitized pre-processing configs that strictly follow evaluation_type
+    const sanitizedByTool = Object.fromEntries(
+      selectedTools.map((tool) => {
+        const cfg = configs[tool]
+        const et = cfg.options.evaluation_type || "both"
+
+        const sanitizePopulation = (
+          pop: "target_population" | "source_population"
+        ) => {
+          const out: any = {}
+          if (et === "binary" || et === "both") {
+            out.binary_traits =
+              cfg.phenotype_config[pop].binary_traits.filter(Boolean)
+          }
+          if (et === "quantitative" || et === "both") {
+            out.quantitative_traits =
+              cfg.phenotype_config[pop].quantitative_traits.filter(Boolean)
+          }
+          return out
+        }
+
+        const sanitizedPhenotype: any = {
+          target_population: sanitizePopulation("target_population"),
+          source_population: sanitizePopulation("source_population"),
+        }
+
+        const sanitizedOptions = {
+          ...cfg.options,
+          evaluation_type: et,
+          process_binary_phenotypes: et === "binary" || et === "both",
+          process_quantitative_phenotypes:
+            et === "quantitative" || et === "both",
+        }
+
+        const sanitized = {
+          ...cfg,
+          phenotype_config: sanitizedPhenotype,
+          options: sanitizedOptions,
+        }
+
+        return [tool, sanitized]
+      })
+    )
 
     // Log the complete configuration
     console.log("🚀 Submitting tool configuration:", {
       jobId,
       selectedTools,
-      configs,
+      configs: sanitizedByTool,
       timestamp: new Date().toISOString(),
     })
 
     // Log individual tool configs
     selectedTools.forEach((tool) => {
-      console.log(`📋 ${tool} Configuration:`, configs[tool])
+      console.log(`📋 ${tool} Configuration:`, sanitizedByTool[tool])
     })
 
-    // Create the request body
+    // Create the request body (omit unselected trait arrays per evaluation_type)
     const requestBody = {
       config: {
         tools_to_run: selectedTools,
@@ -605,7 +679,7 @@ export function ToolConfiguration({
           selectedTools.map((tool) => [
             tool,
             {
-              pre_processing: configs[tool],
+              pre_processing: sanitizedByTool[tool],
             },
           ])
         ),
@@ -1143,12 +1217,86 @@ export function ToolConfiguration({
                             )}
                           </div>
                         )}
+
+                        {/* Evaluation Type Selection */}
+                        <div className="rounded-lg border p-3">
+                          <Label className="text-sm">Evaluation Type</Label>
+                          <div className="mt-2 flex flex-wrap gap-6">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="radio"
+                                name={`evaluation_type_${tool}`}
+                                value="both"
+                                className="h-4 w-4"
+                                checked={
+                                  (configs[tool]?.options?.evaluation_type ||
+                                    "both") === "both"
+                                }
+                                onChange={() =>
+                                  updateConfig(tool, "options", {
+                                    evaluation_type: "both",
+                                    process_binary_phenotypes: true,
+                                    process_quantitative_phenotypes: true,
+                                  })
+                                }
+                              />
+                              <span>Both</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="radio"
+                                name={`evaluation_type_${tool}`}
+                                value="binary"
+                                className="h-4 w-4"
+                                checked={
+                                  (configs[tool]?.options?.evaluation_type ||
+                                    "both") === "binary"
+                                }
+                                onChange={() =>
+                                  updateConfig(tool, "options", {
+                                    evaluation_type: "binary",
+                                    process_binary_phenotypes: true,
+                                    process_quantitative_phenotypes: false,
+                                  })
+                                }
+                              />
+                              <span>Binary</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="radio"
+                                name={`evaluation_type_${tool}`}
+                                value="quantitative"
+                                className="h-4 w-4"
+                                checked={
+                                  (configs[tool]?.options?.evaluation_type ||
+                                    "both") === "quantitative"
+                                }
+                                onChange={() =>
+                                  updateConfig(tool, "options", {
+                                    evaluation_type: "quantitative",
+                                    process_binary_phenotypes: false,
+                                    process_quantitative_phenotypes: true,
+                                  })
+                                }
+                              />
+                              <span>Quantitative</span>
+                            </label>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Choose whether to configure binary traits,
+                            quantitative traits, or both.
+                          </p>
+                        </div>
+
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                           <div className="space-y-3">
                             <h5 className="text-sm font-medium">
                               Target Population
                             </h5>
-                            <div className="rounded-lg border p-3">
+                            <div
+                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "quantitative" ? "hidden" : ""}`}
+                            >
                               <Label className="text-sm">Binary Traits</Label>
                               <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
                                 {(phenotypeHeaders[tool]?.target || []).map(
@@ -1182,7 +1330,9 @@ export function ToolConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="rounded-lg border p-3">
+                            <div
+                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "binary" ? "hidden" : ""}`}
+                            >
                               <Label className="text-sm">
                                 Quantitative Traits
                               </Label>
@@ -1224,7 +1374,9 @@ export function ToolConfiguration({
                             <h5 className="text-sm font-medium">
                               Source Population
                             </h5>
-                            <div className="rounded-lg border p-3">
+                            <div
+                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "quantitative" ? "hidden" : ""}`}
+                            >
                               <Label className="text-sm">Binary Traits</Label>
                               <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
                                 {(phenotypeHeaders[tool]?.source || []).map(
@@ -1258,7 +1410,9 @@ export function ToolConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="rounded-lg border p-3">
+                            <div
+                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "binary" ? "hidden" : ""}`}
+                            >
                               <Label className="text-sm">
                                 Quantitative Traits
                               </Label>

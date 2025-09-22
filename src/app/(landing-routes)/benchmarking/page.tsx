@@ -369,7 +369,7 @@ const BenchmarkingPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto overflow-x-hidden px-4 py-8">
       {/* Header section */}
       <div className="mx-auto mb-10 max-w-4xl text-center">
         <h1 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">
@@ -380,13 +380,15 @@ const BenchmarkingPage = () => {
           scores
         </p>
       </div>
-      <div className="mx-auto flex max-w-7xl gap-8">
+      <div className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden">
         <Sidebar
           steps={steps}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={toggleSidebar}
         />
-        <main className="flex-1">{renderStepContent()}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden">
+          {renderStepContent()}
+        </main>
       </div>
       <Toaster />
     </div>
