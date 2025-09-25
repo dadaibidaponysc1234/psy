@@ -348,15 +348,15 @@ export function BenchmarkingResults({
     if (!s) {
       if (loading.manifest || loading.summary || loading.eval) {
         return {
-          label: "Running",
+          label: "Processing",
           className: "bg-amber-100 text-amber-800 border-amber-200",
           Icon: Clock,
         }
       }
       return {
-        label: "Unknown",
-        className: "bg-gray-100 text-gray-800 border-gray-200",
-        Icon: AlertCircle,
+        label: "Processing",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
+        Icon: Clock,
       }
     }
     switch (s) {
@@ -398,9 +398,9 @@ export function BenchmarkingResults({
         }
       default:
         return {
-          label: "Unknown",
-          className: "bg-gray-100 text-gray-800 border-gray-200",
-          Icon: AlertCircle,
+          label: "Processing",
+          className: "bg-amber-100 text-amber-800 border-amber-200",
+          Icon: Clock,
         }
     }
   }, [backendStatus, loading])
