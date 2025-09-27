@@ -1,6 +1,14 @@
 "use client"
 
-import { Book, FileUp, House, ImageUp, LogOut, Settings } from "lucide-react"
+import {
+  Book,
+  FileUp,
+  House,
+  ImageUp,
+  LogOut,
+  Pickaxe,
+  Settings,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ReactNode } from "react"
@@ -63,16 +71,18 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
       path: "/admin/Uploads/Images",
       icon: ImageUp,
     },
+    {
+      name: "PDF Extraction",
+      path: "/admin/Extract",
+      icon: Pickaxe,
+    },
   ]
   return (
     <div className="flex flex-grow">
       <nav className="fixed flex h-dvh w-64 flex-col justify-between gap-4 bg-primary px-5 pb-5">
         <div>
           <h1 className="mx-auto w-fit py-8 text-xl font-bold">{APP_NAME}</h1>
-          {/* <div className="pt-4 pb-8">
-            <p className="text-white w-fit font-bold">Akinsanya Adeyinka</p>
-            <p className="text-white/40">@adeyinka</p>
-          </div> */}
+
           <div className="flex flex-col gap-4 border-y-[0.4px] border-white/40 py-6">
             {tabs.map((tab, index) => {
               const isActive = tab.path === pathname
@@ -93,10 +103,6 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
         </div>
         <div>
           <div className="flex flex-col gap-4 border-t-[0.4px] border-white/40 py-6">
-            {/* <button className="flex items-center gap-x-2 text-white/80">
-              <Settings size={22} />
-              <span>Profile Settings</span>
-            </button> */}
             <button
               className="flex items-center gap-x-2 text-[#FF0000]/80"
               onClick={() => {
