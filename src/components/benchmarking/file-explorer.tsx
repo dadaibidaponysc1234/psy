@@ -310,252 +310,7 @@ export function FileExplorer({
                   
                   {/* Render nested content if expanded */}
                   {subDirExpanded && hasChildren && (
-                    <div className="space-y-1">
-                      {/* Render sub-subdirectories */}
-                      {subDirSubDirs.map((nestedSubDir, nestedIndex) => {
-                        const nestedExpanded = expandedFolders.has(nestedSubDir.path)
-                        const nestedSubDirs = getSubdirectories(nestedSubDir.path)
-                        const nestedFiles = getFilesInDirectory(nestedSubDir.path)
-                        const nestedHasChildren = nestedSubDirs.length > 0 || nestedFiles.length > 0
-                        
-                        return (
-                          <div key={nestedSubDir.path}>
-                            <Draggable
-                              draggableId={nestedSubDir.path}
-                              index={nestedIndex}
-                            >
-                              {(provided: any) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                                    isDirectorySelected(nestedSubDir)
-                                      ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                      : ""
-                                  }`}
-                                  style={{
-                                    marginLeft: `${(level + 2) * 16}px`,
-                                    ...provided.draggableProps.style,
-                                  }}
-                                >
-                                  {/* Expand/Collapse Icon */}
-                                  {nestedHasChildren && (
-                                    <div
-                                      className="cursor-pointer p-1 hover:bg-muted rounded"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        toggleFolder(nestedSubDir.path)
-                                      }}
-                                    >
-                                      {nestedExpanded ? (
-                                        <ChevronDown className="h-4 w-4" />
-                                      ) : (
-                                        <ChevronRight className="h-4 w-4" />
-                                      )}
-                                    </div>
-                                  )}
-                                  {!nestedHasChildren && <div className="w-6" />}
-                                  
-                                  {/* Folder Content - Clickable for selection */}
-                                  <div
-                                    className="flex flex-1 cursor-pointer items-center gap-2"
-                                    onClick={() => handleDirectorySelect(nestedSubDir)}
-                                  >
-                                    <Folder className="h-4 w-4 text-blue-500" />
-                                    <span className="font-medium">{nestedSubDir.name}</span>
-                                    <Badge variant="outline" className="text-xs">
-                                      {nestedSubDir.file_count} file
-                                      {nestedSubDir.file_count !== 1 ? "s" : ""}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {nestedSubDir.total_size_formatted}
-                                    </span>
-                                  </div>
-                                  
-                                  <div {...provided.dragHandleProps}>
-                                    <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                            
-                            {/* Render nested content if expanded */}
-                            {nestedExpanded && nestedHasChildren && (
-                              <div className="space-y-1">
-                                {/* Render nested subdirectories */}
-                                {nestedSubDirs.map((deepNestedSubDir, deepNestedIndex) => {
-                                  const deepNestedExpanded = expandedFolders.has(deepNestedSubDir.path)
-                                  const deepNestedSubDirs = getSubdirectories(deepNestedSubDir.path)
-                                  const deepNestedFiles = getFilesInDirectory(deepNestedSubDir.path)
-                                  const deepNestedHasChildren = deepNestedSubDirs.length > 0 || deepNestedFiles.length > 0
-                                  
-                                  return (
-                                    <div key={deepNestedSubDir.path}>
-                                      <Draggable
-                                        draggableId={deepNestedSubDir.path}
-                                        index={deepNestedIndex}
-                                      >
-                                        {(provided: any) => (
-                                          <div
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                                              isDirectorySelected(deepNestedSubDir)
-                                                ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                                : ""
-                                            }`}
-                                            style={{
-                                              marginLeft: `${(level + 3) * 16}px`,
-                                              ...provided.draggableProps.style,
-                                            }}
-                                          >
-                                            {/* Expand/Collapse Icon */}
-                                            {deepNestedHasChildren && (
-                                              <div
-                                                className="cursor-pointer p-1 hover:bg-muted rounded"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  toggleFolder(deepNestedSubDir.path)
-                                                }}
-                                              >
-                                                {deepNestedExpanded ? (
-                                                  <ChevronDown className="h-4 w-4" />
-                                                ) : (
-                                                  <ChevronRight className="h-4 w-4" />
-                                                )}
-                                              </div>
-                                            )}
-                                            {!deepNestedHasChildren && <div className="w-6" />}
-                                            
-                                            {/* Folder Content - Clickable for selection */}
-                                            <div
-                                              className="flex flex-1 cursor-pointer items-center gap-2"
-                                              onClick={() => handleDirectorySelect(deepNestedSubDir)}
-                                            >
-                                              <Folder className="h-4 w-4 text-blue-500" />
-                                              <span className="font-medium">{deepNestedSubDir.name}</span>
-                                              <Badge variant="outline" className="text-xs">
-                                                {deepNestedSubDir.file_count} file
-                                                {deepNestedSubDir.file_count !== 1 ? "s" : ""}
-                                              </Badge>
-                                              <span className="text-xs text-muted-foreground">
-                                                {deepNestedSubDir.total_size_formatted}
-                                              </span>
-                                            </div>
-                                            
-                                            <div {...provided.dragHandleProps}>
-                                              <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                            </div>
-                                          </div>
-                                        )}
-                                      </Draggable>
-                                    </div>
-                                  )
-                                })}
-                                
-                                {/* Render files in this nested directory */}
-                                {nestedFiles.map((file, fileIndex) => {
-                                  const FileIcon = getFileIcon(file.name, file.file_type)
-                                  return (
-                                    <Draggable
-                                      key={file.path}
-                                      draggableId={file.path}
-                                      index={nestedSubDirs.length + fileIndex}
-                                    >
-                                      {(provided: any) => (
-                                        <div
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          className={`flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 cursor-pointer ${
-                                            isFileSelected(file)
-                                              ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                              : ""
-                                          }`}
-                                          style={{
-                                            marginLeft: `${(level + 3) * 16}px`,
-                                            ...provided.draggableProps.style,
-                                          }}
-                                          onClick={() => handleFileSelect(file)}
-                                        >
-                                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                                            <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                            <span className="truncate text-sm">{file.name}</span>
-                                            {file.is_previewable && (
-                                              <Badge
-                                                variant="outline"
-                                                className="cursor-pointer text-xs hover:bg-muted"
-                                                onClick={(e) => handlePreviewClick(e, file)}
-                                              >
-                                                Preview
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                            <span>{file.size_formatted}</span>
-                                            <div {...provided.dragHandleProps}>
-                                              <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </Draggable>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                      
-                      {/* Render files in this subdirectory */}
-                      {subDirFiles.map((file, fileIndex) => {
-                        const FileIcon = getFileIcon(file.name, file.file_type)
-                        return (
-                          <Draggable
-                            key={file.path}
-                            draggableId={file.path}
-                            index={subDirSubDirs.length + fileIndex}
-                          >
-                            {(provided: any) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 cursor-pointer ${
-                                  isFileSelected(file)
-                                    ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                    : ""
-                                }`}
-                                style={{
-                                  marginLeft: `${(level + 2) * 16}px`,
-                                  ...provided.draggableProps.style,
-                                }}
-                                onClick={() => handleFileSelect(file)}
-                              >
-                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                  <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                  <span className="truncate text-sm">{file.name}</span>
-                                  {file.is_previewable && (
-                                    <Badge
-                                      variant="outline"
-                                      className="cursor-pointer text-xs hover:bg-muted"
-                                      onClick={(e) => handlePreviewClick(e, file)}
-                                    >
-                                      Preview
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>{file.size_formatted}</span>
-                                  <div {...provided.dragHandleProps}>
-                                    <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        )
-                      })}
-                    </div>
+                    <div className="space-y-1">{renderChildren(subDir.path, 1)}</div>
                   )}
                 </div>
               )
@@ -635,6 +390,132 @@ export function FileExplorer({
 
   const rootDirs = getRootDirectories()
   const rootFiles = getRootFiles()
+
+  // Helper: recursively render children (subdirectories and files)
+  const renderChildren = (parentPath: string, level: number = 1) => {
+    const subDirs = getSubdirectories(parentPath)
+    const files = getFilesInDirectory(parentPath)
+
+    return (
+      <>
+        {/* Render subdirectories */}
+        {subDirs.map((subDir, subIndex) => {
+          const subDirExpanded = expandedFolders.has(subDir.path)
+          const childSubDirs = getSubdirectories(subDir.path)
+          const childFiles = getFilesInDirectory(subDir.path)
+          const subDirHasChildren = childSubDirs.length > 0 || childFiles.length > 0
+
+          return (
+            <div key={subDir.path}>
+              <Draggable draggableId={subDir.path} index={subIndex}>
+                {(provided: any) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
+                      isDirectorySelected(subDir)
+                        ? "border border-blue-300 bg-blue-100 text-blue-900"
+                        : ""
+                    }`}
+                    style={{
+                      marginLeft: `${level * 16}px`,
+                      ...provided.draggableProps.style,
+                    }}
+                  >
+                    {/* Expand/Collapse Icon */}
+                    {subDirHasChildren ? (
+                      <div
+                        className="cursor-pointer rounded p-1 hover:bg-muted"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleFolder(subDir.path)
+                        }}
+                      >
+                        {subDirExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-6" />
+                    )}
+
+                    {/* Folder Content - Clickable for selection */}
+                    <div
+                      className="flex flex-1 cursor-pointer items-center gap-2"
+                      onClick={() => handleDirectorySelect(subDir)}
+                    >
+                      <Folder className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">{subDir.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {subDir.file_count} file{subDir.file_count !== 1 ? "s" : ""}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {subDir.total_size_formatted}
+                      </span>
+                    </div>
+
+                    <div {...provided.dragHandleProps}>
+                      <Grip className="h-4 w-4 cursor-grab text-gray-400" />
+                    </div>
+                  </div>
+                )}
+              </Draggable>
+
+              {/* Render nested content for this subdirectory if expanded */}
+              {subDirExpanded && subDirHasChildren && (
+                <div className="space-y-1">{renderChildren(subDir.path, 2)}</div>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Render files in this directory */}
+        {files.map((file, fileIndex) => {
+          const FileIcon = getFileIcon(file.name, file.file_type)
+          return (
+            <Draggable key={file.path} draggableId={file.path} index={subDirs.length + fileIndex}>
+              {(provided: any) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.draggableProps}
+                  className={`flex cursor-pointer items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 ${
+                    isFileSelected(file) ? "border border-blue-300 bg-blue-100 text-blue-900" : ""
+                  }`}
+                  style={{
+                    marginLeft: `${level * 16}px`,
+                    ...provided.draggableProps.style,
+                  }}
+                  onClick={() => handleFileSelect(file)}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate text-sm">{file.name}</span>
+                    {file.is_previewable && (
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer text-xs hover:bg-muted"
+                        onClick={(e) => handlePreviewClick(e, file)}
+                      >
+                        Preview
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{file.size_formatted}</span>
+                    <div {...provided.dragHandleProps}>
+                      <Grip className="h-4 w-4 cursor-grab text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Draggable>
+          )
+        })}
+      </>
+    )
+  }
 
   return (
     <>
@@ -764,9 +645,9 @@ export function FileExplorer({
                        {/* Render subdirectories */}
                        {subDirs.map((subDir, subIndex) => {
                          const subDirExpanded = expandedFolders.has(subDir.path)
-                         const subDirSubDirs = getSubdirectories(subDir.path)
-                         const subDirFiles = getFilesInDirectory(subDir.path)
-                         const subDirHasChildren = subDirSubDirs.length > 0 || subDirFiles.length > 0
+                         const childSubDirs = getSubdirectories(subDir.path)
+                         const childFiles = getFilesInDirectory(subDir.path)
+                         const subDirHasChildren = childSubDirs.length > 0 || childFiles.length > 0
                          
                          return (
                            <div key={subDir.path}>
@@ -784,14 +665,14 @@ export function FileExplorer({
                                        : ""
                                    }`}
                                    style={{
-                                     marginLeft: `${1 * 16}px`,
+                                     marginLeft: "16px",
                                      ...provided.draggableProps.style,
                                    }}
                                  >
                                    {/* Expand/Collapse Icon */}
-                                   {subDirHasChildren && (
+                                   {subDirHasChildren ? (
                                      <div
-                                       className="cursor-pointer p-1 hover:bg-muted rounded"
+                                       className="cursor-pointer rounded p-1 hover:bg-muted"
                                        onClick={(e) => {
                                          e.stopPropagation()
                                          toggleFolder(subDir.path)
@@ -803,9 +684,10 @@ export function FileExplorer({
                                          <ChevronRight className="h-4 w-4" />
                                        )}
                                      </div>
+                                   ) : (
+                                     <div className="w-6" />
                                    )}
-                                   {!subDirHasChildren && <div className="w-6" />}
-                                   
+
                                    {/* Folder Content - Clickable for selection */}
                                    <div
                                      className="flex flex-1 cursor-pointer items-center gap-2"
@@ -814,150 +696,29 @@ export function FileExplorer({
                                      <Folder className="h-4 w-4 text-blue-500" />
                                      <span className="font-medium">{subDir.name}</span>
                                      <Badge variant="outline" className="text-xs">
-                                       {subDir.file_count} file
-                                       {subDir.file_count !== 1 ? "s" : ""}
+                                       {subDir.file_count} file{subDir.file_count !== 1 ? "s" : ""}
                                      </Badge>
                                      <span className="text-xs text-muted-foreground">
                                        {subDir.total_size_formatted}
                                      </span>
                                    </div>
-                                   
+
                                    <div {...provided.dragHandleProps}>
                                      <Grip className="h-4 w-4 cursor-grab text-gray-400" />
                                    </div>
                                  </div>
                                )}
                              </Draggable>
-                             
-                             {/* Render nested content if expanded */}
+
+                             {/* Render nested content for this subdirectory if expanded */}
                              {subDirExpanded && subDirHasChildren && (
-                               <div className="space-y-1">
-                                 {/* Render nested subdirectories */}
-                                 {subDirSubDirs.map((nestedSubDir, nestedIndex) => {
-                                   const nestedExpanded = expandedFolders.has(nestedSubDir.path)
-                                   const nestedSubDirs = getSubdirectories(nestedSubDir.path)
-                                   const nestedFiles = getFilesInDirectory(nestedSubDir.path)
-                                   const nestedHasChildren = nestedSubDirs.length > 0 || nestedFiles.length > 0
-                                   
-                                   return (
-                                     <div key={nestedSubDir.path}>
-                                       <Draggable
-                                         draggableId={nestedSubDir.path}
-                                         index={nestedIndex}
-                                       >
-                                         {(provided: any) => (
-                                           <div
-                                             ref={provided.innerRef}
-                                             {...provided.draggableProps}
-                                             className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                                               isDirectorySelected(nestedSubDir)
-                                                 ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                                 : ""
-                                             }`}
-                                             style={{
-                                               marginLeft: `${2 * 16}px`,
-                                               ...provided.draggableProps.style,
-                                             }}
-                                           >
-                                             {/* Expand/Collapse Icon */}
-                                             {nestedHasChildren && (
-                                               <div
-                                                 className="cursor-pointer p-1 hover:bg-muted rounded"
-                                                 onClick={(e) => {
-                                                   e.stopPropagation()
-                                                   toggleFolder(nestedSubDir.path)
-                                                 }}
-                                               >
-                                                 {nestedExpanded ? (
-                                                   <ChevronDown className="h-4 w-4" />
-                                                 ) : (
-                                                   <ChevronRight className="h-4 w-4" />
-                                                 )}
-                                               </div>
-                                             )}
-                                             {!nestedHasChildren && <div className="w-6" />}
-                                             
-                                             {/* Folder Content - Clickable for selection */}
-                                             <div
-                                               className="flex flex-1 cursor-pointer items-center gap-2"
-                                               onClick={() => handleDirectorySelect(nestedSubDir)}
-                                             >
-                                               <Folder className="h-4 w-4 text-blue-500" />
-                                               <span className="font-medium">{nestedSubDir.name}</span>
-                                               <Badge variant="outline" className="text-xs">
-                                                 {nestedSubDir.file_count} file
-                                                 {nestedSubDir.file_count !== 1 ? "s" : ""}
-                                               </Badge>
-                                               <span className="text-xs text-muted-foreground">
-                                                 {nestedSubDir.total_size_formatted}
-                                               </span>
-                                             </div>
-                                             
-                                             <div {...provided.dragHandleProps}>
-                                               <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                             </div>
-                                           </div>
-                                         )}
-                                       </Draggable>
-                                     </div>
-                                   )
-                                 })}
-                                 
-                                 {/* Render files in this nested directory */}
-                                 {subDirFiles.map((file, fileIndex) => {
-                                   const FileIcon = getFileIcon(file.name, file.file_type)
-                                   return (
-                                     <Draggable
-                                       key={file.path}
-                                       draggableId={file.path}
-                                       index={subDirSubDirs.length + fileIndex}
-                                     >
-                                       {(provided: any) => (
-                                         <div
-                                           ref={provided.innerRef}
-                                           {...provided.draggableProps}
-                                           className={`flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 cursor-pointer ${
-                                             isFileSelected(file)
-                                               ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                               : ""
-                                           }`}
-                                           style={{
-                                             marginLeft: `${2 * 16}px`,
-                                             ...provided.draggableProps.style,
-                                           }}
-                                           onClick={() => handleFileSelect(file)}
-                                         >
-                                           <div className="flex min-w-0 flex-1 items-center gap-2">
-                                             <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                             <span className="truncate text-sm">{file.name}</span>
-                                             {file.is_previewable && (
-                                               <Badge
-                                                 variant="outline"
-                                                 className="cursor-pointer text-xs hover:bg-muted"
-                                                 onClick={(e) => handlePreviewClick(e, file)}
-                                               >
-                                                 Preview
-                                               </Badge>
-                                             )}
-                                           </div>
-                                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                             <span>{file.size_formatted}</span>
-                                             <div {...provided.dragHandleProps}>
-                                               <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                             </div>
-                                           </div>
-                                         </div>
-                                       )}
-                                     </Draggable>
-                                   )
-                                 })}
-                               </div>
+                               <div className="space-y-1">{renderChildren(subDir.path, 2)}</div>
                              )}
                            </div>
                          )
                        })}
-                       
-                       {/* Render files in this directory */}
+
+                       {/* Render files in this subdirectory */}
                        {files.map((file, fileIndex) => {
                          const FileIcon = getFileIcon(file.name, file.file_type)
                          return (
@@ -971,12 +732,10 @@ export function FileExplorer({
                                  ref={provided.innerRef}
                                  {...provided.draggableProps}
                                  className={`flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 cursor-pointer ${
-                                   isFileSelected(file)
-                                     ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                     : ""
+                                   isFileSelected(file) ? "border border-blue-300 bg-blue-100 text-blue-900" : ""
                                  }`}
                                  style={{
-                                   marginLeft: `${1 * 16}px`,
+                                   marginLeft: "16px",
                                    ...provided.draggableProps.style,
                                  }}
                                  onClick={() => handleFileSelect(file)}

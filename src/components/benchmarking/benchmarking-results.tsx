@@ -59,6 +59,11 @@ interface ResultsManifest {
   artifacts: ManifestArtifact[]
   plots?: ManifestPlot[]
   summary?: Record<string, any>
+  config?: {
+    tools_to_run?: string[]
+    [key: string]: any
+  }
+  stages?: Record<string, any>
 }
 
 interface PRSSummaryResponse {
@@ -74,6 +79,15 @@ interface EvalR2Response {
     string,
     { columns: string[]; rows: Array<Record<string, string | number>> }
   >
+}
+
+type SummaryTableRow = Record<string, string | number>
+
+interface EvaluationTableSection {
+  key: string
+  label: string
+  columns: string[]
+  rows: Array<Record<string, string | number>>
 }
 
 export function BenchmarkingResults({
@@ -98,6 +112,10 @@ export function BenchmarkingResults({
     evalAuc?: string
   }>({})
   const [backendStatus, setBackendStatus] = useState<string | null>(null)
+  const [statusDetails, setStatusDetails] = useState<Record<
+    string,
+    any
+  > | null>(null)
 
   // Preview modal state
   const [previewItem, setPreviewItem] = useState<{
@@ -107,8 +125,6 @@ export function BenchmarkingResults({
   } | null>(null)
 
   // Ref for raw files slider
-  const rawFilesRef = useRef<HTMLDivElement>(null)
-
   // Guard to ensure we auto-refresh results only once when job completes
   const hasRefreshedOnCompletion = useRef(false)
 
@@ -145,14 +161,14 @@ export function BenchmarkingResults({
   }, [jobId])
 
   // Ensure URLs returned by backend (which may be relative) are resolved against the backend base URL
-  const resolveUrl = (u?: string) => {
+  const resolveUrl = useCallback((u?: string) => {
     if (!u) return ""
     try {
       return new URL(u, BENCHMARK_CONFIG.BASE_URL).toString()
     } catch {
       return u
     }
-  }
+  }, [])
 
   const backendOrigin = useMemo(() => {
     try {
@@ -162,16 +178,19 @@ export function BenchmarkingResults({
     }
   }, [])
 
-  const toBackendOrigin = (u?: string) => {
-    if (!u) return ""
-    try {
-      const parsed = new URL(u)
-      return `${backendOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`
-    } catch {
-      // if it's relative, fall back to resolveUrl
-      return resolveUrl(u)
-    }
-  }
+  const toBackendOrigin = useCallback(
+    (u?: string) => {
+      if (!u) return ""
+      try {
+        const parsed = new URL(u)
+        return `${backendOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`
+      } catch {
+        // if it's relative, fall back to resolveUrl
+        return resolveUrl(u)
+      }
+    },
+    [backendOrigin, resolveUrl]
+  )
 
   // Build a file URL from the jobId and file path (preferred over trusting provided absolute URLs)
   const fileUrlFromPath = (path: string) => {
@@ -196,6 +215,7 @@ export function BenchmarkingResults({
         const status = (res.data?.status ?? "").toString()
         if (log) console.log("[Benchmark] Status response:", res.data)
         setBackendStatus(status)
+        setStatusDetails(res.data)
       } catch (e: any) {
         if (log)
           console.error(
@@ -203,111 +223,114 @@ export function BenchmarkingResults({
             e?.response?.data || e?.message || e
           )
         setBackendStatus(null)
+        setStatusDetails(null)
       }
     },
     [jobId]
   )
 
-  const fetchAll = async (log?: boolean) => {
-    if (!jobId) return
-    setLoading({ manifest: true, summary: true, eval: true, evalAuc: true })
-    setErrors({})
-    fetchStatus(log)
-    try {
-      const res = await axios.get<ResultsManifest>(endpoints.manifest)
-      if (log) console.log("[Benchmark] Manifest response:", res.data)
-      setManifest(res.data)
-    } catch (e: any) {
-      if (log)
-        console.error(
-          "[Benchmark] Manifest error:",
-          e?.response?.data || e?.message || e
-        )
-      setErrors((prev) => ({
-        ...prev,
-        manifest: e?.message || "Failed to load manifest",
-      }))
-    } finally {
-      setLoading((prev) => ({ ...prev, manifest: false }))
-    }
+  const fetchAll = useCallback(
+    async (log?: boolean) => {
+      if (!jobId) return
+      setLoading({ manifest: true, summary: true, eval: true, evalAuc: true })
+      setErrors({})
+      fetchStatus(log)
+      try {
+        const res = await axios.get<ResultsManifest>(endpoints.manifest)
+        if (log) console.log("[Benchmark] Manifest response:", res.data)
+        setManifest(res.data)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] Manifest error:",
+            e?.response?.data || e?.message || e
+          )
+        setErrors((prev) => ({
+          ...prev,
+          manifest: e?.message || "Failed to load manifest",
+        }))
+      } finally {
+        setLoading((prev) => ({ ...prev, manifest: false }))
+      }
 
-    // Fetch plots from new endpoint (falls back to manifest.plots if this fails)
-    try {
-      const res = await axios.get<{ job_id: string; plots: ManifestPlot[] }>(
-        endpoints.plots
-      )
-      if (log) console.log("[Benchmark] Plots response:", res.data)
-      setPlots(res.data?.plots ?? null)
-    } catch (e: any) {
-      if (log)
-        console.error(
-          "[Benchmark] Plots error:",
-          e?.response?.data || e?.message || e
+      // Fetch plots from new endpoint (falls back to manifest.plots if this fails)
+      try {
+        const res = await axios.get<{ job_id: string; plots: ManifestPlot[] }>(
+          endpoints.plots
         )
-      // no error surfaced; we will rely on manifest.plots if present
-    }
+        if (log) console.log("[Benchmark] Plots response:", res.data)
+        setPlots(res.data?.plots ?? null)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] Plots error:",
+            e?.response?.data || e?.message || e
+          )
+        // no error surfaced; we will rely on manifest.plots if present
+      }
 
-    try {
-      const res = await axios.get<PRSSummaryResponse>(endpoints.prsSummary)
-      if (log) console.log("[Benchmark] PRS summary response:", res.data)
-      setPrsSummary(res.data)
-    } catch (e: any) {
-      if (log)
-        console.error(
-          "[Benchmark] PRS summary error:",
-          e?.response?.data || e?.message || e
-        )
-      setErrors((prev) => ({
-        ...prev,
-        summary: e?.message || "Failed to load PRS summary",
-      }))
-    } finally {
-      setLoading((prev) => ({ ...prev, summary: false }))
-    }
+      try {
+        const res = await axios.get<PRSSummaryResponse>(endpoints.prsSummary)
+        if (log) console.log("[Benchmark] PRS summary response:", res.data)
+        setPrsSummary(res.data)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] PRS summary error:",
+            e?.response?.data || e?.message || e
+          )
+        setErrors((prev) => ({
+          ...prev,
+          summary: e?.message || "Failed to load PRS summary",
+        }))
+      } finally {
+        setLoading((prev) => ({ ...prev, summary: false }))
+      }
 
-    try {
-      const res = await axios.get<EvalR2Response>(endpoints.evalR2)
-      if (log) console.log("[Benchmark] R2 tables response:", res.data)
-      setEvalR2(res.data)
-    } catch (e: any) {
-      if (log)
-        console.error(
-          "[Benchmark] R2 tables error:",
-          e?.response?.data || e?.message || e
-        )
-      setErrors((prev) => ({
-        ...prev,
-        eval: e?.message || "Failed to load R2 evaluation tables",
-      }))
-    } finally {
-      setLoading((prev) => ({ ...prev, eval: false }))
-    }
+      try {
+        const res = await axios.get<EvalR2Response>(endpoints.evalR2)
+        if (log) console.log("[Benchmark] R2 tables response:", res.data)
+        setEvalR2(res.data)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] R2 tables error:",
+            e?.response?.data || e?.message || e
+          )
+        setErrors((prev) => ({
+          ...prev,
+          eval: e?.message || "Failed to load R2 evaluation tables",
+        }))
+      } finally {
+        setLoading((prev) => ({ ...prev, eval: false }))
+      }
 
-    try {
-      const res = await axios.get<EvalR2Response>(endpoints.evalAUC)
-      if (log) console.log("[Benchmark] AUC tables response:", res.data)
-      setEvalAUC(res.data)
-    } catch (e: any) {
-      if (log)
-        console.error(
-          "[Benchmark] AUC tables error:",
-          e?.response?.data || e?.message || e
-        )
-      setErrors((prev) => ({
-        ...prev,
-        evalAuc: e?.message || "Failed to load AUC evaluation tables",
-      }))
-    } finally {
-      setLoading((prev) => ({ ...prev, evalAuc: false }))
-    }
-  }
+      try {
+        const res = await axios.get<EvalR2Response>(endpoints.evalAUC)
+        if (log) console.log("[Benchmark] AUC tables response:", res.data)
+        setEvalAUC(res.data)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] AUC tables error:",
+            e?.response?.data || e?.message || e
+          )
+        setErrors((prev) => ({
+          ...prev,
+          evalAuc: e?.message || "Failed to load AUC evaluation tables",
+        }))
+      } finally {
+        setLoading((prev) => ({ ...prev, evalAuc: false }))
+      }
+    },
+    [endpoints, fetchStatus, jobId]
+  )
 
   useEffect(() => {
     // reset completion refresh guard on job change
     hasRefreshedOnCompletion.current = false
-    fetchAll() // silent on initial load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+    fetchAll()
+  }, [fetchAll, jobId])
 
   // Light polling to keep status fresh until a terminal state
   useEffect(() => {
@@ -331,13 +354,281 @@ export function BenchmarkingResults({
       hasRefreshedOnCompletion.current = true
       fetchAll() // silent refresh to load manifest, summaries, and evaluations
     }
-  }, [backendStatus, jobId])
+  }, [backendStatus, fetchAll, jobId])
 
   const allPlots = useMemo(() => {
     const fromManifest = manifest?.plots ?? []
     if (plots && plots.length > 0) return plots
     return fromManifest
   }, [manifest, plots])
+
+  const orderedTools = useMemo(() => {
+    const seen = new Set<string>()
+    const ordered: string[] = []
+
+    const pushValue = (value?: string) => {
+      if (!value) return
+      const normalized = value.trim().toLowerCase()
+      if (!normalized || seen.has(normalized)) return
+      seen.add(normalized)
+      ordered.push(normalized)
+    }
+
+    const configTools = manifest?.config?.tools_to_run
+    if (Array.isArray(configTools)) {
+      configTools.forEach((tool) => pushValue(String(tool ?? "")))
+    }
+
+    prsSummary?.table?.rows?.forEach((row) => {
+      const rawTool = String(
+        (row as SummaryTableRow)?.Tool ?? (row as any)?.tool ?? ""
+      )
+      if (rawTool) pushValue(rawTool)
+    })
+
+    if (prsSummary?.summary?.tool) pushValue(String(prsSummary.summary.tool))
+
+    Object.keys(evalR2?.tables ?? {}).forEach((key) => {
+      const base = key.includes("_") ? key.split("_")[0] : key
+      pushValue(base)
+    })
+
+    Object.keys(evalAUC?.tables ?? {}).forEach((key) => {
+      const base = key.includes("_") ? key.split("_")[0] : key
+      pushValue(base)
+    })
+
+    allPlots.forEach((plot) => {
+      if (plot.tool) pushValue(plot.tool)
+    })
+
+    manifest?.artifacts?.forEach((artifact) => {
+      const reference =
+        `${artifact.name || ""} ${artifact.path || ""}`.toLowerCase()
+      if (reference.includes("prsice")) pushValue("prsice")
+      if (reference.includes("prscsx")) pushValue("prscsx")
+    })
+
+    return ordered
+  }, [allPlots, evalAUC, evalR2, manifest, prsSummary])
+
+  const formatToolDisplay = useCallback((toolId: string) => {
+    const normalized = toolId.toLowerCase()
+    if (normalized === "prsice") return "PRSice"
+    if (normalized === "prscsx") return "PRS-CSx"
+    return formatLabel(toolId)
+  }, [])
+
+  const matchToolId = useCallback(
+    (identifier?: string | null) => {
+      if (!identifier) return null
+      const normalized = identifier.trim().toLowerCase()
+      if (!normalized) return null
+      for (const id of orderedTools) {
+        if (normalized === id) return id
+      }
+      for (const id of orderedTools) {
+        if (normalized.includes(id)) return id
+      }
+      if (orderedTools.length === 0) {
+        const fallback = normalized.split(/[^a-z0-9]+/)[0]
+        return fallback || null
+      }
+      return null
+    },
+    [orderedTools]
+  )
+
+  const summaryTableByTool = useMemo(() => {
+    if (!prsSummary?.table) return {}
+    const map: Record<string, SummaryTableRow[]> = {}
+    prsSummary.table.rows.forEach((row) => {
+      const tool = matchToolId(String(row["Tool"] ?? (row as any)?.tool ?? ""))
+      if (!tool) return
+      if (!map[tool]) map[tool] = []
+      map[tool].push(row)
+    })
+    return map
+  }, [matchToolId, prsSummary])
+
+  const summaryMetricsByTool = useMemo(() => {
+    const map: Record<string, { r2?: string | number; auc?: string | number }> =
+      {}
+    prsSummary?.table?.rows.forEach((row) => {
+      const tool = matchToolId(String(row["Tool"] ?? (row as any)?.tool ?? ""))
+      if (!tool) return
+      map[tool] = {
+        r2: row["R2"] ?? map[tool]?.r2,
+        auc: row["AUC"] ?? map[tool]?.auc,
+      }
+    })
+
+    if (prsSummary?.summary?.tool) {
+      const tool =
+        matchToolId(String(prsSummary.summary.tool)) ??
+        String(prsSummary.summary.tool).toLowerCase()
+      map[tool] = {
+        r2: prsSummary.summary.r2 ?? map[tool]?.r2,
+        auc: prsSummary.summary.auc ?? map[tool]?.auc,
+      }
+    }
+
+    return map
+  }, [matchToolId, prsSummary])
+
+  const evaluationByTool = useMemo(() => {
+    const map: Record<
+      string,
+      { r2: EvaluationTableSection[]; auc: EvaluationTableSection[] }
+    > = {}
+
+    const ensure = (tool: string) => {
+      if (!map[tool]) {
+        map[tool] = { r2: [], auc: [] }
+      }
+      return map[tool]
+    }
+
+    Object.entries(evalR2?.tables ?? {}).forEach(([key, table]) => {
+      const tool =
+        matchToolId(key) ??
+        (key.includes("_")
+          ? key.split("_")[0].toLowerCase()
+          : key.toLowerCase())
+      const bucket = ensure(tool)
+      bucket.r2.push({
+        key,
+        label: formatLabel(key),
+        columns: table.columns,
+        rows: table.rows,
+      })
+    })
+
+    Object.entries(evalAUC?.tables ?? {}).forEach(([key, table]) => {
+      const tool =
+        matchToolId(key) ??
+        (key.includes("_")
+          ? key.split("_")[0].toLowerCase()
+          : key.toLowerCase())
+      const bucket = ensure(tool)
+      bucket.auc.push({
+        key,
+        label: formatLabel(key),
+        columns: table.columns,
+        rows: table.rows,
+      })
+    })
+
+    return map
+  }, [evalAUC, evalR2, matchToolId])
+
+  const plotsByTool = useMemo(() => {
+    const perTool: Record<string, ManifestPlot[]> = {}
+    const shared: ManifestPlot[] = []
+    allPlots.forEach((plot) => {
+      const reference = plot.tool || plot.name || plot.path
+      const tool = matchToolId(reference)
+      if (tool) {
+        if (!perTool[tool]) perTool[tool] = []
+        perTool[tool].push(plot)
+      } else {
+        shared.push(plot)
+      }
+    })
+    return { perTool, shared }
+  }, [allPlots, matchToolId])
+
+  const artifactsByTool = useMemo(() => {
+    const perTool: Record<string, ManifestArtifact[]> = {}
+    const shared: ManifestArtifact[] = []
+    manifest?.artifacts?.forEach((artifact) => {
+      const tool = matchToolId(`${artifact.name ?? ""} ${artifact.path ?? ""}`)
+      if (tool) {
+        if (!perTool[tool]) perTool[tool] = []
+        perTool[tool].push(artifact)
+      } else {
+        shared.push(artifact)
+      }
+    })
+    return { perTool, shared }
+  }, [manifest, matchToolId])
+
+  const linksByTool = useMemo(() => {
+    const perTool: Record<
+      string,
+      Array<{ category: string; name: string; url: string }>
+    > = {}
+    const shared: Array<{ category: string; name: string; url: string }> = []
+
+    if (prsSummary?.links) {
+      Object.entries(prsSummary.links).forEach(([category, files]) => {
+        Object.entries(files).forEach(([name, url]) => {
+          const resolvedUrl = toBackendOrigin(url)
+          const tool =
+            matchToolId(url) ??
+            matchToolId(name) ??
+            matchToolId(category) ??
+            null
+          const entry = { category, name, url: resolvedUrl }
+          if (tool) {
+            if (!perTool[tool]) perTool[tool] = []
+            perTool[tool].push(entry)
+          } else {
+            shared.push(entry)
+          }
+        })
+      })
+    }
+
+    return { perTool, shared }
+  }, [matchToolId, prsSummary, toBackendOrigin])
+
+  const summaryColumns = prsSummary?.table?.columns ?? []
+
+  const hasPerToolArtifacts = useMemo(
+    () =>
+      orderedTools.some(
+        (toolId) => (artifactsByTool.perTool[toolId] ?? []).length > 0
+      ),
+    [artifactsByTool, orderedTools]
+  )
+
+  const timelineEntries = useMemo(() => {
+    if (!statusDetails) return []
+    const entries = [
+      { label: "Created", value: statusDetails.created_at },
+      { label: "Uploaded", value: statusDetails.uploaded_at },
+      { label: "Configured", value: statusDetails.configured_at },
+      { label: "Started", value: statusDetails.started_at },
+      { label: "Completed", value: statusDetails.completed_at },
+    ]
+
+    return entries
+  }, [statusDetails])
+
+  const formatTimelineValue = useCallback((value?: string) => {
+    if (!value) return "Pending"
+    try {
+      return new Date(value).toLocaleString()
+    } catch {
+      return value
+    }
+  }, [])
+
+  const currentTimelineIndex = useMemo(() => {
+    if (timelineEntries.length === 0) return -1
+    const firstIncomplete = timelineEntries.findIndex((entry) => !entry.value)
+    if (firstIncomplete === -1) return timelineEntries.length - 1
+    return firstIncomplete
+  }, [timelineEntries])
+
+  const getEvaluationType = useCallback(
+    (toolId: string) => {
+      const toolConfig = (manifest as any)?.config?.[toolId]
+      return toolConfig?.pre_processing?.options?.evaluation_type ?? null
+    },
+    [manifest]
+  )
 
   const jobStatus = useMemo<{
     label: string
@@ -405,6 +696,80 @@ export function BenchmarkingResults({
     }
   }, [backendStatus, loading])
 
+  function LinkScroller({
+    items,
+  }: {
+    items: Array<{ category: string; name: string; url: string }>
+  }) {
+    const scrollerRef = useRef<HTMLDivElement>(null)
+    const filteredItems = items.filter(({ name, url }) => {
+      if (isLogLike(name) || isLogLike(url)) return false
+      if (isImageLike(undefined, name) || isImageLike(undefined, url))
+        return false
+      return true
+    })
+
+    if (filteredItems.length === 0) return null
+
+    return (
+      <div className="flex w-full items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            scrollerRef.current?.scrollBy({ left: -400, behavior: "smooth" })
+          }
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <div
+          ref={scrollerRef}
+          className="no-scrollbar relative w-full min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        >
+          <div className="inline-flex gap-2 whitespace-nowrap pr-4">
+            {filteredItems.map((item) => (
+              <Button
+                key={`${item.category}-${item.name}`}
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() =>
+                  setPreviewItem({
+                    name: `${formatLabel(item.category)}: ${formatLabel(
+                      item.name
+                    )}`,
+                    url: item.url,
+                  })
+                }
+              >
+                <LinkIcon className="mr-2 h-4 w-4" />
+                {formatLabel(item.category)}: {formatLabel(item.name)}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            scrollerRef.current?.scrollBy({ left: 400, behavior: "smooth" })
+          }
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+      </div>
+    )
+  }
+
+  const tabListClass =
+    "no-scrollbar flex w-full gap-2 overflow-x-auto border-b border-border pb-1 [&::-webkit-scrollbar]:hidden"
+  const tabTriggerClass =
+    "rounded-none border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition data-[state=active]:border-primary data-[state=active]:text-primary"
+
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden">
       {/* Top summary status for loading/errors */}
@@ -464,514 +829,770 @@ export function BenchmarkingResults({
         defaultValue="overview"
         className="w-full min-w-0 overflow-x-hidden overflow-y-hidden"
       >
-        <TabsList className="no-scrollbar grid w-full grid-cols-4 overflow-x-auto overflow-y-hidden">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="prs">PRS Summary</TabsTrigger>
-          <TabsTrigger value="eval">Evaluation</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
+        <TabsList className={tabListClass}>
+          <TabsTrigger
+            className={`${tabTriggerClass} data-[state=active]:bg-primary/60 data-[state=active]:shadow`}
+            value="overview"
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            className={`${tabTriggerClass} data-[state=active]:bg-primary/60 data-[state=active]:shadow`}
+            value="tools"
+          >
+            Tools
+          </TabsTrigger>
+          <TabsTrigger
+            className={`${tabTriggerClass} data-[state=active]:bg-primary/60 data-[state=active]:shadow`}
+            value="files"
+          >
+            Files
+          </TabsTrigger>
         </TabsList>
 
-        {/* Overview */}
         <TabsContent
           value="overview"
           className="w-full min-w-0 space-y-4 overflow-x-hidden"
         >
-          {prsSummary?.summary && (
+          {orderedTools.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Summary Metrics</CardTitle>
               </CardHeader>
               <CardContent>
-                <div
-                  className={`grid grid-cols-1 gap-4 ${
-                    prsSummary.summary.r2 !== undefined &&
-                    prsSummary.summary.r2 !== null &&
-                    `${prsSummary.summary.r2}` !== "" &&
-                    prsSummary.summary.auc !== undefined &&
-                    prsSummary.summary.auc !== null &&
-                    `${prsSummary.summary.auc}` !== ""
-                      ? "sm:grid-cols-3"
-                      : (prsSummary.summary.r2 !== undefined &&
-                            prsSummary.summary.r2 !== null &&
-                            `${prsSummary.summary.r2}` !== "") ||
-                          (prsSummary.summary.auc !== undefined &&
-                            prsSummary.summary.auc !== null &&
-                            `${prsSummary.summary.auc}` !== "")
-                        ? "sm:grid-cols-2"
-                        : "sm:grid-cols-1"
-                  }`}
-                >
-                  <div className="min-w-0 rounded-lg border p-4">
-                    <div className="text-sm text-muted-foreground">Tool</div>
-                    <div className="break-words text-xl font-semibold">
-                      {prsSummary.summary.tool || "-"}
-                    </div>
-                  </div>
-                  {prsSummary.summary.r2 !== undefined &&
-                    prsSummary.summary.r2 !== null &&
-                    `${prsSummary.summary.r2}` !== "" && (
-                      <div className="min-w-0 rounded-lg border p-4">
-                        <div className="text-sm text-muted-foreground">R2</div>
-                        <div className="break-words text-xl font-semibold">
-                          {prsSummary.summary.r2}
-                        </div>
-                      </div>
-                    )}
-                  {prsSummary.summary.auc !== undefined &&
-                    prsSummary.summary.auc !== null &&
-                    `${prsSummary.summary.auc}` !== "" && (
-                      <div className="min-w-0 rounded-lg border p-4">
-                        <div className="text-sm text-muted-foreground">AUC</div>
-                        <div className="break-words text-xl font-semibold">
-                          {prsSummary.summary.auc}
-                        </div>
-                      </div>
-                    )}
-                </div>
-                {prsSummary.links && (
-                  <div className="mt-6 overflow-x-hidden">
-                    <div className="mb-2 text-sm font-medium">Raw files</div>
-                    <div className="flex w-full min-w-0 max-w-full items-center gap-2 overflow-x-hidden">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          rawFilesRef.current?.scrollBy({
-                            left: -400,
-                            behavior: "smooth",
-                          })
-                        }
-                        aria-label="Scroll left"
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </Button>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {orderedTools.map((toolId) => {
+                    const metrics = summaryMetricsByTool[toolId] ?? {}
+                    const evaluationType = getEvaluationType(toolId)
+                    const hasR2 =
+                      metrics.r2 !== undefined &&
+                      metrics.r2 !== null &&
+                      `${metrics.r2}` !== ""
+                    const hasAuc =
+                      metrics.auc !== undefined &&
+                      metrics.auc !== null &&
+                      `${metrics.auc}` !== ""
+                    return (
                       <div
-                        ref={rawFilesRef}
-                        className="no-scrollbar relative w-full min-w-0 max-w-full flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain"
+                        key={toolId}
+                        className="flex flex-col gap-3 rounded-lg border p-4"
                       >
-                        <div className="inline-flex gap-2 whitespace-nowrap pr-4">
-                          {Object.entries(prsSummary.links)
-                            .flatMap(([tool, files]) =>
-                              Object.entries(files).map(([name, url]) => ({
-                                tool,
-                                name,
-                                url,
-                              }))
-                            )
-                            .filter(({ name, url }) => {
-                              // hide logs and image-like files (plots are shown below)
-                              if (isLogLike(name) || isLogLike(url))
-                                return false
-                              if (
-                                isImageLike(undefined, name) ||
-                                isImageLike(undefined, url)
-                              )
-                                return false
-                              return true
-                            })
-                            .map(({ tool, name, url }) => (
-                              <Button
-                                key={`${tool}-${name}`}
-                                variant="outline"
-                                size="sm"
-                                className="shrink-0"
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-xs uppercase text-muted-foreground">
+                              Tool
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {formatToolDisplay(toolId)}
+                            </div>
+                          </div>
+                          {evaluationType && (
+                            <Badge variant="outline" className="uppercase">
+                              {evaluationType}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <div className="text-xs uppercase text-muted-foreground">
+                              R2
+                            </div>
+                            <div className="break-all text-base font-semibold">
+                              {hasR2 ? metrics.r2 : "—"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs uppercase text-muted-foreground">
+                              AUC
+                            </div>
+                            <div className="break-all text-base font-semibold">
+                              {hasAuc ? metrics.auc : "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {timelineEntries.length > 0 && (
+            <Card className="bg-gradient-to-br from-background via-background to-primary/10">
+              <CardHeader>
+                <CardTitle>Run Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                  <ol className="flex min-w-max items-start gap-6">
+                    {timelineEntries.map((entry, index) => {
+                      const isCompleted = Boolean(entry.value)
+                      const isCurrent = index === currentTimelineIndex
+                      const isLast = index === timelineEntries.length - 1
+                      const circleClass = (() => {
+                        if (isCompleted)
+                          return "border-transparent bg-primary text-white shadow-md"
+                        if (isCurrent)
+                          return "border-2 border-primary bg-primary/15 text-primary shadow"
+                        return "border-2 border-dashed border-border bg-muted text-muted-foreground"
+                      })()
+
+                      const labelClass = isCompleted || isCurrent ? "text-primary" : "text-muted-foreground"
+                      const connectorClass = isCompleted
+                        ? "bg-primary"
+                        : isCurrent
+                        ? "bg-primary/70"
+                        : "bg-border"
+
+                      return (
+                        <li key={entry.label} className="relative flex flex-col items-center gap-3">
+                          <div className={`text-xs font-semibold uppercase tracking-[0.2em] ${labelClass}`}>
+                            {entry.label}
+                          </div>
+                          <div className="flex items-center gap-0">
+                            <span
+                              className={`relative grid h-12 w-12 place-items-center rounded-full text-sm font-semibold transition ${circleClass}`}
+                            >
+                              {index + 1}
+                              {isCurrent && (
+                                <span className="absolute inset-[-8px] -z-10 rounded-full bg-primary/20 blur-lg" />
+                              )}
+                            </span>
+                            {!isLast && (
+                              <span
+                                className={`ml-4 h-1 w-24 rounded-full ${connectorClass}`}
+                                aria-hidden
+                              />
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatTimelineValue(entry.value)}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {linksByTool.shared.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Shared Downloads</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LinkScroller items={linksByTool.shared} />
+              </CardContent>
+            </Card>
+          )}
+
+          {plotsByTool.shared.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Shared Plots</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {plotsByTool.shared.map((plot) => (
+                    <button
+                      key={plot.path}
+                      type="button"
+                      className="overflow-hidden rounded-lg border text-left transition hover:shadow"
+                      onClick={() =>
+                        setPreviewItem({
+                          name: plot.name,
+                          url: fileUrlFromPath(plot.path),
+                          contentType: plot.content_type,
+                        })
+                      }
+                    >
+                      <div className="flex items-center justify-between border-b px-4 py-2">
+                        <div className="truncate text-sm font-medium">
+                          {formatLabel(plot.name)}
+                        </div>
+                        {plot.evaluation_type && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs uppercase"
+                          >
+                            {plot.evaluation_type}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="relative aspect-[4/3] bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={fileUrlFromPath(plot.path)}
+                          alt={plot.name}
+                          className="absolute inset-0 h-full w-full object-contain"
+                        />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tools" className="space-y-6">
+          {orderedTools.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>No tool-specific results yet</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Configure and run a benchmarking job to see per-tool summaries
+                here.
+              </CardContent>
+            </Card>
+          ) : (
+            <Tabs defaultValue={orderedTools[0]} className="space-y-4">
+              <TabsList className={tabListClass}>
+                {orderedTools.map((toolId) => (
+                  <TabsTrigger
+                    key={toolId}
+                    value={toolId}
+                    className={`${tabTriggerClass} data-[state=active]:bg-primary/60 data-[state=active]:shadow`}
+                  >
+                    {formatToolDisplay(toolId)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {orderedTools.map((toolId) => {
+                const metrics = summaryMetricsByTool[toolId] ?? {}
+                const tableRows = summaryTableByTool[toolId] ?? []
+                const evaluation = evaluationByTool[toolId] ?? {
+                  r2: [],
+                  auc: [],
+                }
+                const toolPlots = plotsByTool.perTool[toolId] ?? []
+                const toolLinks = linksByTool.perTool[toolId] ?? []
+                const evaluationType = getEvaluationType(toolId)
+                const hasSummaryTable =
+                  tableRows.length > 0 && summaryColumns.length > 0
+                const hasR2 =
+                  metrics.r2 !== undefined &&
+                  metrics.r2 !== null &&
+                  `${metrics.r2}` !== ""
+                const hasAuc =
+                  metrics.auc !== undefined &&
+                  metrics.auc !== null &&
+                  `${metrics.auc}` !== ""
+
+                return (
+                  <TabsContent
+                    key={toolId}
+                    value={toolId}
+                    className="space-y-6"
+                  >
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex flex-wrap items-center gap-3">
+                          <span>{formatToolDisplay(toolId)} Overview</span>
+                          {evaluationType && (
+                            <Badge variant="outline" className="uppercase">
+                              {evaluationType}
+                            </Badge>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="rounded border p-4">
+                            <div className="text-xs uppercase text-muted-foreground">
+                              R2
+                            </div>
+                            <div className="break-all text-lg font-semibold">
+                              {hasR2 ? metrics.r2 : "—"}
+                            </div>
+                          </div>
+                          <div className="rounded border p-4">
+                            <div className="text-xs uppercase text-muted-foreground">
+                              AUC
+                            </div>
+                            <div className="break-all text-lg font-semibold">
+                              {hasAuc ? metrics.auc : "—"}
+                            </div>
+                          </div>
+                          {statusDetails?.progress?.timestamp && (
+                            <div className="rounded border p-4">
+                              <div className="text-xs uppercase text-muted-foreground">
+                                Updated
+                              </div>
+                              <div className="text-lg font-semibold">
+                                {new Date(
+                                  statusDetails.progress.timestamp
+                                ).toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {toolLinks.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium">
+                              Quick Downloads
+                            </div>
+                            <LinkScroller items={toolLinks} />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {hasSummaryTable && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Summary Table</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="w-full overflow-x-auto">
+                            <table className="min-w-full border text-sm">
+                              <thead className="bg-muted/40">
+                                <tr>
+                                  {summaryColumns.map((col) => (
+                                    <th
+                                      key={col}
+                                      className="border px-3 py-2 text-left font-medium"
+                                    >
+                                      {col}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tableRows.map((row, idx) => (
+                                  <tr key={idx} className="odd:bg-muted/10">
+                                    {summaryColumns.map((col) => (
+                                      <td
+                                        key={col}
+                                        className="border px-3 py-2"
+                                      >
+                                        {String(row[col] ?? "")}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {evaluation.r2.length > 0 &&
+                      evaluation.r2.map((section) => (
+                        <Card key={`r2-${section.key}`}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                R2
+                              </Badge>
+                              <span>{formatLabel(section.label)}</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="w-full overflow-x-auto">
+                              <table className="min-w-full border text-sm">
+                                <thead className="bg-muted/40">
+                                  <tr>
+                                    {section.columns.map((col) => (
+                                      <th
+                                        key={col}
+                                        className="border px-3 py-2 text-left font-medium"
+                                      >
+                                        {col}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {section.rows.map((row, idx) => (
+                                    <tr key={idx} className="odd:bg-muted/10">
+                                      {section.columns.map((col) => (
+                                        <td
+                                          key={col}
+                                          className="border px-3 py-2"
+                                        >
+                                          {String(row[col] ?? "")}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                    {evaluation.auc.length > 0 &&
+                      evaluation.auc.map((section) => (
+                        <Card key={`auc-${section.key}`}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                AUC
+                              </Badge>
+                              <span>{formatLabel(section.label)}</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="w-full overflow-x-auto">
+                              <table className="min-w-full border text-sm">
+                                <thead className="bg-muted/40">
+                                  <tr>
+                                    {section.columns.map((col) => (
+                                      <th
+                                        key={col}
+                                        className="border px-3 py-2 text-left font-medium"
+                                      >
+                                        {col}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {section.rows.map((row, idx) => (
+                                    <tr key={idx} className="odd:bg-muted/10">
+                                      {section.columns.map((col) => (
+                                        <td
+                                          key={col}
+                                          className="border px-3 py-2"
+                                        >
+                                          {String(row[col] ?? "")}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                    {toolPlots.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Plots</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {toolPlots.map((plot) => (
+                              <button
+                                key={plot.path}
+                                type="button"
+                                className="overflow-hidden rounded-lg border text-left transition hover:shadow"
                                 onClick={() =>
                                   setPreviewItem({
-                                    name: `${formatLabel(tool)}: ${formatLabel(name)}`,
-                                    url: toBackendOrigin(url),
+                                    name: plot.name,
+                                    url: fileUrlFromPath(plot.path),
+                                    contentType: plot.content_type,
                                   })
                                 }
                               >
-                                <LinkIcon className="mr-2 h-4 w-4" />{" "}
-                                {formatLabel(tool)}: {formatLabel(name)}
-                              </Button>
+                                <div className="flex items-center justify-between border-b px-4 py-2">
+                                  <div className="truncate text-sm font-medium">
+                                    {formatLabel(plot.name)}
+                                  </div>
+                                  {plot.evaluation_type && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs uppercase"
+                                    >
+                                      {plot.evaluation_type}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="relative aspect-[4/3] bg-muted">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={fileUrlFromPath(plot.path)}
+                                    alt={plot.name}
+                                    className="absolute inset-0 h-full w-full object-contain"
+                                  />
+                                </div>
+                              </button>
                             ))}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          rawFilesRef.current?.scrollBy({
-                            left: 400,
-                            behavior: "smooth",
-                          })
-                        }
-                        aria-label="Scroll right"
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Remove incorrect inline useMemo and render when computed plots available */}
-          {allPlots.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Plots</CardTitle>
-              </CardHeader>
-              <CardContent className="w-full">
-                <div className="max-h-[40rem] w-full overflow-y-auto">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {allPlots.map((p) => {
-                      const clickable =
-                        isImageLike(p.content_type, p.name) || p.is_previewable
-                      const commonHandlers = clickable
-                        ? {
-                            onClick: () =>
-                              setPreviewItem({
-                                name: p.name,
-                                url: fileUrlFromPath(p.path),
-                                contentType: p.content_type || "image/*",
-                              }),
-                            onKeyDown: (
-                              e: React.KeyboardEvent<HTMLDivElement>
-                            ) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault()
-                                setPreviewItem({
-                                  name: p.name,
-                                  url: fileUrlFromPath(p.path),
-                                  contentType: p.content_type || "image/*",
-                                })
-                              }
-                            },
-                          }
-                        : {}
-                      return (
-                        <div
-                          key={p.path}
-                          className={`overflow-hidden rounded-lg border ${
-                            clickable
-                              ? "cursor-pointer transition focus-within:ring-2 focus-within:ring-ring hover:shadow-sm"
-                              : "cursor-not-allowed opacity-60"
-                          }`}
-                          role={clickable ? "button" : undefined}
-                          tabIndex={clickable ? 0 : -1}
-                          aria-label={`Open ${p.name}`}
-                          aria-disabled={!clickable}
-                          {...commonHandlers}
-                        >
-                          <div className="flex items-center justify-between border-b p-2 text-sm">
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <ImageIcon className="h-4 w-4 shrink-0" />
-                              <span
-                                className="truncate"
-                                title={`${p.name}${p.evaluation_type ? ` (${p.evaluation_type})` : ""}`}
-                              >
-                                {p.name}
-                                {p.evaluation_type
-                                  ? ` (${p.evaluation_type})`
-                                  : ""}
-                              </span>
-                            </div>
                           </div>
-                          {/* Image wrapper with consistent aspect ratio to avoid squished look */}
-                          <div className="relative aspect-[4/3] bg-muted">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={fileUrlFromPath(p.path)}
-                              alt={p.name}
-                              className="absolute inset-0 h-full w-full object-contain"
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+                )
+              })}
+            </Tabs>
           )}
         </TabsContent>
 
-        {/* PRS Summary */}
-        <TabsContent value="prs">
-          <Card>
-            <CardHeader>
-              <CardTitle>PRS Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading.summary ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading PRS
-                  summary...
-                </div>
-              ) : prsSummary?.table ? (
-                <div className="w-full overflow-x-auto">
-                  <table className="min-w-full border text-sm">
-                    <thead className="bg-muted/40">
-                      <tr>
-                        {prsSummary.table.columns.map((col) => (
-                          <th
-                            key={col}
-                            className="border px-3 py-2 text-left font-medium"
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {prsSummary.table.rows.map((row, idx) => (
-                        <tr key={idx} className="odd:bg-muted/10">
-                          {prsSummary.table!.columns.map((col) => (
-                            <td key={col} className="border px-3 py-2">
-                              {String(row[col] ?? "")}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No PRS summary available.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Evaluation (R2 and AUC together) */}
-        <TabsContent value="eval" className="space-y-6">
-          {/* R2 Section */}
-          {loading.eval ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Loading R2 tables
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          ) : evalR2?.tables && Object.keys(evalR2.tables).length > 0 ? (
-            Object.entries(evalR2.tables).map(([tool, table]) => (
-              <Card key={`r2-${tool}`}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {tool}
-                    </Badge>
-                    <span>R2 Evaluation</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="w-full overflow-x-auto">
-                    <table className="min-w-full border text-sm">
-                      <thead className="bg-muted/40">
-                        <tr>
-                          {table.columns.map((col) => (
-                            <th
-                              key={col}
-                              className="border px-3 py-2 text-left font-medium"
-                            >
-                              {col}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {table.rows.map((row, idx) => (
-                          <tr key={idx} className="odd:bg-muted/10">
-                            {table.columns.map((col) => (
-                              <td key={col} className="border px-3 py-2">
-                                {String(row[col] ?? "")}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>R2 Evaluation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  No R2 results found.
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* AUC Section */}
-          {loading.evalAuc ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Loading AUC
-                  tables
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          ) : evalAUC?.tables && Object.keys(evalAUC.tables).length > 0 ? (
-            Object.entries(evalAUC.tables).map(([tool, table]) => (
-              <Card key={`auc-${tool}`}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {tool}
-                    </Badge>
-                    <span>AUC Evaluation</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="w-full overflow-x-auto">
-                    <table className="min-w-full border text-sm">
-                      <thead className="bg-muted/40">
-                        <tr>
-                          {table.columns.map((col) => (
-                            <th
-                              key={col}
-                              className="border px-3 py-2 text-left font-medium"
-                            >
-                              {col}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {table.rows.map((row, idx) => (
-                          <tr key={idx} className="odd:bg-muted/10">
-                            {table.columns.map((col) => (
-                              <td key={col} className="border px-3 py-2">
-                                {String(row[col] ?? "")}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>AUC Evaluation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  No AUC results found.
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Files */}
         <TabsContent value="files">
           <Card>
             <CardHeader>
               <CardTitle>Artifacts</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {loading.manifest ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading
                   manifest...
                 </div>
-              ) : manifest?.artifacts && manifest.artifacts.length > 0 ? (
-                <div className="w-full overflow-x-auto">
-                  <table className="min-w-full border text-sm">
-                    <thead className="bg-muted/40">
-                      <tr>
-                        <th className="border px-3 py-2 text-left">Name</th>
-                        <th className="border px-3 py-2 text-left">Type</th>
-                        <th className="border px-3 py-2 text-left">
-                          Size (bytes)
-                        </th>
-                        <th className="border px-3 py-2 text-left">
-                          Last modified
-                        </th>
-                        <th className="border px-3 py-2 text-left">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {manifest.artifacts.map((a) => (
-                        <tr key={a.path} className="odd:bg-muted/10">
-                          <td className="border px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              {a.content_type?.startsWith("image/") ? (
-                                <ImageIcon className="h-4 w-4" />
-                              ) : (
-                                <FileTextIcon className="h-4 w-4" />
-                              )}
-                              <span className="truncate" title={a.name}>
-                                {a.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="border px-3 py-2">
-                            <Badge variant="outline" className="text-xs">
-                              {a.content_type || ""}
-                            </Badge>
-                          </td>
-                          <td className="border px-3 py-2">{a.size}</td>
-                          <td className="border px-3 py-2">
-                            {a.last_modified
-                              ? new Date(a.last_modified).toLocaleString()
-                              : ""}
-                          </td>
-                          <td className="border px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={
-                                  !(
-                                    a.is_previewable ||
-                                    a.content_type?.startsWith("image/")
-                                  )
-                                }
-                                onClick={() => {
-                                  if (
-                                    a.is_previewable ||
-                                    a.content_type?.startsWith("image/")
-                                  )
-                                    setPreviewItem({
-                                      name: a.name,
-                                      url: fileUrlFromPath(a.path),
-                                      contentType: a.content_type,
-                                    })
-                                }}
+              ) : hasPerToolArtifacts || artifactsByTool.shared.length > 0 ? (
+                <>
+                  {orderedTools.map((toolId) => {
+                    const toolArtifacts = artifactsByTool.perTool[toolId] ?? []
+                    if (toolArtifacts.length === 0) return null
+                    return (
+                      <div key={toolId} className="space-y-2">
+                        <div className="text-sm font-semibold">
+                          {formatToolDisplay(toolId)}
+                        </div>
+                        <div className="max-h-64 w-full overflow-x-auto overflow-y-auto">
+                          <table className="min-w-full border text-sm">
+                            <thead className="bg-muted/40">
+                              <tr>
+                                <th className="border px-3 py-2 text-left">
+                                  Name
+                                </th>
+                                <th className="border px-3 py-2 text-left">
+                                  Type
+                                </th>
+                                <th className="border px-3 py-2 text-left">
+                                  Size (bytes)
+                                </th>
+                                <th className="border px-3 py-2 text-left">
+                                  Last modified
+                                </th>
+                                <th className="border px-3 py-2 text-left">
+                                  Action
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {toolArtifacts.map((artifact) => (
+                                <tr
+                                  key={artifact.path}
+                                  className="odd:bg-muted/10"
+                                >
+                                  <td className="border px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      {artifact.content_type?.startsWith(
+                                        "image/"
+                                      ) ? (
+                                        <ImageIcon className="h-4 w-4" />
+                                      ) : (
+                                        <FileTextIcon className="h-4 w-4" />
+                                      )}
+                                      <span
+                                        className="truncate"
+                                        title={artifact.name}
+                                      >
+                                        {artifact.name}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="border px-3 py-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {artifact.content_type || ""}
+                                    </Badge>
+                                  </td>
+                                  <td className="border px-3 py-2">
+                                    {artifact.size}
+                                  </td>
+                                  <td className="border px-3 py-2">
+                                    {artifact.last_modified
+                                      ? new Date(
+                                          artifact.last_modified
+                                        ).toLocaleString()
+                                      : ""}
+                                  </td>
+                                  <td className="border px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                          !(
+                                            artifact.is_previewable ||
+                                            artifact.content_type?.startsWith(
+                                              "image/"
+                                            )
+                                          )
+                                        }
+                                        onClick={() => {
+                                          if (
+                                            artifact.is_previewable ||
+                                            artifact.content_type?.startsWith(
+                                              "image/"
+                                            )
+                                          ) {
+                                            setPreviewItem({
+                                              name: artifact.name,
+                                              url: fileUrlFromPath(
+                                                artifact.path
+                                              ),
+                                              contentType:
+                                                artifact.content_type,
+                                            })
+                                          }
+                                        }}
+                                      >
+                                        Open
+                                      </Button>
+                                      <a
+                                        href={
+                                          fileUrlFromPath(artifact.path) +
+                                          (fileUrlFromPath(
+                                            artifact.path
+                                          ).includes("?")
+                                            ? "&"
+                                            : "?") +
+                                          "download=true"
+                                        }
+                                        download
+                                      >
+                                        <Button size="sm" variant="ghost">
+                                          <Download className="mr-2 h-4 w-4" />{" "}
+                                          Download
+                                        </Button>
+                                      </a>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {artifactsByTool.shared.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Shared</div>
+                      <div className="max-h-64 w-full overflow-x-auto overflow-y-auto">
+                        <table className="min-w-full border text-sm">
+                          <thead className="bg-muted/40">
+                            <tr>
+                              <th className="border px-3 py-2 text-left">
+                                Name
+                              </th>
+                              <th className="border px-3 py-2 text-left">
+                                Type
+                              </th>
+                              <th className="border px-3 py-2 text-left">
+                                Size (bytes)
+                              </th>
+                              <th className="border px-3 py-2 text-left">
+                                Last modified
+                              </th>
+                              <th className="border px-3 py-2 text-left">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {artifactsByTool.shared.map((artifact) => (
+                              <tr
+                                key={artifact.path}
+                                className="odd:bg-muted/10"
                               >
-                                Open
-                              </Button>
-                              <a
-                                href={
-                                  fileUrlFromPath(a.path) +
-                                  (fileUrlFromPath(a.path).includes("?")
-                                    ? "&"
-                                    : "?") +
-                                  "download=true"
-                                }
-                                download
-                              >
-                                <Button size="sm" variant="ghost">
-                                  <Download className="mr-2 h-4 w-4" /> Download
-                                </Button>
-                              </a>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                                <td className="border px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    {artifact.content_type?.startsWith(
+                                      "image/"
+                                    ) ? (
+                                      <ImageIcon className="h-4 w-4" />
+                                    ) : (
+                                      <FileTextIcon className="h-4 w-4" />
+                                    )}
+                                    <span
+                                      className="truncate"
+                                      title={artifact.name}
+                                    >
+                                      {artifact.name}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="border px-3 py-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {artifact.content_type || ""}
+                                  </Badge>
+                                </td>
+                                <td className="border px-3 py-2">
+                                  {artifact.size}
+                                </td>
+                                <td className="border px-3 py-2">
+                                  {artifact.last_modified
+                                    ? new Date(
+                                        artifact.last_modified
+                                      ).toLocaleString()
+                                    : ""}
+                                </td>
+                                <td className="border px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={
+                                        !(
+                                          artifact.is_previewable ||
+                                          artifact.content_type?.startsWith(
+                                            "image/"
+                                          )
+                                        )
+                                      }
+                                      onClick={() => {
+                                        if (
+                                          artifact.is_previewable ||
+                                          artifact.content_type?.startsWith(
+                                            "image/"
+                                          )
+                                        ) {
+                                          setPreviewItem({
+                                            name: artifact.name,
+                                            url: fileUrlFromPath(artifact.path),
+                                            contentType: artifact.content_type,
+                                          })
+                                        }
+                                      }}
+                                    >
+                                      Open
+                                    </Button>
+                                    <a
+                                      href={
+                                        fileUrlFromPath(artifact.path) +
+                                        (fileUrlFromPath(
+                                          artifact.path
+                                        ).includes("?")
+                                          ? "&"
+                                          : "?") +
+                                        "download=true"
+                                      }
+                                      download
+                                    >
+                                      <Button size="sm" variant="ghost">
+                                        <Download className="mr-2 h-4 w-4" />{" "}
+                                        Download
+                                      </Button>
+                                    </a>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-sm text-muted-foreground">
                   No artifacts found.
@@ -981,7 +1602,6 @@ export function BenchmarkingResults({
           </Card>
         </TabsContent>
       </Tabs>
-
       {/* Preview Dialog */}
       <Dialog
         open={!!previewItem}

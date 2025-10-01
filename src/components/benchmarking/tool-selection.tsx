@@ -27,7 +27,7 @@ const toolOptions = [
     description:
       "Polygenic Risk Score software for cross-population polygenic prediction",
     category: "PRS Tools",
-    supported: false,
+    supported: true,
   },
   {
     id: "bridgeprs",
@@ -35,7 +35,7 @@ const toolOptions = [
     description:
       "Bridging polygenic risk scores across populations using transfer learning",
     category: "PRS Tools",
-    supported: false,
+    supported: true,
   },
   {
     id: "sdprx",

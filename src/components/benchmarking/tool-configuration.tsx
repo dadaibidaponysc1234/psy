@@ -1,169 +1,97 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import axios from "axios"
+import { toast } from "react-hot-toast"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card"
+  useBenchmarkingStore,
+} from "@/stores/benchmarking-store"
+import { getBenchmarkConfigUrl } from "@/lib/config"
+
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+  PrsiceToolConfiguration,
+} from "@/components/benchmarking/tool-configuration/PrsiceToolConfiguration"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { ChevronDown, ChevronRight, Eye, Loader2, Info } from "lucide-react"
-import { useBenchmarkingStore } from "@/stores/benchmarking-store"
-import axios from "axios"
-import { getBenchmarkPreviewUrl, getBenchmarkConfigUrl } from "@/lib/config"
-import { toast } from "react-hot-toast"
-
-// Type definitions
-interface ColumnMapping {
-  [prsField: string]: string
-}
-
-interface PhenotypeConfig {
-  target_population: {
-    binary_traits: string[]
-    quantitative_traits: string[]
-  }
-  source_population: {
-    binary_traits: string[]
-    quantitative_traits: string[]
-  }
-}
-
-interface GenotypeConfig {
-  file_type: "merged" | "split_by_chromosome"
-  population_reference: "target_population" | "source_population"
-  file_patterns: {
-    bed: string
-    bim: string
-    fam: string
-  }
-}
-
-interface ProcessingOptions {
-  evaluation_type?: "both" | "binary" | "quantitative"
-  process_binary_phenotypes: boolean
-  process_quantitative_phenotypes: boolean
-  skip_missing_columns: boolean
-  overwrite_existing: boolean
-}
-
-// Tool-specific processing options configuration
-const BASE_PROCESSING_OPTIONS: [keyof ProcessingOptions, string][] = [
-  ["skip_missing_columns", "Skip missing columns"],
-  ["overwrite_existing", "Overwrite existing outputs"],
-]
-
-const TOOL_PROCESSING_OPTIONS: Record<
-  string,
-  [keyof ProcessingOptions, string][]
-> = {
-  PRSice: BASE_PROCESSING_OPTIONS,
-}
-
-interface ToolConfig {
-  target_population: {
-    name: string
-    sumstats_path: string
-    genotype_path: string
-    phenotype_path: string
-  }
-  source_population: {
-    name: string
-    sumstats_path: string
-    genotype_path: string
-    phenotype_path: string
-  }
-  output_dir: string
-  column_mappings: ColumnMapping
-  phenotype_config: PhenotypeConfig
-  genotype_config: GenotypeConfig
-  options: ProcessingOptions
-}
+  PrscsxToolConfiguration,
+} from "@/components/benchmarking/tool-configuration/PrscsxToolConfiguration"
+import type {
+  PrsicePreProcessingConfig,
+  PrscsxPreProcessingConfig,
+  ToolPreProcessingConfig,
+  PrsicePhenotypePopulationConfig,
+  ProcessingOptions,
+  PrscsxColumnKey,
+  EvaluationType,
+  PrscsxProcessingState,
+  PrscsxProcessingPayload,
+} from "@/components/benchmarking/tool-configuration/types"
 
 interface ToolConfigurationProps {
   onNext: (data: {
-    configs: Record<string, ToolConfig>
+    configs: Record<string, ToolPreProcessingConfig>
     submitted: boolean
     jobId: string
     timestamp: string
   }) => void
   onPrevious?: () => void
-  data?: Record<string, ToolConfig>
+  data?: Record<string, ToolPreProcessingConfig>
   toolsData?: any
   mappingData?: any
 }
 
-// Tool-specific column mapping requirements (currently only PRSice)
-const TOOL_COLUMN_REQUIREMENTS: Record<string, string[]> = {
-  PRSice: ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"],
+const TOOL_LABELS: Record<string, string> = {
+  prsice: "PRSice",
+  prscsx: "PRScsx",
+  bridgeprs: "BridgePRS",
 }
 
-// Helper function to get requirements case-insensitively
-const getToolRequirements = (toolName: string): string[] => {
-  const normalizedToolName = Object.keys(TOOL_COLUMN_REQUIREMENTS).find(
-    (key) => key.toLowerCase() === toolName.toLowerCase()
-  )
-  return normalizedToolName ? TOOL_COLUMN_REQUIREMENTS[normalizedToolName] : []
+const PRSICE_REQUIRED_COLUMNS = [
+  "SNP",
+  "CHR",
+  "BP",
+  "A1",
+  "A2",
+  "BETA",
+  "P",
+]
+
+const PRSCsx_REQUIRED_COLUMNS: PrscsxColumnKey[] = [
+  "SNP",
+  "A1",
+  "A2",
+  "BETA",
+  "P",
+]
+
+const DEFAULT_PROCESSING_OPTIONS: ProcessingOptions = {
+  evaluation_type: "both",
+  process_binary_phenotypes: true,
+  process_quantitative_phenotypes: true,
+  skip_missing_columns: false,
+  overwrite_existing: false,
 }
 
-// Constants for column mapping auto-selection
-const COLUMN_MAPPING: Record<string, string[]> = {
-  SNP: ["SNP", "RSID", "RS", "ID", "MARKERNAME", "VARIANT_ID", "SNP_ID"],
-  CHR: ["CHR", "CHROMOSOME", "#CHROM", "CHROM"],
-  BP: [
-    "BP",
-    "POS",
-    "PS",
-    "POSITION",
-    "BP_HG19",
-    "BP_HG38",
-    "CHR_POSB36",
-    "BASE_PAIR_LOCATION",
-  ],
-  A1: ["A1", "ALLELE1", "EFFECT_ALLELE", "ALTERNATE_ALLELE", "ALT"],
-  A2: [
-    "A2",
-    "ALLELE2",
-    "ALLELE0",
-    "NONEFFECT_ALLELE",
-    "REFERENCE_ALLELE",
-    "REF",
-  ],
-  BETA: [
-    "BETA",
-    "B",
-    "EFFECT",
-    "LOG_ODDS",
-    "ESTIMATE",
-    "LOG_ODDS",
-    "EFFECT_SIZE",
-  ],
-  P: ["P", "PVAL", "P_VALUE", "P_DGC", "P_WALD"],
+const DEFAULT_PRSICE_PHENOTYPE: PrsicePhenotypePopulationConfig = {
+  binary_traits: [],
+  quantitative_traits: [],
 }
 
-// Preview data interface
-interface FilePreview {
-  filename: string
-  preview_lines: string[]
+const isPrsice = (toolId: string) => toolId.toLowerCase() === "prsice"
+const isPrscsx = (toolId: string) => toolId.toLowerCase() === "prscsx"
+const isBridgeprs = (toolId: string) => toolId.toLowerCase() === "bridgeprs"
+
+type ProcessingModeKey = keyof PrscsxProcessingState
+
+const safeStringify = (value: unknown) => {
+  try {
+    return JSON.stringify(value)
+  } catch (error) {
+    return ""
+  }
 }
 
 export function ToolConfiguration({
@@ -175,562 +103,1169 @@ export function ToolConfiguration({
 }: ToolConfigurationProps) {
   const { jobId, stepData, setStepData } = useBenchmarkingStore()
 
-  // Selected tools come from props or fallback to store
-  const selectedTools: string[] =
-    toolsData?.selectedTools || stepData["tools"]?.selectedTools || []
+  const selectedTools: string[] = useMemo(() => {
+    const fromTools = toolsData?.selectedTools
+    const fromStore = stepData["tools"]?.selectedTools
+    return (fromTools ?? fromStore ?? []) as string[]
+  }, [toolsData, stepData])
 
-  const [activeTab, setActiveTab] = useState<string>(selectedTools[0] || "")
-  const [configs, setConfigs] = useState<Record<string, ToolConfig>>({})
+  const normalizedTools = useMemo(
+    () => selectedTools.map((tool) => tool.toLowerCase()),
+    [selectedTools]
+  )
 
-  // Column mapping state
-  const [previews, setPreviews] = useState<Record<string, FilePreview>>({})
-  const [loadingPreviews, setLoadingPreviews] = useState<
-    Record<string, boolean>
-  >({})
-  const [previewErrors, setPreviewErrors] = useState<
-    Record<string, string | null>
-  >({})
-  const [expandedSections, setExpandedSections] = useState<
-    Record<string, string[]>
-  >({})
+  const [activeTab, setActiveTab] = useState<string>(normalizedTools[0] || "")
+  const [configs, setConfigs] = useState<Record<string, ToolPreProcessingConfig>>({})
+  const [processingConfigs, setProcessingConfigs] =
+    useState<Record<string, PrscsxProcessingState>>({})
+  const [evaluationType, setEvaluationType] = useState<EvaluationType>(
+    DEFAULT_PROCESSING_OPTIONS.evaluation_type
+  )
+  const initializedSignatureRef = useRef<string | null>(null)
 
-  // Phenotype preview state: per tool per population
-  const [phenotypeHeaders, setPhenotypeHeaders] = useState<
-    Record<string, { target: string[]; source: string[] }>
-  >({})
-  const [loadingPhenotypes, setLoadingPhenotypes] = useState<
-    Record<string, { target: boolean; source: boolean }>
-  >({})
-  const [phenotypeErrors, setPhenotypeErrors] = useState<
-    Record<string, { target?: string | null; source?: string | null }>
-  >({})
+  const initializationSignature = useMemo(() => {
+    const toolsKey = normalizedTools.join("|") || "__none__"
+    const jobKey = jobId ?? "__no_job__"
+    const dataKey = safeStringify(data ?? {})
+    const mappingKey = safeStringify(mappingData?.configData ?? {})
+    return `${jobKey}::${toolsKey}::${dataKey}::${mappingKey}`
+  }, [normalizedTools, jobId, data, mappingData])
 
-  // Initialize configurations for each tool
   useEffect(() => {
-    if (selectedTools.length > 0 && !activeTab) {
-      setActiveTab(selectedTools[0])
+    if (normalizedTools.length > 0 && !normalizedTools.includes(activeTab)) {
+      setActiveTab(normalizedTools[0])
     }
-  }, [selectedTools, activeTab])
+  }, [normalizedTools, activeTab])
 
-  useEffect(() => {
-    const initialConfigs: Record<string, ToolConfig> = {}
+  const configStorageKey = jobId ? `tool_config_${jobId}` : undefined
+  const processingStorageKey = jobId
+    ? `tool_processing_config_${jobId}`
+    : undefined
 
-    selectedTools.forEach((tool: string) => {
-      if (data?.[tool]) {
-        initialConfigs[tool] = data[tool]
-      } else if (mappingData?.configData?.[tool]) {
-        const mappingConfig = mappingData.configData[tool]
-        initialConfigs[tool] = {
-          ...mappingConfig,
-          output_dir: `results/preprocessed_data/preprocessed_${tool.toLowerCase()}_output`,
-          column_mappings: {},
-          phenotype_config: {
-            target_population: { binary_traits: [], quantitative_traits: [] },
-            source_population: { binary_traits: [], quantitative_traits: [] },
-          },
-          genotype_config: {
-            file_type: "merged",
-            population_reference: "target_population",
-            file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
-          },
-          options: {
-            evaluation_type: "both",
-            process_binary_phenotypes: true,
-            process_quantitative_phenotypes: true,
-            skip_missing_columns: false,
-            overwrite_existing: false,
-          },
-        }
-      } else {
-        initialConfigs[tool] = {
+  const storedConfigs = useMemo(() => {
+    if (!configStorageKey) return {} as Record<string, ToolPreProcessingConfig>
+    return (
+      (stepData[configStorageKey] as Record<string, ToolPreProcessingConfig>) ||
+      {}
+    )
+  }, [configStorageKey, stepData])
+
+  const storedProcessingConfigs = useMemo(() => {
+    if (!processingStorageKey)
+      return {} as Record<string, PrscsxProcessingState>
+    return (
+      (stepData[processingStorageKey] as Record<string, PrscsxProcessingState>) ||
+      {}
+    )
+  }, [processingStorageKey, stepData])
+
+  const buildInitialConfig = React.useCallback(
+    (toolId: string): ToolPreProcessingConfig | null => {
+      const key = toolId.toLowerCase()
+      const fromData = data?.[key]
+      const fromStore = storedConfigs?.[key]
+
+      if (fromData) return fromData
+      if (fromStore) return fromStore
+
+      const mappingConfig = mappingData?.configData?.[key]
+
+      if (isPrsice(key)) {
+        if (!mappingConfig) return null
+        const source = mappingConfig.source_population || {}
+        const target = mappingConfig.target_population || {}
+
+        const base: PrsicePreProcessingConfig = {
           target_population: {
-            name: mappingData?.populationNames?.targetPopulation || "",
-            sumstats_path: "",
-            genotype_path: "",
-            phenotype_path: "",
+            name: target.name || "",
+            sumstats_path: target.sumstats_path || "",
+            genotype_path: target.genotype_path || "",
+            phenotype_path: target.phenotype_path || "",
           },
           source_population: {
-            name: mappingData?.populationNames?.sourcePopulation || "",
-            sumstats_path: "",
-            genotype_path: "",
-            phenotype_path: "",
+            name: source.name || "",
+            sumstats_path: source.sumstats_path || "",
+            genotype_path: source.genotype_path || "",
+            phenotype_path: source.phenotype_path || "",
           },
-          output_dir: `results/preprocessed_data/preprocessed_${tool.toLowerCase()}_output`,
-          column_mappings: {},
+          output_dir: `results/preprocessed_data/preprocessed_${key}_output`,
+          column_mappings: mappingConfig.column_mappings || {},
           phenotype_config: {
-            target_population: { binary_traits: [], quantitative_traits: [] },
-            source_population: { binary_traits: [], quantitative_traits: [] },
+            target_population:
+              mappingConfig.phenotype_config?.target_population ||
+              { ...DEFAULT_PRSICE_PHENOTYPE },
+            source_population:
+              mappingConfig.phenotype_config?.source_population ||
+              { ...DEFAULT_PRSICE_PHENOTYPE },
           },
           genotype_config: {
-            file_type: "merged",
-            population_reference: "target_population",
-            file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
+            file_type: mappingConfig.genotype_config?.file_type || "merged",
+            population_reference:
+              mappingConfig.genotype_config?.population_reference ||
+              "target_population",
+            file_patterns: {
+              bed: mappingConfig.genotype_config?.file_patterns?.bed || "*.bed",
+              bim: mappingConfig.genotype_config?.file_patterns?.bim || "*.bim",
+              fam: mappingConfig.genotype_config?.file_patterns?.fam || "*.fam",
+            },
           },
           options: {
-            process_binary_phenotypes: true,
-            process_quantitative_phenotypes: true,
-            skip_missing_columns: false,
-            overwrite_existing: false,
+            ...DEFAULT_PROCESSING_OPTIONS,
+            ...mappingConfig.options,
           },
         }
+
+        return base
+      }
+
+      if (isPrscsx(key)) {
+        const preProcessing = mappingConfig?.pre_processing
+        if (!preProcessing) return null
+
+        const populations = Array.isArray(preProcessing.populations)
+          ? preProcessing.populations.map((population: any) => ({
+              name: population.name || "",
+              type: population.type,
+              sumstats_path: population.sumstats_path || "",
+              genotype_path: population.genotype_path || "",
+              phenotype_path: population.phenotype_path || "",
+              covariate_path: population.covariate_path || "",
+            }))
+          : []
+
+        const defaultPhenotypeConfig = populations.reduce(
+          (acc: Record<string, PrsicePhenotypePopulationConfig>, population) => {
+            acc[population.name] = {
+              binary_traits: [],
+              quantitative_traits: [],
+            }
+            return acc
+          },
+          {} as Record<string, PrsicePhenotypePopulationConfig>
+        )
+
+        const base: PrscsxPreProcessingConfig = {
+          populations,
+          column_mappings: {
+            by_population:
+              preProcessing.column_mappings?.by_population ||
+              populations.reduce(
+                (
+                  acc: Record<string, Record<PrscsxColumnKey, string>>,
+                  population
+                ) => {
+                  acc[population.name] = {}
+                  return acc
+                },
+                {} as Record<string, Record<PrscsxColumnKey, string>>
+              ),
+          },
+          phenotype_config: {
+            by_population:
+              preProcessing.phenotype_config?.by_population ||
+              defaultPhenotypeConfig,
+            covariate_id_mapping:
+              preProcessing.phenotype_config?.covariate_id_mapping || {
+                fid: "",
+                iid: "",
+              },
+          },
+          genotype_config: {
+            file_type: preProcessing.genotype_config?.file_type || "merged",
+          },
+          options: {
+            ...DEFAULT_PROCESSING_OPTIONS,
+            ...preProcessing.options,
+          },
+          output_dir:
+            preProcessing.output_dir ||
+            `results/preprocessed_data/preprocessed_${key}_output`,
+      }
+
+      return base
+    }
+
+      if (isBridgeprs(key)) {
+        return {} as ToolPreProcessingConfig
+      }
+
+      return null
+    },
+    [data, storedConfigs, mappingData]
+  )
+
+  const buildDefaultPrscsxProcessingState = (
+    preProcessing?: PrscsxPreProcessingConfig
+  ): PrscsxProcessingState => {
+    const populationNames = preProcessing?.populations?.map((pop) => pop.name) || []
+    const emptyMap = populationNames.reduce((acc, name) => {
+      acc[name] = ""
+      return acc
+    }, {} as Record<string, string>)
+
+    const baseState = {
+      runPopulation: "",
+      chrom: "22",
+      phi: "1e-2",
+      phenoColumn: "",
+      nGwas: emptyMap,
+    }
+
+    return {
+      binary: { ...baseState, nGwas: { ...emptyMap } },
+      quantitative: { ...baseState, nGwas: { ...emptyMap } },
+    }
+  }
+
+  const normalizeProcessingState = (
+    state: PrscsxProcessingState | undefined,
+    preProcessing?: PrscsxPreProcessingConfig
+  ): PrscsxProcessingState => {
+    const populationNames = preProcessing?.populations?.map((pop) => pop.name) || []
+
+    const withDefaults = (
+      modeState: PrscsxProcessingState[keyof PrscsxProcessingState] | undefined
+    ) => {
+      const base = {
+        runPopulation: modeState?.runPopulation || "",
+        chrom: modeState?.chrom || "22",
+        phi: modeState?.phi || "1e-2",
+        phenoColumn: modeState?.phenoColumn || "",
+        nGwas: {} as Record<string, string>,
+      }
+
+      populationNames.forEach((name) => {
+        base.nGwas[name] = modeState?.nGwas?.[name] || ""
+      })
+
+      return base
+    }
+
+    if (!state) {
+      return buildDefaultPrscsxProcessingState(preProcessing)
+    }
+
+    return {
+      binary: withDefaults(state.binary),
+      quantitative: withDefaults(state.quantitative),
+    }
+  }
+
+  const buildInitialProcessingConfig = React.useCallback(
+    (
+      toolId: string,
+      preProcessing?: PrscsxPreProcessingConfig
+    ): PrscsxProcessingState => {
+      const key = toolId.toLowerCase()
+      const fromStore = storedProcessingConfigs?.[key]
+      return normalizeProcessingState(fromStore, preProcessing)
+    },
+    [storedProcessingConfigs]
+  )
+
+  useEffect(() => {
+    const signature = initializationSignature
+
+    if (initializedSignatureRef.current === signature) {
+      return
+    }
+
+    if (normalizedTools.length === 0) {
+      setConfigs({})
+      initializedSignatureRef.current = signature
+      return
+    }
+
+    const initialConfigs: Record<string, ToolPreProcessingConfig> = {}
+    const initialProcessing: Record<string, PrscsxProcessingState> = {}
+
+    normalizedTools.forEach((toolId) => {
+      if (isBridgeprs(toolId)) {
+        initialConfigs[toolId] =
+          buildInitialConfig(toolId) || ({} as ToolPreProcessingConfig)
+        return
+      }
+
+      const existing = buildInitialConfig(toolId)
+
+      if (existing) {
+        initialConfigs[toolId] = existing
+      } else if (isPrsice(toolId)) {
+        initialConfigs[toolId] = buildDefaultPrsiceConfig(toolId)
+      } else if (isPrscsx(toolId)) {
+        initialConfigs[toolId] = buildDefaultPrscsxConfig(toolId)
+      }
+
+      if (isPrscsx(toolId)) {
+        initialProcessing[toolId] = buildInitialProcessingConfig(
+          toolId,
+          initialConfigs[toolId] as PrscsxPreProcessingConfig
+        )
       }
     })
 
     setConfigs(initialConfigs)
+    setProcessingConfigs(initialProcessing)
+    initializedSignatureRef.current = signature
 
-    const initialExpanded: Record<string, string[]> = {}
-    selectedTools.forEach((tool: string) => {
-      initialExpanded[tool] = ["column-mapping"]
-    })
-    setExpandedSections(initialExpanded)
-  }, [selectedTools, data, mappingData])
-
-  const getConfigStorageKey = () => `tool_config_${jobId}`
-
-  const saveConfigsToStore = (configs: Record<string, ToolConfig>) => {
-    if (jobId) {
-      setStepData(getConfigStorageKey(), configs)
+    let detectedType: EvaluationType | null = null
+    for (const toolId of normalizedTools) {
+      const cfg = initialConfigs[toolId]
+      if (!cfg) continue
+      if (isPrsice(toolId)) {
+        detectedType = (cfg as PrsicePreProcessingConfig).options.evaluation_type
+      } else if (isPrscsx(toolId)) {
+        detectedType = (cfg as PrscsxPreProcessingConfig).options.evaluation_type
+      }
+      if (detectedType) {
+        break
+      }
     }
-  }
 
-  const updateConfig = (
-    tool: string,
-    section: keyof ToolConfig,
-    updates: any
+    if (detectedType) {
+      setEvaluationType((prev) => (prev === detectedType ? prev : detectedType))
+    }
+  }, [
+    normalizedTools,
+    buildInitialConfig,
+    buildInitialProcessingConfig,
+    initializationSignature,
+  ])
+
+  useEffect(() => {
+    if (!jobId) return
+    if (Object.keys(configs).length === 0) return
+    if (configStorageKey) {
+      setStepData(configStorageKey, configs)
+    }
+  }, [configs, configStorageKey, jobId, setStepData])
+
+  useEffect(() => {
+    if (!jobId) return
+    if (!processingStorageKey) return
+    if (Object.keys(processingConfigs).length === 0) return
+    setStepData(processingStorageKey, processingConfigs)
+  }, [processingConfigs, processingStorageKey, jobId, setStepData])
+
+
+  const buildDefaultPrsiceConfig = (toolId: string): PrsicePreProcessingConfig => ({
+    target_population: {
+      name: "",
+      sumstats_path: "",
+      genotype_path: "",
+      phenotype_path: "",
+    },
+    source_population: {
+      name: "",
+      sumstats_path: "",
+      genotype_path: "",
+      phenotype_path: "",
+    },
+    output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
+    column_mappings: {},
+    phenotype_config: {
+      target_population: { ...DEFAULT_PRSICE_PHENOTYPE },
+      source_population: { ...DEFAULT_PRSICE_PHENOTYPE },
+    },
+    genotype_config: {
+      file_type: "merged",
+      population_reference: "target_population",
+      file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
+    },
+    options: { ...DEFAULT_PROCESSING_OPTIONS },
+  })
+
+  const buildDefaultPrscsxConfig = (toolId: string): PrscsxPreProcessingConfig => ({
+    populations: [],
+    column_mappings: { by_population: {} },
+    phenotype_config: {
+      by_population: {},
+      covariate_id_mapping: { fid: "", iid: "" },
+    },
+    genotype_config: { file_type: "merged" },
+    options: { ...DEFAULT_PROCESSING_OPTIONS },
+    output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
+  })
+
+  const setConfigForTool = (
+    toolId: string,
+    nextConfig: ToolPreProcessingConfig
   ) => {
-    const currentToolConfig = configs[tool]
-    if (!currentToolConfig) return
-
-    const baseSectionValue: any = (currentToolConfig as any)[section]
-    const mergedSectionValue =
-      baseSectionValue && typeof baseSectionValue === "object"
-        ? { ...baseSectionValue, ...updates }
-        : updates
-
-    const newConfigs = {
-      ...configs,
-      [tool]: {
-        ...currentToolConfig,
-        [section]: mergedSectionValue as any,
-      },
-    }
-    setConfigs(newConfigs)
-    saveConfigsToStore(newConfigs)
-  }
-
-  // Column mapping functions
-  const fetchFilePreview = async (tool: string, filePath: string) => {
-    if (!filePath || previews[tool]) return
-
-    setLoadingPreviews((prev) => ({ ...prev, [tool]: true }))
-    setPreviewErrors((prev) => ({ ...prev, [tool]: null }))
-
-    try {
-      if (!jobId) throw new Error("No job ID found")
-      const url = getBenchmarkPreviewUrl(jobId, filePath)
-      const response = await axios.get(url)
-
-      const previewData = response.data
-      const preview: FilePreview = {
-        filename: filePath.split("/").pop() || filePath,
-        preview_lines: previewData.preview_lines || [],
-      }
-
-      setPreviews((prev) => ({ ...prev, [tool]: preview }))
-
-      const headers = (preview.preview_lines?.[0] || "").split("\t")
-      const autoMappings: ColumnMapping = {}
-      const usedHeaders = new Set<string>()
-
-      const toolRequirements = getToolRequirements(tool)
-      if (toolRequirements) {
-        // Single pass: only exact matches (case-insensitive)
-        toolRequirements.forEach((requiredField) => {
-          const aliases = COLUMN_MAPPING[requiredField] || []
-          const exactMatch = headers.find((header) => {
-            if (usedHeaders.has(header)) return false
-            return aliases.some(
-              (alias) => header.toLowerCase() === alias.toLowerCase()
-            )
-          })
-
-          if (exactMatch) {
-            autoMappings[requiredField] = exactMatch
-            usedHeaders.add(exactMatch)
-            console.log(`Auto-mapped ${requiredField} -> ${exactMatch}`)
-          }
-        })
-      }
-
-      if (Object.keys(autoMappings).length > 0) {
-        console.log(`Auto-mapping results for ${tool}:`, autoMappings)
-        console.log(`Used headers:`, Array.from(usedHeaders))
-        updateConfig(tool, "column_mappings", autoMappings)
-      } else {
-        console.log(`No auto-mappings found for ${tool}`)
-      }
-    } catch (error) {
-      setPreviewErrors((prev) => ({
-        ...prev,
-        [tool]: "Failed to load file preview",
-      }))
-      console.error(`Failed to fetch preview for ${tool}:`, error)
-    } finally {
-      setLoadingPreviews((prev) => ({ ...prev, [tool]: false }))
-    }
-  }
-
-  const updateColumnMapping = (tool: string, field: string, header: string) => {
-    updateConfig(tool, "column_mappings", { [field]: header })
-  }
-
-  // Helper function to get available headers for a specific field
-  const getAvailableHeaders = (tool: string, field: string): string[] => {
-    const headers = previews[tool]?.preview_lines?.[0]?.split("\t") || []
-    const currentMappings = configs[tool]?.column_mappings || {}
-    const currentFieldMapping = currentMappings[field] || ""
-
-    // Filter out headers that are already mapped to other fields
-    return headers.filter((header) => {
-      // Always include the current mapping for this field
-      if (header === currentFieldMapping) return true
-
-      // Exclude headers that are mapped to other fields
-      return !Object.values(currentMappings).includes(header)
-    })
-  }
-
-  const toggleSection = (tool: string, section: string) => {
-    setExpandedSections((prev) => ({
+    setConfigs((prev) => ({
       ...prev,
-      [tool]: prev[tool]?.includes(section)
-        ? prev[tool].filter((s) => s !== section)
-        : [...(prev[tool] || []), section],
+      [toolId]: nextConfig,
     }))
   }
 
-  // Phenotype config functions
-  const fetchPhenotypePreview = async (
-    tool: string,
-    population: "target" | "source"
+  const setProcessingConfigForTool = (
+    toolId: string,
+    updater: (state: PrscsxProcessingState) => PrscsxProcessingState
   ) => {
-    try {
-      if (!jobId) throw new Error("No job ID found")
-      const filePath =
-        population === "target"
-          ? configs[tool]?.target_population?.phenotype_path
-          : configs[tool]?.source_population?.phenotype_path
+    if (!isPrscsx(toolId)) return
 
-      if (!filePath) return
-
-      setLoadingPhenotypes((prev) => ({
+    setProcessingConfigs((prev) => {
+      const currentConfig = prev[toolId]
+      const preProcessing = configs[toolId]
+      const baseState = buildDefaultPrscsxProcessingState(
+        (preProcessing as PrscsxPreProcessingConfig | undefined) ?? undefined
+      )
+      const nextState = updater(currentConfig || baseState)
+      return {
         ...prev,
-        [tool]: {
-          target: prev[tool]?.target || false,
-          source: prev[tool]?.source || false,
-          [population]: true,
-        } as any,
-      }))
-
-      setPhenotypeErrors((prev) => ({
-        ...prev,
-        [tool]: {
-          ...(prev[tool] || {}),
-          [population]: null,
-        },
-      }))
-
-      const url = getBenchmarkPreviewUrl(jobId, filePath)
-      const response = await axios.get(url)
-      const previewData = response.data
-
-      const headers = (previewData.preview_lines?.[0] || "").split("\t")
-
-      setPhenotypeHeaders((prev) => ({
-        ...prev,
-        [tool]: {
-          target: population === "target" ? headers : prev[tool]?.target || [],
-          source: population === "source" ? headers : prev[tool]?.source || [],
-        },
-      }))
-    } catch (error) {
-      setPhenotypeErrors((prev) => ({
-        ...prev,
-        [tool]: {
-          ...(prev[tool] || {}),
-          [population]: "Failed to load phenotype preview",
-        },
-      }))
-      console.error("Failed to fetch phenotype preview:", error)
-    } finally {
-      setLoadingPhenotypes((prev) => ({
-        ...prev,
-        [tool]: {
-          target: population === "target" ? false : prev[tool]?.target || false,
-          source: population === "source" ? false : prev[tool]?.source || false,
-        },
-      }))
-    }
-  }
-
-  const toggleTrait = (
-    tool: string,
-    population: "target_population" | "source_population",
-    traitType: "binary_traits" | "quantitative_traits",
-    value: string,
-    checked: boolean | string
-  ) => {
-    const current =
-      configs[tool]?.phenotype_config?.[population]?.[traitType] || []
-    const next = new Set(current)
-    if (checked) next.add(value)
-    else next.delete(value)
-
-    updateConfig(tool, "phenotype_config", {
-      [population]: {
-        ...configs[tool]?.phenotype_config?.[population],
-        [traitType]: Array.from(next),
-      },
+        [toolId]: nextState,
+      }
     })
   }
 
-  const isToolComplete = (tool: string) => {
-    const config = configs[tool]
+  const getPrscsxProcessingErrors = React.useCallback(
+    (
+      preProcessing: PrscsxPreProcessingConfig,
+      processingState: PrscsxProcessingState | undefined,
+      mode: EvaluationType
+    ): string[] => {
+      const errors: string[] = []
+      if (!processingState) {
+        errors.push("PRScsx: Configure processing options")
+        return errors
+      }
+
+      const populations = preProcessing.populations || []
+      const populationNames = populations.map((population) => population.name)
+      const eligibleNames = populations
+        .filter(
+          (population) =>
+            Boolean(
+              population.sumstats_path &&
+                population.genotype_path &&
+                population.phenotype_path
+            )
+        )
+        .map((population) => population.name)
+
+      const requiredModes: ProcessingModeKey[] = []
+      if (mode === "binary" || mode === "both") {
+        requiredModes.push("binary")
+      }
+      if (mode === "quantitative" || mode === "both") {
+        requiredModes.push("quantitative")
+      }
+
+      requiredModes.forEach((key) => {
+        const state = processingState[key]
+        const label = key === "binary" ? "Binary" : "Quantitative"
+
+        if (!state.runPopulation) {
+          errors.push(`PRScsx ${label}: Select a population to run the calculation`)
+        } else if (!eligibleNames.includes(state.runPopulation)) {
+          errors.push(
+            `PRScsx ${label}: ${state.runPopulation} is missing sumstats, genotype, or phenotype paths`
+          )
+        }
+
+        const traitKey = key === "binary" ? "binary_traits" : "quantitative_traits"
+        const traits =
+          preProcessing.phenotype_config.by_population[state.runPopulation || ""]?.[
+            traitKey
+          ] || []
+
+        if (state.runPopulation) {
+          if (traits.length === 0) {
+            errors.push(
+              `PRScsx ${label}: No ${key === "binary" ? "binary" : "quantitative"} traits configured for ${state.runPopulation}`
+            )
+          } else if (!state.phenoColumn || !traits.includes(state.phenoColumn)) {
+            errors.push(
+              `PRScsx ${label}: Choose a phenotype column for ${state.runPopulation}`
+            )
+          }
+        }
+
+        populations.forEach((population) => {
+          const value = state.nGwas[population.name]?.trim()
+          if (!value) {
+            errors.push(
+              `PRScsx ${label}: Provide nGWAS for ${population.name}`
+            )
+            return
+          }
+
+          if (!/^[0-9]+(\.[0-9]+)?$/.test(value)) {
+            errors.push(
+              `PRScsx ${label}: nGWAS for ${population.name} must be numeric`
+            )
+          }
+        })
+
+        if (!state.chrom.trim()) {
+          errors.push(`PRScsx ${label}: Provide a chromosome value`)
+        }
+        if (!state.phi.trim()) {
+          errors.push(`PRScsx ${label}: Provide a phi value`)
+        }
+      })
+
+      return errors
+    },
+    []
+  )
+
+  useEffect(() => {
+    setConfigs((prev) => {
+      if (Object.keys(prev).length === 0) {
+        return prev
+      }
+
+      const allowBinary = evaluationType !== "quantitative"
+      const allowQuant = evaluationType !== "binary"
+      let changed = false
+
+      const nextEntries = Object.entries(prev).map(([toolId, cfg]) => {
+        if (isPrsice(toolId)) {
+          const prsiceConfig = cfg as PrsicePreProcessingConfig
+          const target = prsiceConfig.phenotype_config.target_population
+          const source = prsiceConfig.phenotype_config.source_population
+
+          const optionsNeedUpdate =
+            prsiceConfig.options.evaluation_type !== evaluationType ||
+            prsiceConfig.options.process_binary_phenotypes !== allowBinary ||
+            prsiceConfig.options.process_quantitative_phenotypes !== allowQuant
+
+          const targetBinaryNeedsClear = !allowBinary && target.binary_traits.length > 0
+          const targetQuantNeedsClear = !allowQuant && target.quantitative_traits.length > 0
+          const sourceBinaryNeedsClear = !allowBinary && source.binary_traits.length > 0
+          const sourceQuantNeedsClear = !allowQuant && source.quantitative_traits.length > 0
+
+          if (
+            !optionsNeedUpdate &&
+            !targetBinaryNeedsClear &&
+            !targetQuantNeedsClear &&
+            !sourceBinaryNeedsClear &&
+            !sourceQuantNeedsClear
+          ) {
+            return [toolId, cfg] as const
+          }
+
+          changed = true
+          const nextConfig: PrsicePreProcessingConfig = {
+            ...prsiceConfig,
+            phenotype_config: {
+              target_population: {
+                binary_traits: allowBinary ? target.binary_traits : [],
+                quantitative_traits: allowQuant ? target.quantitative_traits : [],
+              },
+              source_population: {
+                binary_traits: allowBinary ? source.binary_traits : [],
+                quantitative_traits: allowQuant ? source.quantitative_traits : [],
+              },
+            },
+            options: {
+              ...prsiceConfig.options,
+              evaluation_type: evaluationType,
+              process_binary_phenotypes: allowBinary,
+              process_quantitative_phenotypes: allowQuant,
+            },
+          }
+
+          return [toolId, nextConfig] as const
+        }
+
+        if (isPrscsx(toolId)) {
+          const prscsxConfig = cfg as PrscsxPreProcessingConfig
+          const populations = prscsxConfig.populations ?? []
+
+          let traitsChanged = false
+          const sanitizedByPopulation: Record<string, PrsicePhenotypePopulationConfig> = {}
+
+          const currentByPopulation =
+            prscsxConfig.phenotype_config.by_population || {}
+
+          for (const [name, traits] of Object.entries(currentByPopulation)) {
+            sanitizedByPopulation[name] = {
+              binary_traits: allowBinary ? traits.binary_traits : [],
+              quantitative_traits: allowQuant ? traits.quantitative_traits : [],
+            }
+
+            if (!allowBinary && traits.binary_traits.length > 0) {
+              traitsChanged = true
+            }
+            if (!allowQuant && traits.quantitative_traits.length > 0) {
+              traitsChanged = true
+            }
+          }
+
+          populations.forEach((population) => {
+            if (!sanitizedByPopulation[population.name]) {
+              sanitizedByPopulation[population.name] = {
+                binary_traits: allowBinary ? [] : [],
+                quantitative_traits: allowQuant ? [] : [],
+              }
+              traitsChanged = true
+            }
+          })
+
+          const optionsNeedUpdate =
+            prscsxConfig.options.evaluation_type !== evaluationType ||
+            prscsxConfig.options.process_binary_phenotypes !== allowBinary ||
+            prscsxConfig.options.process_quantitative_phenotypes !== allowQuant
+
+          if (!optionsNeedUpdate && !traitsChanged) {
+            return [toolId, cfg] as const
+          }
+
+          changed = true
+          const nextConfig: PrscsxPreProcessingConfig = {
+            ...prscsxConfig,
+            populations,
+            phenotype_config: {
+              ...prscsxConfig.phenotype_config,
+              by_population: sanitizedByPopulation,
+            },
+            options: {
+              ...prscsxConfig.options,
+              evaluation_type: evaluationType,
+              process_binary_phenotypes: allowBinary,
+              process_quantitative_phenotypes: allowQuant,
+            },
+          }
+
+          return [toolId, nextConfig] as const
+        }
+
+        return [toolId, cfg] as const
+      })
+
+      return changed ? Object.fromEntries(nextEntries) : prev
+    })
+  }, [evaluationType])
+
+  const isToolComplete = (toolId: string) => {
+    const config = configs[toolId]
     if (!config) return false
-    const requirements = getToolRequirements(tool) || []
-    const missing = requirements.filter((col) => !config.column_mappings[col])
-    return missing.length === 0
-  }
 
-  // Validate the complete configuration before proceeding
-  const validateConfiguration = (
-    tool: string
-  ): { isValid: boolean; errors: string[] } => {
-    const config = configs[tool]
-    const errors: string[] = []
-
-    if (!config) {
-      errors.push(`No configuration found for ${tool}`)
-      return { isValid: false, errors }
-    }
-
-    // Check required file paths
-    if (!config.target_population.sumstats_path) {
-      errors.push(`${tool}: Missing target population sumstats path`)
-    }
-    if (!config.target_population.genotype_path) {
-      errors.push(`${tool}: Missing target population genotype path`)
-    }
-    if (!config.target_population.phenotype_path) {
-      errors.push(`${tool}: Missing target population phenotype path`)
-    }
-    if (!config.source_population.sumstats_path) {
-      errors.push(`${tool}: Missing source population sumstats path`)
-    }
-    if (!config.source_population.genotype_path) {
-      errors.push(`${tool}: Missing source population genotype path`)
-    }
-    if (!config.source_population.phenotype_path) {
-      errors.push(`${tool}: Missing source population phenotype path`)
-    }
-
-    // Check column mappings
-    const requirements = getToolRequirements(tool) || []
-    const missingColumns = requirements.filter(
-      (col) => !config.column_mappings[col]
-    )
-    if (missingColumns.length > 0) {
-      errors.push(
-        `${tool}: Missing column mappings: ${missingColumns.join(", ")}`
+    if (isPrsice(toolId)) {
+      const prsiceConfig = config as PrsicePreProcessingConfig
+      return PRSICE_REQUIRED_COLUMNS.every(
+        (column) => Boolean(prsiceConfig.column_mappings[column])
       )
     }
 
-    // Check phenotype configuration
-    const et = config.options.evaluation_type || "both"
+    if (isPrscsx(toolId)) {
+      const prscsxConfig = config as PrscsxPreProcessingConfig
+      const populations = prscsxConfig.populations ?? []
+      if (populations.length === 0) return false
+      const hasMappings = populations.every((population) =>
+        PRSCsx_REQUIRED_COLUMNS.every((column) =>
+          Boolean(
+            prscsxConfig.column_mappings.by_population[population.name]?.[column]
+          )
+        )
+      )
+      if (!hasMappings) return false
 
-    const targetBinaryCount =
-      config.phenotype_config.target_population.binary_traits.length
-    const targetQuantCount =
-      config.phenotype_config.target_population.quantitative_traits.length
-    const sourceBinaryCount =
-      config.phenotype_config.source_population.binary_traits.length
-    const sourceQuantCount =
-      config.phenotype_config.source_population.quantitative_traits.length
+      const processingState = processingConfigs[toolId]
+      return (
+        getPrscsxProcessingErrors(
+          prscsxConfig,
+          processingState,
+          evaluationType
+        ).length === 0
+      )
+    }
 
-    if (et === "binary") {
-      if (!targetBinaryCount)
-        errors.push(`${tool}: No binary traits selected for target population`)
-      if (!sourceBinaryCount)
-        errors.push(`${tool}: No binary traits selected for source population`)
-    } else if (et === "quantitative") {
-      if (!targetQuantCount)
+    if (isBridgeprs(toolId)) {
+      return true
+    }
+
+    return false
+  }
+
+  const validateConfiguration = (
+    toolId: string
+  ): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = []
+    const config = configs[toolId]
+
+    if (!config) {
+      errors.push(`No configuration found for ${toolId}`)
+      return { isValid: false, errors }
+    }
+
+    if (isBridgeprs(toolId)) {
+      return { isValid: true, errors }
+    }
+
+    if (isPrsice(toolId)) {
+      const prsiceConfig = config as PrsicePreProcessingConfig
+
+      if (!prsiceConfig.target_population.sumstats_path) {
+        errors.push("PRSice: Missing target population sumstats path")
+      }
+      if (!prsiceConfig.target_population.genotype_path) {
+        errors.push("PRSice: Missing target population genotype path")
+      }
+      if (!prsiceConfig.target_population.phenotype_path) {
+        errors.push("PRSice: Missing target population phenotype path")
+      }
+      if (!prsiceConfig.source_population.sumstats_path) {
+        errors.push("PRSice: Missing source population sumstats path")
+      }
+      if (!prsiceConfig.source_population.genotype_path) {
+        errors.push("PRSice: Missing source population genotype path")
+      }
+      if (!prsiceConfig.source_population.phenotype_path) {
+        errors.push("PRSice: Missing source population phenotype path")
+      }
+
+      const missingColumns = PRSICE_REQUIRED_COLUMNS.filter(
+        (column) => !prsiceConfig.column_mappings[column]
+      )
+      if (missingColumns.length > 0) {
         errors.push(
-          `${tool}: No quantitative traits selected for target population`
+          `PRSice: Missing column mappings for ${missingColumns.join(", ")}`
         )
-      if (!sourceQuantCount)
+      }
+
+      const evaluationType = prsiceConfig.options.evaluation_type || "both"
+      const targetTraits = prsiceConfig.phenotype_config.target_population
+      const sourceTraits = prsiceConfig.phenotype_config.source_population
+
+      const requiresBinary = evaluationType === "binary" || evaluationType === "both"
+      const requiresQuant = evaluationType === "quantitative" || evaluationType === "both"
+      const targetHasPhenotype = Boolean(prsiceConfig.target_population.phenotype_path)
+      const sourceHasPhenotype = Boolean(prsiceConfig.source_population.phenotype_path)
+
+      if (
+        requiresBinary &&
+        targetHasPhenotype &&
+        sourceHasPhenotype &&
+        (targetTraits.binary_traits.length === 0 ||
+          sourceTraits.binary_traits.length === 0)
+      ) {
         errors.push(
-          `${tool}: No quantitative traits selected for source population`
+          "PRSice: Select at least one binary trait for both populations"
         )
-    } else {
-      // both
-      if (!targetBinaryCount)
-        errors.push(`${tool}: No binary traits selected for target population`)
-      if (!targetQuantCount)
+      }
+
+      if (
+        requiresQuant &&
+        targetHasPhenotype &&
+        sourceHasPhenotype &&
+        (targetTraits.quantitative_traits.length === 0 ||
+          sourceTraits.quantitative_traits.length === 0)
+      ) {
         errors.push(
-          `${tool}: No quantitative traits selected for target population`
+          "PRSice: Select at least one quantitative trait for both populations"
         )
-      if (!sourceBinaryCount)
-        errors.push(`${tool}: No binary traits selected for source population`)
-      if (!sourceQuantCount)
-        errors.push(
-          `${tool}: No quantitative traits selected for source population`
+      }
+
+      const { bed, bim, fam } = prsiceConfig.genotype_config.file_patterns
+      if (!bed || !bim || !fam) {
+        errors.push("PRSice: Provide genotype file patterns (bed/bim/fam)")
+      }
+
+      if (!prsiceConfig.output_dir) {
+        errors.push("PRSice: Specify an output directory")
+      }
+
+      return { isValid: errors.length === 0, errors }
+    }
+
+    if (isPrscsx(toolId)) {
+      const prscsxConfig = config as PrscsxPreProcessingConfig
+      const populations = prscsxConfig.populations ?? []
+
+      if (populations.length === 0) {
+        errors.push("PRScsx: No populations configured")
+      }
+
+      populations.forEach((population) => {
+        if (!population.sumstats_path) {
+          errors.push(
+            `PRScsx: Missing sumstats path for population ${population.name}`
+          )
+        }
+      })
+
+      populations.forEach((population) => {
+        const mappings =
+          prscsxConfig.column_mappings.by_population[population.name] || {}
+        const missing = PRSCsx_REQUIRED_COLUMNS.filter(
+          (column) => !mappings[column]
         )
+        if (missing.length > 0) {
+          errors.push(
+            `PRScsx: Missing column mappings for ${population.name} (${missing.join(", ")})`
+          )
+        }
+      })
+
+      const evaluationType = prscsxConfig.options.evaluation_type || "both"
+      populations.forEach((population) => {
+        const traits =
+          prscsxConfig.phenotype_config.by_population[population.name] || {
+            binary_traits: [],
+            quantitative_traits: [],
+          }
+
+        if (
+          (evaluationType === "binary" || evaluationType === "both") &&
+          population.phenotype_path &&
+          traits.binary_traits.length === 0
+        ) {
+          errors.push(
+            `PRScsx: Select at least one binary trait for ${population.name}`
+          )
+        }
+
+        if (
+          (evaluationType === "quantitative" || evaluationType === "both") &&
+          population.phenotype_path &&
+          traits.quantitative_traits.length === 0
+        ) {
+          errors.push(
+            `PRScsx: Select at least one quantitative trait for ${population.name}`
+          )
+        }
+      })
+
+      const { fid, iid } = prscsxConfig.phenotype_config.covariate_id_mapping
+      const requiresCovariates = populations.some(
+        (population) => Boolean(population.covariate_path)
+      )
+      if (requiresCovariates && (!fid || !iid)) {
+        errors.push("PRScsx: Provide covariate ID mapping for fid and iid")
+      }
+
+      if (!prscsxConfig.output_dir) {
+        errors.push("PRScsx: Specify an output directory")
+      }
+
+      const processingErrors = getPrscsxProcessingErrors(
+        prscsxConfig,
+        processingConfigs[toolId],
+        evaluationType
+      )
+      errors.push(...processingErrors)
+
+      return { isValid: errors.length === 0, errors }
     }
 
     return { isValid: errors.length === 0, errors }
   }
 
-  const isNextDisabled = selectedTools.some((tool) => !isToolComplete(tool))
+  const sanitizePrsiceConfig = (
+    config: PrsicePreProcessingConfig
+  ): PrsicePreProcessingConfig => {
+    const evaluationType = config.options.evaluation_type || "both"
 
-  const handleNext = async () => {
-    if (isNextDisabled) return
+    const sanitizePopulation = (
+      population: "target_population" | "source_population"
+    ) => {
+      const traits = config.phenotype_config[population]
+      return {
+        binary_traits:
+          evaluationType === "binary" || evaluationType === "both"
+            ? traits.binary_traits.filter(Boolean)
+            : [],
+        quantitative_traits:
+          evaluationType === "quantitative" || evaluationType === "both"
+            ? traits.quantitative_traits.filter(Boolean)
+            : [],
+      }
+    }
 
-    // Validate all tool configurations
+    return {
+      ...config,
+      phenotype_config: {
+        target_population: sanitizePopulation("target_population"),
+        source_population: sanitizePopulation("source_population"),
+      },
+      options: {
+        ...config.options,
+        evaluation_type: evaluationType,
+        process_binary_phenotypes:
+          evaluationType === "binary" || evaluationType === "both",
+        process_quantitative_phenotypes:
+          evaluationType === "quantitative" || evaluationType === "both",
+      },
+    }
+  }
+
+  const sanitizePrscsxConfig = (
+    config: PrscsxPreProcessingConfig
+  ): PrscsxPreProcessingConfig => {
+    const evaluationType = config.options.evaluation_type || "both"
+    const populations = config.populations ?? []
+
+    const filteredTraits = populations.reduce(
+      (acc, population) => {
+        const traits =
+          config.phenotype_config.by_population[population.name] || {
+            binary_traits: [],
+            quantitative_traits: [],
+          }
+
+        acc[population.name] = {
+          binary_traits:
+            evaluationType === "binary" || evaluationType === "both"
+              ? traits.binary_traits.filter(Boolean)
+              : [],
+          quantitative_traits:
+            evaluationType === "quantitative" || evaluationType === "both"
+              ? traits.quantitative_traits.filter(Boolean)
+              : [],
+        }
+        return acc
+      },
+      {} as Record<string, PrsicePhenotypePopulationConfig>
+    )
+
+    const columnMappings = populations.reduce(
+      (acc, population) => {
+        const mappings =
+          config.column_mappings.by_population[population.name] || {}
+        const cleaned = PRSCsx_REQUIRED_COLUMNS.reduce(
+          (inner, column) => {
+            const value = mappings[column]
+            if (value) inner[column] = value
+            return inner
+          },
+          {} as Record<PrscsxColumnKey, string>
+        )
+        acc[population.name] = cleaned
+        return acc
+      },
+      {} as Record<string, Record<PrscsxColumnKey, string>>
+    )
+
+    return {
+      ...config,
+      populations,
+      column_mappings: {
+        by_population: columnMappings,
+      },
+      phenotype_config: {
+        by_population: filteredTraits,
+        covariate_id_mapping: config.phenotype_config.covariate_id_mapping,
+      },
+      options: {
+        ...config.options,
+        evaluation_type: evaluationType,
+        process_binary_phenotypes:
+          evaluationType === "binary" || evaluationType === "both",
+        process_quantitative_phenotypes:
+          evaluationType === "quantitative" || evaluationType === "both",
+      },
+    }
+  }
+
+  const buildPrscsxProcessingPayload = (
+    preProcessing: PrscsxPreProcessingConfig,
+    processingState: PrscsxProcessingState,
+    mode: EvaluationType
+  ): PrscsxProcessingPayload => {
+    const populations = preProcessing.populations || []
+    const populationNames = populations.map((population) => population.name)
+    const baseOutputDir = preProcessing.output_dir
+
+    const basePlaceholder = "{base_pop}"
+    const targetPlaceholder = "{target_pop}"
+    const targetPopulationName =
+      populations.find((population) => population.type === "target")?.name || ""
+
+    const sstFiles = [
+      `${baseOutputDir}/sumstats/${basePlaceholder}/${basePlaceholder}_sumstats.txt`,
+      `${baseOutputDir}/sumstats/${targetPlaceholder}/${targetPlaceholder}_sumstats.txt`,
+    ]
+    const populationsString = `${basePlaceholder},${targetPlaceholder}`
+
+    const result: PrscsxProcessingPayload = {}
+
+    const buildModePayload = (key: ProcessingModeKey) => {
+      const state = processingState[key]
+      if (!state.runPopulation) return null
+
+      const nGwasList = populationNames.map(
+        (name) => state.nGwas[name]?.trim() || ""
+      )
+      if (nGwasList.some((value) => !value)) return null
+
+      const chromValue = state.chrom.trim()
+      const phiValue = state.phi.trim()
+      if (!chromValue || !phiValue) return null
+
+      const phenoColumn = state.phenoColumn
+      if (!phenoColumn) return null
+
+      const runPopulation = state.runPopulation
+      const selectedPopulation = populations.find(
+        (population) => population.name === runPopulation
+      )
+      const selectedType = selectedPopulation?.type ||
+        (runPopulation === targetPopulationName ? "target" : "base")
+      const scoringPlaceholder =
+        selectedType === "target" ? targetPlaceholder : basePlaceholder
+      const evaluationLabel = key === "binary" ? "bin" : "quant"
+      const genotypePrefix = `${baseOutputDir}/genotypes/${scoringPlaceholder}/geno`
+      const phenoFile = `${baseOutputDir}/phenotypes/pheno_${evaluationLabel}_${scoringPlaceholder}.txt`
+      const plinkOutputPrefix = `results/prs_results/prscsx_plink/${scoringPlaceholder}_test_${scoringPlaceholder}_result`
+      const outName = `${basePlaceholder}_${targetPlaceholder}`
+
+      const payload: PrscsxProcessingModePayload = {
+        ldref_folder: "ld_ref",
+        bim_prefix: genotypePrefix,
+        sst_files: sstFiles,
+        n_gwas: nGwasList.join(","),
+        populations: populationsString,
+        chrom: chromValue,
+        phi: phiValue,
+        out_name: outName,
+        output_dir: "results/prs_results/prscsx",
+        plink_genotype_prefix: genotypePrefix,
+        score_choice: "base",
+        pheno: phenoFile,
+        pheno_column_name: phenoColumn,
+        plink_output_prefix: plinkOutputPrefix,
+        log_dir: "results/log_files/prscsx_log",
+        scoring_population: runPopulation,
+        scoring_population_type: selectedType,
+        population_order: populationNames,
+      }
+
+      return payload
+    }
+
+    if (mode === "binary" || mode === "both") {
+      const payload = buildModePayload("binary")
+      if (payload) {
+        result.binary = payload
+      }
+    }
+
+    if (mode === "quantitative" || mode === "both") {
+      const payload = buildModePayload("quantitative")
+      if (payload) {
+        result.quantitative = payload
+      }
+    }
+
+    return result
+  }
+
+  const handleSubmit = async () => {
     const allErrors: string[] = []
-    selectedTools.forEach((tool) => {
-      const validation = validateConfiguration(tool)
+    normalizedTools.forEach((toolId) => {
+      const validation = validateConfiguration(toolId)
       if (!validation.isValid) {
         allErrors.push(...validation.errors)
       }
     })
 
     if (allErrors.length > 0) {
-      console.error("❌ Configuration validation failed:", allErrors)
-      toast.error(
-        `Configuration errors: ${allErrors.slice(0, 3).join(", ")}${
-          allErrors.length > 3 ? "..." : ""
-        }`
-      )
+      toast.error(allErrors.slice(0, 3).join(". "))
       return
     }
 
-    // Build sanitized pre-processing configs that strictly follow evaluation_type
-    const sanitizedByTool = Object.fromEntries(
-      selectedTools.map((tool) => {
-        const cfg = configs[tool]
-        const et = cfg.options.evaluation_type || "both"
-
-        const sanitizePopulation = (
-          pop: "target_population" | "source_population"
-        ) => {
-          const out: any = {}
-          if (et === "binary" || et === "both") {
-            out.binary_traits =
-              cfg.phenotype_config[pop].binary_traits.filter(Boolean)
-          }
-          if (et === "quantitative" || et === "both") {
-            out.quantitative_traits =
-              cfg.phenotype_config[pop].quantitative_traits.filter(Boolean)
-          }
-          return out
+    const sanitized = normalizedTools.reduce(
+      (acc, toolId) => {
+        if (isBridgeprs(toolId)) {
+          acc[toolId] = null
+          return acc
         }
 
-        const sanitizedPhenotype: any = {
-          target_population: sanitizePopulation("target_population"),
-          source_population: sanitizePopulation("source_population"),
+        const config = configs[toolId]
+        if (!config) return acc
+        if (isPrsice(toolId)) {
+          acc[toolId] = sanitizePrsiceConfig(config as PrsicePreProcessingConfig)
+        } else if (isPrscsx(toolId)) {
+          acc[toolId] = sanitizePrscsxConfig(
+            config as PrscsxPreProcessingConfig
+          )
         }
-
-        const sanitizedOptions = {
-          ...cfg.options,
-          evaluation_type: et,
-          process_binary_phenotypes: et === "binary" || et === "both",
-          process_quantitative_phenotypes:
-            et === "quantitative" || et === "both",
-        }
-
-        const sanitized = {
-          ...cfg,
-          phenotype_config: sanitizedPhenotype,
-          options: sanitizedOptions,
-        }
-
-        return [tool, sanitized]
-      })
+        return acc
+      },
+      {} as Record<string, ToolPreProcessingConfig | null>
     )
 
-    // Log the complete configuration
-    console.log("🚀 Submitting tool configuration:", {
-      jobId,
-      selectedTools,
-      configs: sanitizedByTool,
-      timestamp: new Date().toISOString(),
-    })
+    const sanitizedForStore = Object.fromEntries(
+      Object.entries(sanitized).filter(([toolId]) => !isBridgeprs(toolId))
+    ) as Record<string, ToolPreProcessingConfig>
 
-    // Log individual tool configs
-    selectedTools.forEach((tool) => {
-      console.log(`📋 ${tool} Configuration:`, sanitizedByTool[tool])
-    })
+    const sanitizedProcessing = normalizedTools.reduce(
+      (acc, toolId) => {
+        if (!isPrscsx(toolId)) return acc
+        const preProcessing =
+          sanitized[toolId] as PrscsxPreProcessingConfig | undefined
+        const processingState = processingConfigs[toolId]
+        if (!preProcessing || !processingState) return acc
 
-    // Create the request body (omit unselected trait arrays per evaluation_type)
+        const payload = buildPrscsxProcessingPayload(
+          preProcessing,
+          processingState,
+          preProcessing.options.evaluation_type || evaluationType
+        )
+
+        if (payload.binary || payload.quantitative) {
+          acc[toolId] = payload
+        }
+
+        return acc
+      },
+      {} as Record<string, PrscsxProcessingPayload>
+    )
+
     const requestBody = {
       config: {
-        tools_to_run: selectedTools,
+        tools_to_run: normalizedTools,
         ...Object.fromEntries(
-          selectedTools.map((tool) => [
-            tool,
+          normalizedTools.map((toolId) => [
+            toolId,
             {
-              pre_processing: sanitizedByTool[tool],
+              pre_processing: sanitized[toolId],
+              ...(isPrscsx(toolId) && sanitizedProcessing[toolId]
+                ? { processing: sanitizedProcessing[toolId] }
+                : {}),
             },
           ])
         ),
       },
     }
 
-    // Log the final API request structure
-    console.log("📤 Final API request structure:", {
-      url: jobId ? getBenchmarkConfigUrl(jobId) : "No job ID",
-      method: "POST",
-      body: requestBody,
+    console.log("[ToolConfiguration] submitting configs", {
+      sanitized,
+      sanitizedForStore,
+      sanitizedProcessing,
+      requestBody,
     })
 
     try {
-      // Submit configuration to backend
-      if (!jobId) {
-        throw new Error("No job ID found")
-      }
+      if (!jobId) throw new Error("No job ID found")
 
-      console.log("📤 Sending configuration to backend:", {
-        url: getBenchmarkConfigUrl(jobId),
-        body: requestBody,
+      await axios.post(getBenchmarkConfigUrl(jobId), requestBody, {
+        headers: { "Content-Type": "application/json" },
       })
 
-      const response = await axios.post(
-        getBenchmarkConfigUrl(jobId),
-        requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
+      toast.success("Configuration submitted! Starting benchmarking...")
 
-      console.log("✅ Configuration submitted successfully:", response.data)
-      toast.success("Configuration submitted! Starting PRS benchmarking...")
-
-      // Navigate to results page
       onNext({
-        configs,
+        configs: sanitizedForStore,
+        processing: sanitizedProcessing,
         submitted: true,
         jobId,
         timestamp: new Date().toISOString(),
       })
     } catch (error) {
-      console.error("❌ Failed to submit configuration:", error)
+      console.error("Failed to submit configuration", error)
       toast.error("Failed to submit configuration. Please try again.")
     }
   }
 
-  if (selectedTools.length === 0) {
+  const handleEvaluationTypeChange = (value: EvaluationType) => {
+    if (value === evaluationType) return
+    setEvaluationType(value)
+  }
+
+  if (normalizedTools.length === 0) {
     return (
       <div className="space-y-6">
         <h3 className="mb-2 text-xl font-semibold">Tool Configuration</h3>
@@ -746,926 +1281,148 @@ export function ToolConfiguration({
     )
   }
 
+  const stepBadge = <Badge variant="outline">Step 5</Badge>
+  const allToolsConfigured = normalizedTools.every(isToolComplete)
+  const isNextDisabled = normalizedTools.length === 0 || !allToolsConfigured
+
+  const renderToolConfiguration = (toolId: string) => {
+    if (isBridgeprs(toolId)) {
+      return (
+        <Card className="border-dashed border-slate-300 bg-slate-50">
+          <CardContent className="space-y-2 py-6 text-sm text-muted-foreground">
+            <p className="font-medium text-slate-700">
+              BridgePRS configuration
+            </p>
+            <p>
+              BridgePRS support is in progress. No additional configuration is
+              required for this tool yet, so you can proceed to the next step.
+            </p>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    const config = configs[toolId]
+    if (!config) return null
+
+    if (isPrsice(toolId)) {
+      return (
+        <PrsiceToolConfiguration
+          key={toolId}
+          toolId={toolId}
+          config={config as PrsicePreProcessingConfig}
+          jobId={jobId}
+          onConfigChange={(nextConfig) => setConfigForTool(toolId, nextConfig)}
+          stepBadge={stepBadge}
+          evaluationType={evaluationType}
+        />
+      )
+    }
+
+    if (isPrscsx(toolId)) {
+      const processingState =
+        processingConfigs[toolId] ??
+        buildDefaultPrscsxProcessingState(
+          configs[toolId] as PrscsxPreProcessingConfig | undefined
+        )
+      return (
+        <PrscsxToolConfiguration
+          key={toolId}
+          toolId={toolId}
+          config={config as PrscsxPreProcessingConfig}
+          jobId={jobId}
+          onConfigChange={(nextConfig) => setConfigForTool(toolId, nextConfig)}
+          stepBadge={stepBadge}
+          evaluationType={evaluationType}
+          processingConfig={processingState}
+          onProcessingChange={(updater) =>
+            setProcessingConfigForTool(toolId, updater)
+          }
+        />
+      )
+    }
+
+    return null
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="mb-2 text-xl font-semibold">Tool Configuration</h3>
         <p className="text-muted-foreground">
-          Configure preprocessing settings and column mappings for each selected
-          tool
+          Configure preprocessing settings and column mappings for each selected tool.
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex w-full flex-wrap gap-2">
-          {selectedTools.map((tool: string) => (
-            <TabsTrigger key={tool} value={tool} className="text-sm">
-              {tool}
-            </TabsTrigger>
+      <div className="rounded-lg border p-4">
+        <h4 className="font-medium">Evaluation Type</h4>
+        <p className="text-sm text-muted-foreground">
+          Applies to all selected tools. Trait selection is enabled only for the chosen evaluation type.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-6">
+          {(["both", "binary", "quantitative"] as EvaluationType[]).map((value) => (
+            <label key={value} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="global_evaluation_type"
+                value={value}
+                className="h-4 w-4"
+                checked={evaluationType === value}
+                onChange={() => handleEvaluationTypeChange(value)}
+              />
+              <span className="capitalize">
+                {value === "both"
+                  ? "Binary + Quantitative"
+                  : value === "binary"
+                    ? "Binary"
+                    : "Quantitative"}
+              </span>
+            </label>
           ))}
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-border bg-transparent p-0">
+          {normalizedTools.map((toolId) => {
+            const isComplete = isToolComplete(toolId)
+            return (
+              <TabsTrigger
+                key={toolId}
+                value={toolId}
+                data-complete={isComplete}
+                className="group rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-semibold transition-all duration-200 hover:bg-muted/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-white"
+              >
+                <span className="flex items-center gap-2">
+                  {TOOL_LABELS[toolId] || toolId}
+                  {isComplete && (
+                    <Badge
+                      variant="outline"
+                      className="hidden text-xs sm:inline-flex text-orange-600 border-orange-600 group-data-[state=active]:text-white group-data-[state=active]:border-white"
+                    >
+                      Ready
+                    </Badge>
+                  )}
+                </span>
+              </TabsTrigger>
+            )
+          })}
         </TabsList>
 
-        {selectedTools.map((tool: string) => (
-          <TabsContent key={tool} value={tool} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {tool} Configuration
-                  <Badge variant="outline">Step 5</Badge>
-                </CardTitle>
-                <CardDescription>
-                  Configure column mappings, phenotype settings, and processing
-                  options for {tool}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Column Mapping Section */}
-                  <Collapsible
-                    open={expandedSections[tool]?.includes("column-mapping")}
-                    onOpenChange={() => toggleSection(tool, "column-mapping")}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div>
-                          <h4 className="font-medium">Column Mapping</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Map your file columns to expected PRS fields
-                          </p>
-                        </div>
-                        {expandedSections[tool]?.includes("column-mapping") ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground">
-                              Preview your sumstats file to see available
-                              columns
-                            </p>
-                            {previews[tool] && (
-                              <p className="mt-1 text-xs text-green-600">
-                                ✓ Headers loaded -{" "}
-                                {previews[tool].preview_lines?.[0]?.split("\t")
-                                  .length || 0}{" "}
-                                columns available
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const sumstatsPath =
-                                  configs[tool]?.target_population
-                                    ?.sumstats_path
-                                if (sumstatsPath) {
-                                  fetchFilePreview(tool, sumstatsPath)
-                                }
-                              }}
-                              disabled={
-                                !configs[tool]?.target_population
-                                  ?.sumstats_path || loadingPreviews[tool]
-                              }
-                            >
-                              {loadingPreviews[tool] ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Eye className="mr-2 h-4 w-4" />
-                              )}
-                              {previews[tool]
-                                ? "Reload Preview"
-                                : "Preview File"}
-                            </Button>
-                            {configs[tool]?.target_population
-                              ?.sumstats_path && (
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                File:{" "}
-                                {configs[tool].target_population.sumstats_path}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {previewErrors[tool] && (
-                          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm text-red-600">
-                                {previewErrors[tool]}
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const sumstatsPath =
-                                    configs[tool]?.target_population
-                                      ?.sumstats_path
-                                  if (sumstatsPath) {
-                                    setPreviewErrors((prev) => ({
-                                      ...prev,
-                                      [tool]: null,
-                                    }))
-                                    fetchFilePreview(tool, sumstatsPath)
-                                  }
-                                }}
-                              >
-                                Retry
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        {previews[tool] && (
-                          <div className="rounded-lg border">
-                            <div className="border-b bg-muted/50 p-3">
-                              <h5 className="text-sm font-medium">
-                                File Preview: {previews[tool].filename}
-                              </h5>
-                              <p className="text-xs text-muted-foreground">
-                                First 5 rows of your sumstats file
-                              </p>
-                            </div>
-                            <div className="max-h-60 overflow-auto">
-                              <div className="border-b">
-                                <div className="grid grid-cols-12 gap-2 bg-muted/30 p-2 text-xs font-medium">
-                                  {previews[tool].preview_lines[0]
-                                    .split("\t")
-                                    .map((header, idx) => (
-                                      <div key={idx} className="truncate">
-                                        {header}
-                                      </div>
-                                    ))}
-                                </div>
-                              </div>
-                              <div className="divide-y">
-                                {previews[tool].preview_lines
-                                  .slice(1)
-                                  .map((line, rowIdx) => (
-                                    <div
-                                      key={rowIdx}
-                                      className="grid grid-cols-12 gap-2 p-2 text-xs"
-                                    >
-                                      {line.split("\t").map((cell, cellIdx) => (
-                                        <div key={cellIdx} className="truncate">
-                                          {cell}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {previews[tool] && (
-                          <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                            <p className="text-sm text-green-800">
-                              ✓ File preview loaded! The dropdowns below now
-                              show the actual column headers from your file for
-                              accurate mapping.
-                            </p>
-                            <div className="mt-2 text-xs text-green-700">
-                              <span className="font-medium">
-                                Mapping Status:
-                              </span>{" "}
-                              {
-                                Object.keys(
-                                  configs[tool]?.column_mappings || {}
-                                ).length
-                              }{" "}
-                              of {getToolRequirements(tool)?.length} fields
-                              mapped
-                              {Object.keys(configs[tool]?.column_mappings || {})
-                                .length > 0 && (
-                                <span className="ml-2">
-                                  •{" "}
-                                  {getToolRequirements(tool)?.length -
-                                    Object.keys(
-                                      configs[tool]?.column_mappings || {}
-                                    ).length}{" "}
-                                  remaining
-                                </span>
-                              )}
-                              {Object.keys(configs[tool]?.column_mappings || {})
-                                .length > 0 && (
-                                <div className="mt-1">
-                                  <span className="font-medium">Mapped:</span>{" "}
-                                  {Object.entries(
-                                    configs[tool]?.column_mappings || {}
-                                  ).map(([field, header], idx) => (
-                                    <span
-                                      key={field}
-                                      className="mb-1 mr-1 inline-block rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800"
-                                    >
-                                      {field} → {header}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h5 className="text-sm font-medium">
-                              Required Field Mappings
-                            </h5>
-                            {previews[tool] && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {
-                                    Object.keys(
-                                      configs[tool]?.column_mappings || {}
-                                    ).length
-                                  }{" "}
-                                  of {getToolRequirements(tool)?.length} mapped
-                                </span>
-                                {isToolComplete(tool) && (
-                                  <Badge variant="default" className="text-xs">
-                                    ✓ Complete
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
-                            {!previews[tool] && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-amber-600">
-                                  Using common field aliases
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {!previews[tool] && (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                              <p className="text-sm text-amber-800">
-                                💡 You can now map columns using common field
-                                names below. Click &ldquo;Preview File&rdquo;
-                                above to see the actual column headers from your
-                                file for more accurate mapping.
-                              </p>
-                            </div>
-                          )}
-
-                          {getToolRequirements(tool)?.map((field) => {
-                            const currentMapping =
-                              configs[tool]?.column_mappings?.[field] || ""
-                            const isMapped = !!currentMapping
-
-                            // Get available headers (excluding already-used ones)
-                            const availableOptions = getAvailableHeaders(
-                              tool,
-                              field
-                            )
-
-                            return (
-                              <div
-                                key={field}
-                                className={`grid grid-cols-2 items-center gap-4 rounded-lg border p-3 ${
-                                  isMapped
-                                    ? "border-green-200 bg-green-50"
-                                    : "border-gray-200"
-                                }`}
-                              >
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-medium">
-                                      {field}
-                                    </Label>
-                                    {isMapped && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs"
-                                      >
-                                        ✓ Mapped
-                                      </Badge>
-                                    )}
-                                    {!previews[tool] &&
-                                      COLUMN_MAPPING[field] && (
-                                        <div className="group relative">
-                                          <Info className="h-4 w-4 cursor-help text-blue-500" />
-                                          <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 min-w-[280px] max-w-[400px] transform rounded-lg bg-gray-900 px-4 py-3 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                            <div className="mb-2 font-medium">
-                                              Common column names:
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-y-1.5">
-                                              {COLUMN_MAPPING[field].map(
-                                                (alias, idx) => (
-                                                  <span
-                                                    key={idx}
-                                                    className="break-words text-blue-200"
-                                                  >
-                                                    {alias}
-                                                  </span>
-                                                )
-                                              )}
-                                            </div>
-                                            <div className="absolute left-4 top-full h-0 w-0 transform border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                                          </div>
-                                        </div>
-                                      )}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {field === "SNP" && "SNP identifier"}
-                                    {field === "CHR" && "Chromosome"}
-                                    {field === "BP" && "Base pair"}
-                                    {field === "A1" && "Effect allele"}
-                                    {field === "A2" && "Other allele"}
-                                    {field === "BETA" && "Effect size"}
-                                    {field === "P" && "P-value"}
-                                  </p>
-                                </div>
-                                <Select
-                                  value={currentMapping}
-                                  onValueChange={(value) =>
-                                    updateColumnMapping(tool, field, value)
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className={
-                                      isMapped ? "border-green-300" : ""
-                                    }
-                                  >
-                                    <SelectValue placeholder="Select column" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableOptions.length > 0 ? (
-                                      availableOptions.map((option, idx) => (
-                                        <SelectItem key={idx} value={option}>
-                                          {option}
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="no-options" disabled>
-                                        No available columns (all headers are
-                                        mapped)
-                                      </SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                                {availableOptions.length === 0 && !isMapped && (
-                                  <div className="mt-2 text-xs text-amber-600">
-                                    💡 All available headers are already mapped.
-                                    Unmap another field first to make headers
-                                    available.
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Phenotype Configuration Section */}
-                  <Collapsible
-                    open={expandedSections[tool]?.includes("phenotype-config")}
-                    onOpenChange={() => toggleSection(tool, "phenotype-config")}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div>
-                          <h4 className="font-medium">
-                            Phenotype Configuration
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Configure phenotype settings for target and source
-                            populations
-                          </p>
-                        </div>
-                        {expandedSections[tool]?.includes(
-                          "phenotype-config"
-                        ) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-4">
-                      <div className="space-y-6">
-                        <div className="flex flex-wrap gap-3">
-                          <div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                fetchPhenotypePreview(tool, "target")
-                              }
-                              disabled={
-                                loadingPhenotypes[tool]?.target ||
-                                !configs[tool]?.target_population
-                                  ?.phenotype_path
-                              }
-                            >
-                              {loadingPhenotypes[tool]?.target ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Eye className="mr-2 h-4 w-4" />
-                              )}
-                              Preview Target Phenotype
-                            </Button>
-                            {configs[tool]?.target_population
-                              ?.phenotype_path && (
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                File:{" "}
-                                {configs[tool].target_population.phenotype_path}
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                fetchPhenotypePreview(tool, "source")
-                              }
-                              disabled={
-                                loadingPhenotypes[tool]?.source ||
-                                !configs[tool]?.source_population
-                                  ?.phenotype_path
-                              }
-                            >
-                              {loadingPhenotypes[tool]?.source ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Eye className="mr-2 h-4 w-4" />
-                              )}
-                              Preview Source Phenotype
-                            </Button>
-                            {configs[tool]?.source_population
-                              ?.phenotype_path && (
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                File:{" "}
-                                {configs[tool].source_population.phenotype_path}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {(phenotypeErrors[tool]?.target ||
-                          phenotypeErrors[tool]?.source) && (
-                          <div className="text-sm text-red-600">
-                            {phenotypeErrors[tool]?.target && (
-                              <p>{phenotypeErrors[tool]?.target}</p>
-                            )}
-                            {phenotypeErrors[tool]?.source && (
-                              <p>{phenotypeErrors[tool]?.source}</p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Evaluation Type Selection */}
-                        <div className="rounded-lg border p-3">
-                          <Label className="text-sm">Evaluation Type</Label>
-                          <div className="mt-2 flex flex-wrap gap-6">
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="radio"
-                                name={`evaluation_type_${tool}`}
-                                value="both"
-                                className="h-4 w-4"
-                                checked={
-                                  (configs[tool]?.options?.evaluation_type ||
-                                    "both") === "both"
-                                }
-                                onChange={() =>
-                                  updateConfig(tool, "options", {
-                                    evaluation_type: "both",
-                                    process_binary_phenotypes: true,
-                                    process_quantitative_phenotypes: true,
-                                  })
-                                }
-                              />
-                              <span>Both</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="radio"
-                                name={`evaluation_type_${tool}`}
-                                value="binary"
-                                className="h-4 w-4"
-                                checked={
-                                  (configs[tool]?.options?.evaluation_type ||
-                                    "both") === "binary"
-                                }
-                                onChange={() =>
-                                  updateConfig(tool, "options", {
-                                    evaluation_type: "binary",
-                                    process_binary_phenotypes: true,
-                                    process_quantitative_phenotypes: false,
-                                  })
-                                }
-                              />
-                              <span>Binary</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="radio"
-                                name={`evaluation_type_${tool}`}
-                                value="quantitative"
-                                className="h-4 w-4"
-                                checked={
-                                  (configs[tool]?.options?.evaluation_type ||
-                                    "both") === "quantitative"
-                                }
-                                onChange={() =>
-                                  updateConfig(tool, "options", {
-                                    evaluation_type: "quantitative",
-                                    process_binary_phenotypes: false,
-                                    process_quantitative_phenotypes: true,
-                                  })
-                                }
-                              />
-                              <span>Quantitative</span>
-                            </label>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Choose whether to configure binary traits,
-                            quantitative traits, or both.
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                          <div className="space-y-3">
-                            <h5 className="text-sm font-medium">
-                              Target Population
-                            </h5>
-                            <div
-                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "quantitative" ? "hidden" : ""}`}
-                            >
-                              <Label className="text-sm">Binary Traits</Label>
-                              <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
-                                {(phenotypeHeaders[tool]?.target || []).map(
-                                  (h, idx) => (
-                                    <label
-                                      key={idx}
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <Checkbox
-                                        checked={
-                                          configs[
-                                            tool
-                                          ]?.phenotype_config?.target_population?.binary_traits?.includes(
-                                            h
-                                          ) || false
-                                        }
-                                        onCheckedChange={(checked) =>
-                                          toggleTrait(
-                                            tool,
-                                            "target_population",
-                                            "binary_traits",
-                                            h,
-                                            checked
-                                          )
-                                        }
-                                        id={`t_bin_${tool}_${idx}`}
-                                      />
-                                      <span>{h}</span>
-                                    </label>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                            <div
-                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "binary" ? "hidden" : ""}`}
-                            >
-                              <Label className="text-sm">
-                                Quantitative Traits
-                              </Label>
-                              <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
-                                {(phenotypeHeaders[tool]?.target || []).map(
-                                  (h, idx) => (
-                                    <label
-                                      key={idx}
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <Checkbox
-                                        checked={
-                                          configs[
-                                            tool
-                                          ]?.phenotype_config?.target_population?.quantitative_traits?.includes(
-                                            h
-                                          ) || false
-                                        }
-                                        onCheckedChange={(checked) =>
-                                          toggleTrait(
-                                            tool,
-                                            "target_population",
-                                            "quantitative_traits",
-                                            h,
-                                            checked
-                                          )
-                                        }
-                                        id={`t_qt_${tool}_${idx}`}
-                                      />
-                                      <span>{h}</span>
-                                    </label>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            <h5 className="text-sm font-medium">
-                              Source Population
-                            </h5>
-                            <div
-                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "quantitative" ? "hidden" : ""}`}
-                            >
-                              <Label className="text-sm">Binary Traits</Label>
-                              <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
-                                {(phenotypeHeaders[tool]?.source || []).map(
-                                  (h, idx) => (
-                                    <label
-                                      key={idx}
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <Checkbox
-                                        checked={
-                                          configs[
-                                            tool
-                                          ]?.phenotype_config?.source_population?.binary_traits?.includes(
-                                            h
-                                          ) || false
-                                        }
-                                        onCheckedChange={(checked) =>
-                                          toggleTrait(
-                                            tool,
-                                            "source_population",
-                                            "binary_traits",
-                                            h,
-                                            checked
-                                          )
-                                        }
-                                        id={`s_bin_${tool}_${idx}`}
-                                      />
-                                      <span>{h}</span>
-                                    </label>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                            <div
-                              className={`rounded-lg border p-3 ${(configs[tool]?.options?.evaluation_type || "both") === "binary" ? "hidden" : ""}`}
-                            >
-                              <Label className="text-sm">
-                                Quantitative Traits
-                              </Label>
-                              <div className="mt-2 grid max-h-40 grid-cols-2 gap-2 overflow-auto pr-1">
-                                {(phenotypeHeaders[tool]?.source || []).map(
-                                  (h, idx) => (
-                                    <label
-                                      key={idx}
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <Checkbox
-                                        checked={
-                                          configs[
-                                            tool
-                                          ]?.phenotype_config?.source_population?.quantitative_traits?.includes(
-                                            h
-                                          ) || false
-                                        }
-                                        onCheckedChange={(checked) =>
-                                          toggleTrait(
-                                            tool,
-                                            "source_population",
-                                            "quantitative_traits",
-                                            h,
-                                            checked
-                                          )
-                                        }
-                                        id={`s_qt_${tool}_${idx}`}
-                                      />
-                                      <span>{h}</span>
-                                    </label>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Genotype Configuration Section */}
-                  <Collapsible
-                    open={expandedSections[tool]?.includes("genotype-config")}
-                    onOpenChange={() => toggleSection(tool, "genotype-config")}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div>
-                          <h4 className="font-medium">
-                            Genotype Configuration
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            Configure genotype file settings and patterns
-                          </p>
-                        </div>
-                        {expandedSections[tool]?.includes("genotype-config") ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-4">
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                          <div className="space-y-3">
-                            <Label className="text-sm">
-                              Genotype File Type
-                            </Label>
-                            <Select
-                              value={configs[tool]?.genotype_config?.file_type}
-                              onValueChange={(value) =>
-                                updateConfig(tool, "genotype_config", {
-                                  file_type: value,
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select file type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="merged">
-                                  Merged (bed, bim, fam)
-                                </SelectItem>
-                                <SelectItem value="split_by_chromosome">
-                                  Split by Chromosome (bed, bim, fam)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="text-sm">
-                              Population Reference
-                            </Label>
-                            <Select
-                              value={
-                                configs[tool]?.genotype_config
-                                  ?.population_reference
-                              }
-                              onValueChange={(value) =>
-                                updateConfig(tool, "genotype_config", {
-                                  population_reference: value,
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select population" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="target_population">
-                                  Target Population
-                                </SelectItem>
-                                <SelectItem value="source_population">
-                                  Source Population
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                          <div className="space-y-3">
-                            <Label className="text-sm">
-                              File Patterns (bed)
-                            </Label>
-                            <Input
-                              value={
-                                configs[tool]?.genotype_config?.file_patterns
-                                  ?.bed
-                              }
-                              onChange={(e) =>
-                                updateConfig(tool, "genotype_config", {
-                                  file_patterns: {
-                                    ...configs[tool]?.genotype_config
-                                      ?.file_patterns,
-                                    bed: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="text-sm">
-                              File Patterns (bim)
-                            </Label>
-                            <Input
-                              value={
-                                configs[tool]?.genotype_config?.file_patterns
-                                  ?.bim
-                              }
-                              onChange={(e) =>
-                                updateConfig(tool, "genotype_config", {
-                                  file_patterns: {
-                                    ...configs[tool]?.genotype_config
-                                      ?.file_patterns,
-                                    bim: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                          <div className="space-y-3">
-                            <Label className="text-sm">
-                              File Patterns (fam)
-                            </Label>
-                            <Input
-                              value={
-                                configs[tool]?.genotype_config?.file_patterns
-                                  ?.fam
-                              }
-                              onChange={(e) =>
-                                updateConfig(tool, "genotype_config", {
-                                  file_patterns: {
-                                    ...configs[tool]?.genotype_config
-                                      ?.file_patterns,
-                                    fam: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Processing Options Section */}
-                  <Collapsible
-                    open={expandedSections[tool]?.includes(
-                      "processing-options"
-                    )}
-                    onOpenChange={() =>
-                      toggleSection(tool, "processing-options")
-                    }
-                  >
-                    <CollapsibleTrigger asChild>
-                      <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div>
-                          <h4 className="font-medium">Processing Options</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Configure processing behavior and options
-                          </p>
-                        </div>
-                        {expandedSections[tool]?.includes(
-                          "processing-options"
-                        ) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-4">
-                      <div className="space-y-3">
-                        {(
-                          TOOL_PROCESSING_OPTIONS[tool] ||
-                          BASE_PROCESSING_OPTIONS
-                        ).map(([key, label]) => (
-                          <label
-                            key={key}
-                            className="flex items-center gap-3 rounded-md border p-3"
-                          >
-                            <Checkbox
-                              checked={!!configs[tool]?.options?.[key]}
-                              onCheckedChange={(checked) =>
-                                updateConfig(tool, "options", {
-                                  [key]: Boolean(checked),
-                                })
-                              }
-                              id={`${tool}-${key}`}
-                            />
-                            <span className="text-sm">{label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              </CardContent>
-            </Card>
+        {normalizedTools.map((toolId) => (
+          <TabsContent key={toolId} value={toolId} className="space-y-4">
+            {renderToolConfiguration(toolId)}
           </TabsContent>
         ))}
       </Tabs>
 
-      <div className="flex justify-between border-t pt-6">
+      <div className="flex justify-between">
         {onPrevious && (
           <Button variant="outline" onClick={onPrevious}>
             Back
           </Button>
         )}
-        <Button onClick={handleNext} disabled={isNextDisabled}>
+        <Button onClick={handleSubmit} disabled={isNextDisabled}>
           Next
         </Button>
       </div>

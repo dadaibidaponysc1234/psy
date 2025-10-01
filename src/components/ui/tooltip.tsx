@@ -8,25 +8,23 @@ export interface TooltipProps {
 
 export function Tooltip({ content, children, className }: TooltipProps) {
   const [isVisible, setIsVisible] = React.useState(false)
-  const [position, setPosition] = React.useState<"top" | "bottom" | "right">(
-    "top"
-  )
+  const [position, setPosition] = React.useState<
+    "top" | "bottom" | "right" | "left"
+  >("top")
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     setIsVisible(true)
 
     // Check if this is a collapsed sidebar tooltip (check parent classes)
-    const isCollapsedSidebar = e.currentTarget
-      .closest("aside")
-      ?.classList.contains("w-16")
+    const sidebarElement = e.currentTarget.closest("aside")
+    const isCollapsedSidebar = sidebarElement?.classList.contains("w-16")
 
-    if (isCollapsedSidebar) {
-      // For collapsed sidebar, always show to the right
+    if (isCollapsedSidebar || sidebarElement) {
       setPosition("right")
-    } else {
-      // For expanded sidebar and other tooltips, always show on top
-      setPosition("top")
+      return
     }
+
+    setPosition("top")
   }
 
   return (
