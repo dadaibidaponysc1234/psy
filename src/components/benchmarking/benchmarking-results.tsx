@@ -824,6 +824,34 @@ export function BenchmarkingResults({
         </div>
       </div>
 
+      {/* Failure notice card */}
+      {(backendStatus || "").toLowerCase() === "failed" && (
+        <Card className="border-red-200 bg-red-50 text-red-900">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Job Failed
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div>
+              {statusDetails?.error || statusDetails?.message ? (
+                <span className="break-words">
+                  {String(statusDetails?.error || statusDetails?.message)}
+                </span>
+              ) : (
+                <span>
+                  This job encountered an error and did not complete.
+                </span>
+              )}
+            </div>
+            <div className="text-red-800/80">
+              Try Refresh, review your configuration, and check logs or files
+              in the Files tab.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs
         defaultValue="overview"

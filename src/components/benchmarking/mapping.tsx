@@ -38,6 +38,7 @@ import {
   PrscsxPopulationState,
   PrscsxTargetPopulation,
 } from "@/stores/benchmarking-store"
+import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import {
   useJobId,
   useJobMapping,
@@ -241,47 +242,29 @@ const getToolMappingFields = (
   if (toolKey === "bridgeprs") {
     return baseFields.map((field) => {
       if (field.population === "target") {
-        const nextLabel = field.label.replace(
-          "Target Population",
-          "Pop1 (Target Population)"
-        )
-        let description = field.description
-        if (field.fieldType === "sumstats_path") {
-          description = "Summary statistics file for Pop1 (target population)"
-        } else if (field.fieldType === "genotype_directory") {
-          description =
-            "Directory containing PLINK format genotype files (.bed, .bim, .fam) for Pop1 (target population)"
-        } else if (field.fieldType === "phenotype_path") {
-          description = "Phenotype data file for Pop1 (target population)"
-        }
-
         return {
           ...field,
           id: field.id.replace("target_population", "pop1"),
-          label: nextLabel,
-          description,
+          label: field.label,
+          description: field.description,
         }
       }
 
       if (field.population === "source") {
-        const nextLabel = field.label.replace(
-          "Source Population",
-          "Pop2 (Base Population)"
-        )
         let description = field.description
         if (field.fieldType === "sumstats_path") {
-          description = "Summary statistics file for Pop2 (base population)"
+          description = "Summary statistics file for the base population"
         } else if (field.fieldType === "genotype_directory") {
           description =
-            "Directory containing PLINK format genotype files (.bed, .bim, .fam) for Pop2 (base population)"
+            "Directory containing PLINK format genotype files (.bed, .bim, .fam) for the base population"
         } else if (field.fieldType === "phenotype_path") {
-          description = "Phenotype data file for Pop2 (base population)"
+          description = "Phenotype data file for the base population"
         }
 
         return {
           ...field,
           id: field.id.replace("source_population", "pop2"),
-          label: nextLabel,
+          label: field.label.replace("Source Population", "Base Population"),
           description,
         }
       }
@@ -490,6 +473,22 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const toolConfigs = jobMapping?.toolConfigs ?? {}
+  const resolveStoreToolId = React.useCallback(
+    (toolId: string) => {
+      const lower = toolId.toLowerCase()
+      if (toolConfigs[toolId]) {
+        return toolId
+      }
+      if (toolConfigs[lower]) {
+        return lower
+      }
+      const matchedKey = Object.keys(toolConfigs).find(
+        (existing) => existing.toLowerCase() === lower
+      )
+      return matchedKey ?? lower
+    },
+    [toolConfigs]
+  )
   const activeTabFromStore = jobMapping?.activeTool ?? null
   const fallbackTab = selectedTools[0] || ""
   const derivedActiveTab =
@@ -511,6 +510,23 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       selectedTools,
     })
   }, [jobId, activeTabFromStore, activeTab, selectedToolsKey])
+
+  // Dev-only: allow a debug dataset structure to bypass backend explore in dry-run
+  useEffect(() => {
+    const debugEnabled =
+      (process.env.NEXT_PUBLIC_DEBUG || "").toLowerCase() === "true"
+    if (!debugEnabled) return
+    if (datasetStructure) return
+
+    const debugStructure = useBenchmarkingStore.getState().stepData[
+      "__debug_dataset_structure"
+    ] as any
+    if (debugStructure) {
+      console.log("[Mapping] using debug dataset structure from store")
+      setDatasetStructure(debugStructure as DatasetStructure)
+      setLoading(false)
+    }
+  }, [datasetStructure])
 
   const handleActiveTabChange = (toolId: string) => {
     if (toolId !== activeTabFromStore) {
@@ -653,7 +669,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   ])
 
   const hasHydratedFromPropsRef = React.useRef(false)
-  const [savedPopulations, setSavedPopulations] = useState<Record<string, boolean>>({})
+  const [savedPopulations, setSavedPopulations] = useState<
+    Record<string, boolean>
+  >({})
 
   useEffect(() => {
     if (hasHydratedFromPropsRef.current || !jobId || !data) {
@@ -664,7 +682,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     if (data.toolMappings) {
       Object.entries(data.toolMappings).forEach(([tool, mappings]) => {
-        setToolMappings(tool, mappings as Record<string, unknown>)
+        const storeToolId = resolveStoreToolId(tool)
+        setToolMappings(storeToolId, mappings as Record<string, unknown>)
       })
     }
 
@@ -676,7 +695,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       setPopulationPanels((prev) => {
         const next = { ...prev }
         Object.entries(configs).forEach(([tool, populations]) => {
-          setToolPopulation(tool, {
+          const storeToolId = resolveStoreToolId(tool)
+          setToolPopulation(storeToolId, {
             targetPopulation: populations.targetPopulation || "",
             sourcePopulation: populations.sourcePopulation || "",
           })
@@ -706,7 +726,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       const panelsToClose: Record<string, boolean> = {}
 
       selectedTools.forEach((tool) => {
-        setToolPopulation(tool, {
+        const storeToolId = resolveStoreToolId(tool)
+        setToolPopulation(storeToolId, {
           targetPopulation: fallback.targetPopulation || "",
           sourcePopulation: fallback.sourcePopulation || "",
         })
@@ -729,13 +750,47 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           fallback.targetPopulation && fallback.sourcePopulation
         )
         selectedTools.forEach((tool) => {
-          const key = tool.toLowerCase()
+          const storeToolId = resolveStoreToolId(tool)
+          const key = storeToolId.toLowerCase()
           if (filled) next[key] = true
         })
         return next
       })
     }
-  }, [data, jobId, selectedToolsKey, setToolMappings, setToolPopulation])
+  }, [
+    data,
+    jobId,
+    selectedToolsKey,
+    setToolMappings,
+    setToolPopulation,
+    resolveStoreToolId,
+  ])
+
+  useEffect(() => {
+    setSavedPopulations((prev) => {
+      let next = prev
+      selectedTools.forEach((tool) => {
+        const lower = tool.toLowerCase()
+        if (lower === "prscsx") {
+          return
+        }
+        const storeToolId = resolveStoreToolId(tool)
+        const populations = toolConfigs[storeToolId]?.populations
+        const key = storeToolId.toLowerCase()
+        if (
+          populations?.targetPopulation &&
+          populations?.sourcePopulation &&
+          prev[key] === undefined
+        ) {
+          if (next === prev) {
+            next = { ...prev }
+          }
+          next[key] = true
+        }
+      })
+      return next
+    })
+  }, [selectedToolsKey, toolConfigs, resolveStoreToolId])
 
   type MappingValue = FileInfo | DirectoryItem | null
 
@@ -747,7 +802,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       }
     }
 
-    const toolState = toolConfigs[toolId]
+    const storeToolId = resolveStoreToolId(toolId)
+    const toolState = toolConfigs[storeToolId]
     const populations = toolState?.populations ?? {
       targetPopulation: "",
       sourcePopulation: "",
@@ -760,7 +816,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const getMappingsForTool = (toolId: string): Record<string, MappingValue> => {
-    const toolState = toolConfigs[toolId]
+    const storeToolId = resolveStoreToolId(toolId)
+    const toolState = toolConfigs[storeToolId]
     return (toolState?.fields ?? {}) as Record<string, MappingValue>
   }
 
@@ -776,13 +833,14 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       return
     }
 
-    const current = getPopulationForTool(toolId)
-    setToolPopulation(toolId, {
+    const storeToolId = resolveStoreToolId(toolId)
+    const current = getPopulationForTool(storeToolId)
+    setToolPopulation(storeToolId, {
       ...current,
       [field]: value,
     })
 
-    const toolKey = toolId.toLowerCase()
+    const toolKey = storeToolId.toLowerCase()
     setSavedPopulations((prev) => {
       if (!prev[toolKey]) {
         return prev
@@ -829,7 +887,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       })
     }
 
-    const requiredFields = getFieldsForTool(toolId).filter((field) => field.required)
+    const requiredFields = getFieldsForTool(toolId).filter(
+      (field) => field.required
+    )
 
     return requiredFields.filter((field) => {
       const value = mappings[field.id] as MappingValue
@@ -889,8 +949,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       const populations = getPopulationForTool(toolId)
       return Boolean(
         savedPopulations[toolKey] &&
-        populations.targetPopulation &&
-        populations.sourcePopulation
+          populations.targetPopulation &&
+          populations.sourcePopulation
       )
     }
 
@@ -1074,7 +1134,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const mapFileToField = (fieldId: string, toolId: string = activeTab) => {
     if (!selectedFile || !toolId) return
 
-    setToolFieldValue(toolId, fieldId, selectedFile)
+    const storeToolId = resolveStoreToolId(toolId)
+    setToolFieldValue(storeToolId, fieldId, selectedFile)
     setSelectedFile(null)
     toast.success(`Mapped ${selectedFile.name} to ${fieldId}`)
   }
@@ -1082,14 +1143,16 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const mapDirectoryToField = (fieldId: string, toolId: string = activeTab) => {
     if (!selectedDirectory || !toolId) return
 
-    setToolFieldValue(toolId, fieldId, selectedDirectory)
+    const storeToolId = resolveStoreToolId(toolId)
+    setToolFieldValue(storeToolId, fieldId, selectedDirectory)
     setSelectedDirectory(null)
     toast.success(`Mapped ${selectedDirectory.name} to ${fieldId}`)
   }
 
   const removeMapping = (fieldId: string, toolId: string = activeTab) => {
     if (!toolId) return
-    setToolFieldValue(toolId, fieldId, null)
+    const storeToolId = resolveStoreToolId(toolId)
+    setToolFieldValue(storeToolId, fieldId, null)
   }
 
   const selectFileFromDropdown = (
@@ -1098,9 +1161,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     toolId: string = activeTab
   ) => {
     if (!toolId) return
+    const storeToolId = resolveStoreToolId(toolId)
     const file = datasetStructure?.files.find((f) => f.path === filePath)
     if (file) {
-      setToolFieldValue(toolId, fieldId, file)
+      setToolFieldValue(storeToolId, fieldId, file)
       toast.success(`Mapped ${file.name} to ${fieldId}`)
     }
   }
@@ -1111,11 +1175,12 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     toolId: string = activeTab
   ) => {
     if (!toolId) return
+    const storeToolId = resolveStoreToolId(toolId)
     const directory = datasetStructure?.directories.find(
       (d) => d.path === directoryPath
     )
     if (directory) {
-      setToolFieldValue(toolId, fieldId, directory)
+      setToolFieldValue(storeToolId, fieldId, directory)
       toast.success(`Mapped ${directory.name} to ${fieldId}`)
     }
   }
@@ -1143,15 +1208,14 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     const file = findFileById(draggableId)
     const directory = findDirectoryById(draggableId)
+    const storeToolId = resolveStoreToolId(toolId)
 
     if (file) {
-      setToolFieldValue(toolId, fieldId, file)
+      setToolFieldValue(storeToolId, fieldId, file)
       toast.success(`Mapped ${file.name} to ${fieldId}`)
     } else if (directory) {
-      setToolFieldValue(toolId, fieldId, directory)
-      toast.success(
-        `Mapped directory ${directory.name} to ${fieldId}`
-      )
+      setToolFieldValue(storeToolId, fieldId, directory)
+      toast.success(`Mapped directory ${directory.name} to ${fieldId}`)
     }
   }
 
@@ -1166,8 +1230,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const renderPopulationConfiguration = (tool: string) => {
-    const key = tool.toLowerCase()
-    const populations = getPopulationForTool(tool)
+    const storeToolId = resolveStoreToolId(tool)
+    const key = storeToolId.toLowerCase()
+    const populations = getPopulationForTool(storeToolId)
     const isOpen = populationPanels[tool] ?? true
     const isSaved = Boolean(savedPopulations[key])
 
@@ -1193,7 +1258,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
         />
       ),
       prscsx: () => {
-        const mappingPath = (fieldId: string) => getMappingPath("prscsx", fieldId)
+        const mappingPath = (fieldId: string) =>
+          getMappingPath("prscsx", fieldId)
 
         const targetMappings = {
           sumstats: mappingPath("prscsx.target.sumstats_path"),
@@ -1331,7 +1397,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                     Mapped
                   </Badge>
                 ) : (
-                  <Badge className="border-red-300 bg-red-50 text-red-700">Required</Badge>
+                  <Badge className="border-red-300 bg-red-50 text-red-700">
+                    Required
+                  </Badge>
                 )
               ) : (
                 <Badge variant="secondary">Optional</Badge>
@@ -1341,7 +1409,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                 <div className="flex items-center gap-2">
                   {isCompatible && !isMapped && (
                     <span className="text-xs text-blue-600">
-                      Selected {selectedFile ? "file" : "directory"} is compatible
+                      Selected {selectedFile ? "file" : "directory"} is
+                      compatible
                     </span>
                   )}
                   {canMapSelection && (
@@ -1480,9 +1549,13 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-700" />
               <div>
-                <CardTitle className="text-sm font-semibold text-orange-900">Population configuration required</CardTitle>
+                <CardTitle className="text-sm font-semibold text-orange-900">
+                  Population configuration required
+                </CardTitle>
                 <CardDescription className="text-xs text-orange-700">
-                  Please configure population(s) for {toolDisplayNames[tool.toLowerCase()] || tool} before mapping files.
+                  Please configure population(s) for{" "}
+                  {toolDisplayNames[tool.toLowerCase()] || tool} before mapping
+                  files.
                 </CardDescription>
               </div>
             </div>
@@ -1497,9 +1570,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     if (toolKey === "prscsx") {
       populationLabel = `${prscsxConfig?.target.name || "target"} with ${prscsxBases.length} base population${prscsxBases.length === 1 ? "" : "s"}`
     } else if (toolKey === "bridgeprs") {
-      const pop1Name = populations.targetPopulation || "Pop1"
-      const pop2Name = populations.sourcePopulation || "Pop2"
-      populationLabel = `${pop1Name} (Pop1) and ${pop2Name} (Pop2)`
+      const targetName = populations.targetPopulation || "target population"
+      const baseName = populations.sourcePopulation || "base population"
+      populationLabel = `${targetName} and ${baseName}`
     } else if (populations.sourcePopulation) {
       populationLabel = `${populations.targetPopulation || "target"} and ${populations.sourcePopulation} populations`
     }
@@ -1587,14 +1660,15 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const handlePopulationFormSubmit = (toolId: string) => {
-    const populations = getPopulationForTool(toolId)
+    const storeToolId = resolveStoreToolId(toolId)
+    const populations = getPopulationForTool(storeToolId)
 
     if (!populations.targetPopulation || !populations.sourcePopulation) {
       toast.error("Please provide both target and source population names")
       return
     }
 
-    const toolKey = toolId.toLowerCase()
+    const toolKey = storeToolId.toLowerCase()
     setSavedPopulations((prev) => ({ ...prev, [toolKey]: true }))
 
     setPopulationPanels((prev) => ({
@@ -1726,7 +1800,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
 
     // Require ALL selected tools to be fully configured and mapped before proceeding
-    const incompleteTools = selectedTools.filter((tool) => !computeToolValidity(tool))
+    const incompleteTools = selectedTools.filter(
+      (tool) => !computeToolValidity(tool)
+    )
     if (incompleteTools.length > 0) {
       const first = incompleteTools[0]
       toast.error(
@@ -1844,10 +1920,16 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           phenotype_path: mappingPath("pop2.phenotype_path"),
         }
 
+        const sharedGenotypePath =
+          mappingPath("pop1.genotype_path") ||
+          mappingPath("pop2.genotype_path") ||
+          ""
+
         configData[tool] = {
           pre_processing: {
             pop1: pop1Config,
             pop2: pop2Config,
+            genotype_path: sharedGenotypePath,
           },
         }
 
@@ -1928,8 +2010,11 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const activeToolKey = activeTab?.toLowerCase() || ""
-  const allToolsValid = selectedTools.length > 0 && selectedTools.every((t) => computeToolValidity(t))
-  const isNextDisabled = !datasetStructure || selectedTools.length === 0 || !allToolsValid
+  const allToolsValid =
+    selectedTools.length > 0 &&
+    selectedTools.every((t) => computeToolValidity(t))
+  const isNextDisabled =
+    !datasetStructure || selectedTools.length === 0 || !allToolsValid
 
   return (
     <>
@@ -1983,51 +2068,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
         {/* Population Configuration Form */}
         {/* Population Configuration is now handled per-tool inside the tab content */}
 
-        {/* Status Message */}
-        {!datasetStructure && jobStatus && (
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <div>
-                <CardTitle>Current Status</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {jobStatus.status === "CREATED"
-                    ? "Job created but no files uploaded yet."
-                    : jobStatus.status === "PROCESSING"
-                      ? "Files are being processed and extracted."
-                      : jobStatus.status === "FAILED"
-                        ? "Job processing failed."
-                        : jobStatus.status === "CANCELLED"
-                          ? "Job was cancelled."
-                          : "Waiting for files to be ready."}
-                </p>
-              </div>
-              <Badge
-                variant={jobStatus.status === "UPLOADED" ? "default" : "outline"}
-                className={
-                  jobStatus.status === "CREATED"
-                    ? "bg-blue-100 text-blue-800"
-                    : jobStatus.status === "PROCESSING"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : jobStatus.status === "FAILED"
-                        ? "bg-red-100 text-red-800"
-                        : jobStatus.status === "CANCELLED"
-                          ? "bg-gray-100 text-gray-800"
-                          : ""
-                }
-              >
-                {jobStatus.status}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {jobStatus.message || "Processing job, please wait..."}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Removed duplicate status card to avoid redundant waiting messages while extraction runs */}
 
         {/* Selected File Display */}
         {/* Blue selected-file info box removed per request */}
@@ -2046,14 +2087,14 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                   key={tool}
                   value={tool}
                   data-complete={isComplete}
-                  className="group rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-semibold transition-all duration-200 hover:bg-muted/40 data-[state=active]:border-primary data-[complete=false]:text-muted-foreground/80 data-[state=active]:bg-primary data-[state=active]:text-white"
+                  className="group rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-semibold transition-all duration-200 hover:bg-muted/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[complete=false]:text-muted-foreground/80 data-[state=active]:text-white"
                 >
                   <span className="flex items-center gap-2">
                     {toolDisplayNames[tool.toLowerCase()] || tool}
                     {isComplete && (
                       <Badge
                         variant="outline"
-                        className="hidden text-xs sm:inline-flex text-orange-600 border-orange-600 group-data-[state=active]:text-white group-data-[state=active]:border-white"
+                        className="hidden border-orange-600 text-xs text-orange-600 group-data-[state=active]:border-white group-data-[state=active]:text-white sm:inline-flex"
                       >
                         Ready
                       </Badge>
