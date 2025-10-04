@@ -13,6 +13,7 @@ import { getBenchmarkConfigUrl } from "@/lib/config"
 import { PrsiceToolConfiguration } from "@/components/benchmarking/tool-configuration/PrsiceToolConfiguration"
 import { PrscsxToolConfiguration } from "@/components/benchmarking/tool-configuration/PrscsxToolConfiguration"
 import { BridgeprsToolConfiguration } from "@/components/benchmarking/tool-configuration/BridgeprsToolConfiguration"
+import { SdprxToolConfiguration } from "@/components/benchmarking/tool-configuration/SdprxToolConfiguration"
 import type {
   PrsicePreProcessingConfig,
   PrscsxPreProcessingConfig,
@@ -28,11 +29,17 @@ import type {
   BridgeprsProcessingState,
   BridgeprsProcessingModeState,
   BridgeprsProcessingPayload,
+  SdprxPreProcessingConfig,
+  SdprxProcessingState,
+  SdprxProcessingModeState,
+  SdprxProcessingPayload,
+  SdprxColumnKey,
 } from "@/components/benchmarking/tool-configuration/types"
 
 interface ToolConfigurationProps {
   onNext: (data: {
     configs: Record<string, ToolPreProcessingConfig>
+    processing?: Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload | SdprxProcessingPayload>
     submitted: boolean
     jobId: string
     timestamp: string
@@ -47,6 +54,7 @@ const TOOL_LABELS: Record<string, string> = {
   prsice: "PRSice",
   prscsx: "PRScsx",
   bridgeprs: "BridgePRS",
+  sdprx: "SDPRX",
 }
 
 const PRSICE_REQUIRED_COLUMNS = ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"]
@@ -71,6 +79,9 @@ const BRIDGEPRS_REQUIRED_COLUMNS: BridgeprsColumnKey[] = [
   "N",
 ]
 
+// SDPRX required columns per new schema
+const SDPRX_REQUIRED_COLUMNS: SdprxColumnKey[] = ["SNP", "A1", "A2", "N"]
+
 const DEFAULT_PROCESSING_OPTIONS: ProcessingOptions = {
   evaluation_type: "both",
   process_binary_phenotypes: true,
@@ -87,6 +98,7 @@ const DEFAULT_PRSICE_PHENOTYPE: PrsicePhenotypePopulationConfig = {
 const isPrsice = (toolId: string) => toolId.toLowerCase() === "prsice"
 const isPrscsx = (toolId: string) => toolId.toLowerCase() === "prscsx"
 const isBridgeprs = (toolId: string) => toolId.toLowerCase() === "bridgeprs"
+const isSdprx = (toolId: string) => toolId.toLowerCase() === "sdprx"
 
 type ProcessingModeKey = keyof PrscsxProcessingState
 
@@ -128,12 +140,15 @@ export function ToolConfiguration({
   const [bridgeprsProcessingConfigs, setBridgeprsProcessingConfigs] = useState<
     Record<string, BridgeprsProcessingState>
   >({})
+  const [sdprxProcessingConfigs, setSdprxProcessingConfigs] = useState<
+    Record<string, SdprxProcessingState>
+  >({})
   const [evaluationType, setEvaluationType] = useState<EvaluationType>(
     DEFAULT_PROCESSING_OPTIONS.evaluation_type
   )
   const initializedSignatureRef = useRef<string | null>(null)
   const [debugOpen, setDebugOpen] = useState(false)
-const showDebug = false
+  const showDebug = false
 
   const initializationSignature = useMemo(() => {
     const toolsKey = normalizedTools.join("|") || "__none__"
@@ -389,6 +404,81 @@ const showDebug = false
         return base
       }
 
+      // SDPRX: build initial config from mapping
+      if (isSdprx(key)) {
+        const preProcessing = mappingConfig?.pre_processing
+        if (!preProcessing) return null
+
+        const buildPopulation = (pop: any) => ({
+          name: pop?.name || "",
+          sumstats_path: pop?.sumstats_path || "",
+          genotype_path: pop?.genotype_path || "",
+          phenotype_path: pop?.phenotype_path || "",
+        })
+
+        const pop1 = buildPopulation(preProcessing?.pop1)
+        const pop2 = buildPopulation(preProcessing?.pop2)
+
+        const columnMappings = SDPRX_REQUIRED_COLUMNS.reduce(
+          (acc, column) => {
+            const value = preProcessing?.column_mappings?.[column]
+            if (value) acc[column] = value
+            return acc
+          },
+          {} as Partial<Record<SdprxColumnKey, string>>
+        )
+
+        const base: SdprxPreProcessingConfig = {
+          pop1,
+          pop2,
+          genotype_path: preProcessing?.genotype_path || "",
+          output_dir:
+            preProcessing?.output_dir ||
+            `results/preprocessed_data/preprocessed_${key}_output`,
+          column_mappings: columnMappings,
+          fixed_N1:
+            typeof preProcessing?.fixed_N1 === "string"
+              ? preProcessing.fixed_N1
+              : undefined,
+          fixed_N2:
+            typeof preProcessing?.fixed_N2 === "string"
+              ? preProcessing.fixed_N2
+              : undefined,
+          genotype_config: {
+            file_type: preProcessing?.genotype_config?.file_type || "merged",
+            population_reference:
+              preProcessing?.genotype_config?.population_reference === "pop2"
+                ? "pop2"
+                : "pop1",
+            file_patterns: {
+              bed: preProcessing?.genotype_config?.file_patterns?.bed || "*.bed",
+              bim: preProcessing?.genotype_config?.file_patterns?.bim || "*.bim",
+              fam: preProcessing?.genotype_config?.file_patterns?.fam || "*.fam",
+            },
+          },
+          phenotype_config: {
+            pop1: {
+              binary_traits:
+                preProcessing?.phenotype_config?.pop1?.binary_traits?.filter(Boolean) || [],
+              quantitative_traits:
+                preProcessing?.phenotype_config?.pop1?.quantitative_traits?.filter(Boolean) || [],
+            },
+            pop2: {
+              binary_traits:
+                preProcessing?.phenotype_config?.pop2?.binary_traits?.filter(Boolean) || [],
+              quantitative_traits:
+                preProcessing?.phenotype_config?.pop2?.quantitative_traits?.filter(Boolean) || [],
+            },
+          },
+          options: {
+            ...DEFAULT_PROCESSING_OPTIONS,
+            ...(preProcessing?.options ?? {}),
+          },
+        }
+
+        return base
+      }
+
       return null
     },
     [data, storedConfigs, mappingData]
@@ -494,6 +584,38 @@ const showDebug = false
     }
   }
 
+  // SDPRX: default processing state
+  const buildDefaultSdprxProcessingState = (
+    preProcessing?: SdprxPreProcessingConfig
+  ): SdprxProcessingState => {
+    const populationRef = preProcessing?.genotype_config?.population_reference
+    const genoPath = populationRef === "pop2"
+      ? preProcessing?.pop2?.genotype_path || ""
+      : preProcessing?.pop1?.genotype_path || ""
+
+    const base: SdprxProcessingModeState = {
+      ss1: preProcessing?.pop1?.sumstats_path || "",
+      ss2: preProcessing?.pop2?.sumstats_path || "",
+      sdprx_genotype_file: genoPath,
+      n1: "",
+      n2: "",
+      force_shared: false,
+      load_ld: "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+      valid: "",
+      chrom: "",
+      rho: "",
+      output_dir: preProcessing?.output_dir || "",
+      score_file: "",
+      plink_output_prefix: "",
+      pheno: "",
+      log_dir: "",
+    }
+    return {
+      binary: { ...base },
+      quantitative: { ...base },
+    }
+  }
+
   useEffect(() => {
     const signature = initializationSignature
 
@@ -510,6 +632,7 @@ const showDebug = false
     const initialConfigs: Record<string, ToolPreProcessingConfig> = {}
     const initialProcessing: Record<string, PrscsxProcessingState> = {}
     const initialBridgeProcessing: Record<string, BridgeprsProcessingState> = {}
+    const initialSdprxProcessing: Record<string, SdprxProcessingState> = {}
 
     normalizedTools.forEach((toolId) => {
       if (isBridgeprs(toolId)) {
@@ -531,6 +654,8 @@ const showDebug = false
         initialConfigs[toolId] = buildDefaultPrsiceConfig(toolId)
       } else if (isPrscsx(toolId)) {
         initialConfigs[toolId] = buildDefaultPrscsxConfig(toolId)
+      } else if (isSdprx(toolId)) {
+        initialConfigs[toolId] = buildDefaultSdprxConfig(toolId)
       }
 
       if (isPrscsx(toolId)) {
@@ -539,11 +664,18 @@ const showDebug = false
           initialConfigs[toolId] as PrscsxPreProcessingConfig
         )
       }
+
+      if (isSdprx(toolId)) {
+        initialSdprxProcessing[toolId] = buildDefaultSdprxProcessingState(
+          initialConfigs[toolId] as SdprxPreProcessingConfig
+        )
+      }
     })
 
     setConfigs(initialConfigs)
     setProcessingConfigs(initialProcessing)
     setBridgeprsProcessingConfigs(initialBridgeProcessing)
+    setSdprxProcessingConfigs(initialSdprxProcessing)
     initializedSignatureRef.current = signature
 
     let detectedType: EvaluationType | null = null
@@ -559,6 +691,8 @@ const showDebug = false
       } else if (isBridgeprs(toolId)) {
         detectedType = (cfg as BridgeprsPreProcessingConfig).options
           .evaluation_type
+      } else if (isSdprx(toolId)) {
+        detectedType = (cfg as SdprxPreProcessingConfig).options.evaluation_type
       }
       if (detectedType) {
         break
@@ -669,6 +803,44 @@ const showDebug = false
     output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
   })
 
+  const buildDefaultSdprxConfig = (
+    toolId: string
+  ): SdprxPreProcessingConfig => ({
+    pop1: {
+      name: "",
+      sumstats_path: "",
+      genotype_path: "",
+      phenotype_path: "",
+    },
+    pop2: {
+      name: "",
+      sumstats_path: "",
+      genotype_path: "",
+      phenotype_path: "",
+    },
+    genotype_path: "",
+    output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
+    column_mappings: SDPRX_REQUIRED_COLUMNS.reduce(
+      (acc, column) => {
+        acc[column] = ""
+        return acc
+      },
+      {} as Partial<Record<SdprxColumnKey, string>>
+    ),
+    fixed_N1: "",
+    fixed_N2: "",
+    genotype_config: {
+      file_type: "merged",
+      population_reference: "pop1",
+      file_patterns: { bed: "*.bed", bim: "*.bim", fam: "*.fam" },
+    },
+    phenotype_config: {
+      pop1: { binary_traits: [], quantitative_traits: [] },
+      pop2: { binary_traits: [], quantitative_traits: [] },
+    },
+    options: { ...DEFAULT_PROCESSING_OPTIONS },
+  })
+
   const setConfigForTool = (
     toolId: string,
     nextConfig: ToolPreProcessingConfig
@@ -707,8 +879,28 @@ const showDebug = false
 
     setBridgeprsProcessingConfigs((prev) => {
       const current = prev[toolId]
-      const preProcessing = configs[toolId] as BridgeprsPreProcessingConfig | undefined
+      const preProcessing = configs[toolId] as
+        | BridgeprsPreProcessingConfig
+        | undefined
       const base = buildDefaultBridgeprsProcessingState(preProcessing)
+      const next = updater(current || base)
+      return {
+        ...prev,
+        [toolId]: next,
+      }
+    })
+  }
+
+  const setSdprxProcessingConfigForTool = (
+    toolId: string,
+    updater: (state: SdprxProcessingState) => SdprxProcessingState
+  ) => {
+    if (!isSdprx(toolId)) return
+
+    setSdprxProcessingConfigs((prev) => {
+      const current = prev[toolId]
+      const preProcessing = configs[toolId] as SdprxPreProcessingConfig | undefined
+      const base = buildDefaultSdprxProcessingState(preProcessing)
       const next = updater(current || base)
       return {
         ...prev,
@@ -720,7 +912,10 @@ const showDebug = false
   // Build a debug snapshot mirroring the submit flow without sending
   const buildDebugSnapshot = (): {
     sanitized: Record<string, ToolPreProcessingConfig>
-    sanitizedProcessing: Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload>
+    sanitizedProcessing: Record<
+      string,
+      PrscsxProcessingPayload | BridgeprsProcessingPayload | SdprxProcessingPayload
+    >
     requestBody: any
     validationErrors: string[]
   } => {
@@ -730,55 +925,84 @@ const showDebug = false
       if (!v.isValid) validationErrors.push(...v.errors)
     })
 
-    const sanitized = normalizedTools.reduce((acc, toolId) => {
-      const config = configs[toolId]
-      if (!config) return acc
-      if (isBridgeprs(toolId)) {
-        acc[toolId] = sanitizeBridgeprsConfig(
-          config as BridgeprsPreProcessingConfig
-        )
-      } else if (isPrsice(toolId)) {
-        acc[toolId] = sanitizePrsiceConfig(
-          config as PrsicePreProcessingConfig
-        )
-      } else if (isPrscsx(toolId)) {
-        acc[toolId] = sanitizePrscsxConfig(
-          config as PrscsxPreProcessingConfig
-        )
-      }
-      return acc
-    }, {} as Record<string, ToolPreProcessingConfig>)
+    const sanitized = normalizedTools.reduce(
+      (acc, toolId) => {
+        const config = configs[toolId]
+        if (!config) return acc
+        if (isBridgeprs(toolId)) {
+          acc[toolId] = sanitizeBridgeprsConfig(
+            config as BridgeprsPreProcessingConfig
+          )
+        } else if (isPrsice(toolId)) {
+          acc[toolId] = sanitizePrsiceConfig(
+            config as PrsicePreProcessingConfig
+          )
+        } else if (isPrscsx(toolId)) {
+          acc[toolId] = sanitizePrscsxConfig(
+            config as PrscsxPreProcessingConfig
+          )
+        } else if (isSdprx(toolId)) {
+          acc[toolId] = sanitizeSdprxConfig(
+            config as SdprxPreProcessingConfig
+          )
+        }
+        return acc
+      },
+      {} as Record<string, ToolPreProcessingConfig>
+    )
 
-    const sanitizedProcessing = normalizedTools.reduce((acc, toolId) => {
-      if (isPrscsx(toolId)) {
-        const preProcessing = sanitized[toolId] as PrscsxPreProcessingConfig | undefined
-        const processingState = processingConfigs[toolId]
-        if (preProcessing && processingState) {
-          const payload = buildPrscsxProcessingPayload(
-            preProcessing,
-            processingState,
-            preProcessing.options.evaluation_type || evaluationType
-          )
-          if (payload.binary || payload.quantitative) {
-            acc[toolId] = payload
+    const sanitizedProcessing = normalizedTools.reduce(
+      (acc, toolId) => {
+        if (isPrscsx(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | PrscsxPreProcessingConfig
+            | undefined
+          const processingState = processingConfigs[toolId]
+          if (preProcessing && processingState) {
+            const payload = buildPrscsxProcessingPayload(
+              preProcessing,
+              processingState,
+              preProcessing.options.evaluation_type || evaluationType
+            )
+            if (payload.binary || payload.quantitative) {
+              acc[toolId] = payload
+            }
+          }
+        } else if (isBridgeprs(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | BridgeprsPreProcessingConfig
+            | undefined
+          const processingState = bridgeprsProcessingConfigs[toolId]
+          if (preProcessing && processingState) {
+            const payload = buildBridgeprsProcessingPayload(
+              preProcessing,
+              processingState,
+              preProcessing.options.evaluation_type || evaluationType
+            )
+            if (payload.binary || payload.quantitative) {
+              acc[toolId] = payload
+            }
+          }
+        } else if (isSdprx(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | SdprxPreProcessingConfig
+            | undefined
+          const processingState = sdprxProcessingConfigs[toolId]
+          if (preProcessing && processingState) {
+            const payload = buildSdprxProcessingPayload(
+              preProcessing,
+              processingState,
+              preProcessing.options.evaluation_type || evaluationType
+            )
+            if (payload.binary || payload.quantitative) {
+              acc[toolId] = payload
+            }
           }
         }
-      } else if (isBridgeprs(toolId)) {
-        const preProcessing = sanitized[toolId] as BridgeprsPreProcessingConfig | undefined
-        const processingState = bridgeprsProcessingConfigs[toolId]
-        if (preProcessing && processingState) {
-          const payload = buildBridgeprsProcessingPayload(
-            preProcessing,
-            processingState,
-            preProcessing.options.evaluation_type || evaluationType
-          )
-          if (payload.binary || payload.quantitative) {
-            acc[toolId] = payload
-          }
-        }
-      }
-      return acc
-    }, {} as Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload>)
+        return acc
+      },
+      {} as Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload | SdprxProcessingPayload>
+    )
 
     const requestBody = {
       config: {
@@ -831,8 +1055,14 @@ const showDebug = false
               P: "P",
             },
             phenotype_config: {
-              target_population: { binary_traits: ["case"], quantitative_traits: ["height"] },
-              source_population: { binary_traits: ["case"], quantitative_traits: ["height"] },
+              target_population: {
+                binary_traits: ["case"],
+                quantitative_traits: ["height"],
+              },
+              source_population: {
+                binary_traits: ["case"],
+                quantitative_traits: ["height"],
+              },
             },
           }
         } else if (isPrscsx(toolId)) {
@@ -859,14 +1089,32 @@ const showDebug = false
             ],
             column_mappings: {
               by_population: {
-                BasePop: { SNP: "SNP", A1: "A1", A2: "A2", BETA: "BETA", P: "P" },
-                TargetPop: { SNP: "SNP", A1: "A1", A2: "A2", BETA: "BETA", P: "P" },
+                BasePop: {
+                  SNP: "SNP",
+                  A1: "A1",
+                  A2: "A2",
+                  BETA: "BETA",
+                  P: "P",
+                },
+                TargetPop: {
+                  SNP: "SNP",
+                  A1: "A1",
+                  A2: "A2",
+                  BETA: "BETA",
+                  P: "P",
+                },
               },
             },
             phenotype_config: {
               by_population: {
-                BasePop: { binary_traits: ["case"], quantitative_traits: ["height"] },
-                TargetPop: { binary_traits: ["case"], quantitative_traits: ["height"] },
+                BasePop: {
+                  binary_traits: ["case"],
+                  quantitative_traits: ["height"],
+                },
+                TargetPop: {
+                  binary_traits: ["case"],
+                  quantitative_traits: ["height"],
+                },
               },
               covariate_id_mapping: { fid: "FID", iid: "IID" },
             },
@@ -899,8 +1147,14 @@ const showDebug = false
               N: "N",
             },
             phenotype_config: {
-              pop1: { binary_traits: ["case"], quantitative_traits: ["height"] },
-              pop2: { binary_traits: ["case"], quantitative_traits: ["height"] },
+              pop1: {
+                binary_traits: ["case"],
+                quantitative_traits: ["height"],
+              },
+              pop2: {
+                binary_traits: ["case"],
+                quantitative_traits: ["height"],
+              },
             },
           }
         }
@@ -913,9 +1167,16 @@ const showDebug = false
       const next = { ...prev }
       normalizedTools.forEach((toolId) => {
         if (!isPrscsx(toolId)) return
-        const pre = (configs[toolId] || buildDefaultPrscsxConfig(toolId)) as PrscsxPreProcessingConfig
-        const popNames = pre.populations?.map((p) => p.name) || ["BasePop", "TargetPop"]
-        const nMap = popNames.reduce((acc, name) => ({ ...acc, [name]: "100000" }), {} as Record<string, string>)
+        const pre = (configs[toolId] ||
+          buildDefaultPrscsxConfig(toolId)) as PrscsxPreProcessingConfig
+        const popNames = pre.populations?.map((p) => p.name) || [
+          "BasePop",
+          "TargetPop",
+        ]
+        const nMap = popNames.reduce(
+          (acc, name) => ({ ...acc, [name]: "100000" }),
+          {} as Record<string, string>
+        )
         next[toolId] = {
           binary: {
             runPopulation: "TargetPop",
@@ -946,8 +1207,18 @@ const showDebug = false
           const base = buildDefaultPrsiceConfig(toolId)
           next[toolId] = {
             ...base,
-            target_population: { name: "TargetPop", sumstats_path: "data/target_sumstats.txt", genotype_path: "", phenotype_path: "" },
-            source_population: { name: "SourcePop", sumstats_path: "", genotype_path: "", phenotype_path: "" },
+            target_population: {
+              name: "TargetPop",
+              sumstats_path: "data/target_sumstats.txt",
+              genotype_path: "",
+              phenotype_path: "",
+            },
+            source_population: {
+              name: "SourcePop",
+              sumstats_path: "",
+              genotype_path: "",
+              phenotype_path: "",
+            },
             column_mappings: { SNP: "SNP", CHR: "CHR" }, // intentionally partial
           }
         } else if (isPrscsx(toolId)) {
@@ -955,17 +1226,43 @@ const showDebug = false
           next[toolId] = {
             ...base,
             populations: [
-              { name: "BasePop", type: "base", sumstats_path: "data/base_sumstats.txt", genotype_path: "", phenotype_path: "", covariate_path: "" },
-              { name: "TargetPop", type: "target", sumstats_path: "data/target_sumstats.txt", genotype_path: "", phenotype_path: "", covariate_path: "" },
+              {
+                name: "BasePop",
+                type: "base",
+                sumstats_path: "data/base_sumstats.txt",
+                genotype_path: "",
+                phenotype_path: "",
+                covariate_path: "",
+              },
+              {
+                name: "TargetPop",
+                type: "target",
+                sumstats_path: "data/target_sumstats.txt",
+                genotype_path: "",
+                phenotype_path: "",
+                covariate_path: "",
+              },
             ],
-            column_mappings: { by_population: { TargetPop: { SNP: "SNP" } as any } },
+            column_mappings: {
+              by_population: { TargetPop: { SNP: "SNP" } as any },
+            },
           }
         } else if (isBridgeprs(toolId)) {
           const base = buildDefaultBridgeprsConfig(toolId)
           next[toolId] = {
             ...base,
-            pop1: { name: "TargetPop", sumstats_path: "data/target_sumstats.txt", genotype_path: "", phenotype_path: "" },
-            pop2: { name: "BasePop", sumstats_path: "", genotype_path: "", phenotype_path: "" },
+            pop1: {
+              name: "TargetPop",
+              sumstats_path: "data/target_sumstats.txt",
+              genotype_path: "",
+              phenotype_path: "",
+            },
+            pop2: {
+              name: "BasePop",
+              sumstats_path: "",
+              genotype_path: "",
+              phenotype_path: "",
+            },
             column_mappings: { CHR: "CHR", ID: "ID" },
           }
         }
@@ -978,8 +1275,20 @@ const showDebug = false
       normalizedTools.forEach((toolId) => {
         if (!isPrscsx(toolId)) return
         next[toolId] = {
-          binary: { runPopulation: "", chrom: "", phi: "", phenoColumn: "", nGwas: {} },
-          quantitative: { runPopulation: "", chrom: "", phi: "", phenoColumn: "", nGwas: {} },
+          binary: {
+            runPopulation: "",
+            chrom: "",
+            phi: "",
+            phenoColumn: "",
+            nGwas: {},
+          },
+          quantitative: {
+            runPopulation: "",
+            chrom: "",
+            phi: "",
+            phenoColumn: "",
+            nGwas: {},
+          },
         }
       })
       return next
@@ -1081,6 +1390,154 @@ const showDebug = false
     []
   )
 
+  // SDPRX: processing validation helper
+  const getSdprxProcessingErrors = React.useCallback(
+    (
+      preProcessing: SdprxPreProcessingConfig,
+      processingState: SdprxProcessingState | undefined,
+      mode: EvaluationType
+    ): string[] => {
+      const errors: string[] = []
+      if (!processingState) {
+        errors.push("SDPRX: Configure processing options")
+        return errors
+      }
+
+      const pop1Name = (preProcessing?.pop1?.name || "").trim()
+      const pop2Name = (preProcessing?.pop2?.name || "").trim()
+
+      const hasPop1Paths = Boolean(
+        preProcessing?.pop1?.sumstats_path &&
+          preProcessing?.pop1?.genotype_path &&
+          preProcessing?.pop1?.phenotype_path
+      )
+      const hasPop2Paths = Boolean(
+        preProcessing?.pop2?.sumstats_path &&
+          preProcessing?.pop2?.genotype_path &&
+          preProcessing?.pop2?.phenotype_path
+      )
+
+      if (!pop1Name) {
+        errors.push("SDPRX: Provide a Target Population name")
+      }
+      if (!pop2Name) {
+        errors.push("SDPRX: Provide a Base Population name")
+      }
+      if (!hasPop1Paths) {
+        errors.push(
+          "SDPRX: Target Population is missing sumstats, genotype, or phenotype paths"
+        )
+      }
+      if (!hasPop2Paths) {
+        errors.push(
+          "SDPRX: Base Population is missing sumstats, genotype, or phenotype paths"
+        )
+      }
+
+      const requiredModes: Array<keyof SdprxProcessingState> = []
+      if (mode === "binary" || mode === "both") requiredModes.push("binary")
+      if (mode === "quantitative" || mode === "both")
+        requiredModes.push("quantitative")
+
+      requiredModes.forEach((key) => {
+        const state = processingState[key]
+        const label = key === "binary" ? "Binary" : "Quantitative"
+
+        const n1 = (state.n1 || "").trim()
+        const n2 = (state.n2 || "").trim()
+        if (!n1) {
+          errors.push(`SDPRX ${label}: Provide N1 (Target Population sample size)`) 
+        } else if (!/^\d+$/.test(n1)) {
+          errors.push(`SDPRX ${label}: N1 must be a positive integer`)
+        }
+        if (!n2) {
+          errors.push(`SDPRX ${label}: Provide N2 (Base Population sample size)`) 
+        } else if (!/^\d+$/.test(n2)) {
+          errors.push(`SDPRX ${label}: N2 must be a positive integer`)
+        }
+
+        const chrom = (state.chrom || "").trim()
+        if (!chrom) {
+          errors.push(`SDPRX ${label}: Provide a chromosome value`) 
+        } else {
+          const c = parseInt(chrom, 10)
+          if (!Number.isInteger(c) || c < 1 || c > 22) {
+            errors.push(
+              `SDPRX ${label}: Chromosome must be an integer between 1 and 22`
+            )
+          }
+        }
+
+        const rho = (state.rho || "").trim()
+        if (!rho) {
+          errors.push(`SDPRX ${label}: Provide a rho value`)
+        } else if (Number.isNaN(Number(rho))) {
+          errors.push(`SDPRX ${label}: Rho must be numeric`)
+        }
+
+        const et = preProcessing.options?.evaluation_type || mode
+        const pop1Traits = preProcessing.phenotype_config?.pop1
+        const pop2Traits = preProcessing.phenotype_config?.pop2
+        if (et === "binary") {
+          const p1Has = Array.isArray(pop1Traits?.binary_traits)
+            ? pop1Traits!.binary_traits.length > 0
+            : false
+          const p2Has = Array.isArray(pop2Traits?.binary_traits)
+            ? pop2Traits!.binary_traits.length > 0
+            : false
+          if (!p1Has) {
+            errors.push("SDPRX Binary: Select at least one binary trait for target population")
+          }
+          if (!p2Has) {
+            errors.push("SDPRX Binary: Select at least one binary trait for base population")
+          }
+        } else if (et === "quantitative") {
+          const p1Has = Array.isArray(pop1Traits?.quantitative_traits)
+            ? pop1Traits!.quantitative_traits.length > 0
+            : false
+          const p2Has = Array.isArray(pop2Traits?.quantitative_traits)
+            ? pop2Traits!.quantitative_traits.length > 0
+            : false
+          if (!p1Has) {
+            errors.push(
+              "SDPRX Quantitative: Select at least one quantitative trait for target population"
+            )
+          }
+          if (!p2Has) {
+            errors.push(
+              "SDPRX Quantitative: Select at least one quantitative trait for base population"
+            )
+          }
+        } else if (et === "both") {
+          const p1Has =
+            (Array.isArray(pop1Traits?.binary_traits) &&
+              pop1Traits!.binary_traits.length > 0) ||
+            (Array.isArray(pop1Traits?.quantitative_traits) &&
+              pop1Traits!.quantitative_traits.length > 0)
+          const p2Has =
+            (Array.isArray(pop2Traits?.binary_traits) &&
+              pop2Traits!.binary_traits.length > 0) ||
+            (Array.isArray(pop2Traits?.quantitative_traits) &&
+              pop2Traits!.quantitative_traits.length > 0)
+          if (!p1Has) {
+            errors.push(
+              "SDPRX: Select at least one trait (binary or quantitative) for target population"
+            )
+          }
+          if (!p2Has) {
+            errors.push(
+              "SDPRX: Select at least one trait (binary or quantitative) for base population"
+            )
+          }
+        }
+      })
+
+      // Removed: output_dir requirement per specification
+      return errors
+    },
+    []
+  )
+
   useEffect(() => {
     setConfigs((prev) => {
       if (Object.keys(prev).length === 0) {
@@ -1091,8 +1548,8 @@ const showDebug = false
       const allowQuant = evaluationType !== "binary"
       let changed = false
 
-    const nextEntries = Object.entries(prev).map(([toolId, cfg]) => {
-      if (isPrsice(toolId)) {
+      const nextEntries = Object.entries(prev).map(([toolId, cfg]) => {
+        if (isPrsice(toolId)) {
           const prsiceConfig = cfg as PrsicePreProcessingConfig
           const target = prsiceConfig.phenotype_config.target_population
           const source = prsiceConfig.phenotype_config.source_population
@@ -1165,10 +1622,14 @@ const showDebug = false
             bridgeConfig.options.process_binary_phenotypes !== allowBinary ||
             bridgeConfig.options.process_quantitative_phenotypes !== allowQuant
 
-          const pop1BinaryNeedsClear = !allowBinary && pop1.binary_traits.length > 0
-          const pop1QuantNeedsClear = !allowQuant && pop1.quantitative_traits.length > 0
-          const pop2BinaryNeedsClear = !allowBinary && pop2.binary_traits.length > 0
-          const pop2QuantNeedsClear = !allowQuant && pop2.quantitative_traits.length > 0
+          const pop1BinaryNeedsClear =
+            !allowBinary && pop1.binary_traits.length > 0
+          const pop1QuantNeedsClear =
+            !allowQuant && pop1.quantitative_traits.length > 0
+          const pop2BinaryNeedsClear =
+            !allowBinary && pop2.binary_traits.length > 0
+          const pop2QuantNeedsClear =
+            !allowQuant && pop2.quantitative_traits.length > 0
 
           if (
             !optionsNeedUpdate &&
@@ -1348,6 +1809,49 @@ const showDebug = false
       )
     }
 
+    // SDPRX completion check
+    if (isSdprx(toolId)) {
+      const sdprxConfig = config as SdprxPreProcessingConfig
+
+      const hasPopulationData = Boolean(
+        sdprxConfig.pop1?.name &&
+          sdprxConfig.pop1.sumstats_path &&
+          sdprxConfig.pop1.phenotype_path &&
+          sdprxConfig.pop1.genotype_path &&
+          sdprxConfig.pop2?.name &&
+          sdprxConfig.pop2.sumstats_path &&
+          sdprxConfig.pop2.phenotype_path &&
+          sdprxConfig.pop2.genotype_path
+      )
+
+      const missingColumns = SDPRX_REQUIRED_COLUMNS.filter((column) => {
+        const value = sdprxConfig.column_mappings?.[column]
+        return !value || value.trim() === ""
+      })
+
+      const hasPatterns = [
+        sdprxConfig.genotype_config?.file_patterns?.bed,
+        sdprxConfig.genotype_config?.file_patterns?.bim,
+        sdprxConfig.genotype_config?.file_patterns?.fam,
+      ].every((value) => Boolean(value && value.trim()))
+
+      const hasOptions = Boolean(sdprxConfig.options?.evaluation_type)
+
+      const processingErrors = getSdprxProcessingErrors(
+        sdprxConfig,
+        sdprxProcessingConfigs[toolId] as SdprxProcessingState | undefined,
+        sdprxConfig.options?.evaluation_type || evaluationType
+      )
+
+      return (
+        hasPopulationData &&
+        missingColumns.length === 0 &&
+        hasPatterns &&
+        hasOptions &&
+        processingErrors.length === 0
+      )
+    }
+
     return false
   }
 
@@ -1457,11 +1961,13 @@ const showDebug = false
         }
       } else if (et === "both") {
         const p1Has =
-          (Array.isArray(pop1?.binary_traits) && pop1!.binary_traits.length > 0) ||
+          (Array.isArray(pop1?.binary_traits) &&
+            pop1!.binary_traits.length > 0) ||
           (Array.isArray(pop1?.quantitative_traits) &&
             pop1!.quantitative_traits.length > 0)
         const p2Has =
-          (Array.isArray(pop2?.binary_traits) && pop2!.binary_traits.length > 0) ||
+          (Array.isArray(pop2?.binary_traits) &&
+            pop2!.binary_traits.length > 0) ||
           (Array.isArray(pop2?.quantitative_traits) &&
             pop2!.quantitative_traits.length > 0)
         if (!p1Has) {
@@ -1636,6 +2142,147 @@ const showDebug = false
         prscsxConfig,
         processingConfigs[toolId],
         evaluationType
+      )
+      errors.push(...processingErrors)
+
+      return { isValid: errors.length === 0, errors }
+    }
+
+    // SDPRX validation
+    if (isSdprx(toolId)) {
+      const sdprxConfig = config as SdprxPreProcessingConfig
+
+      // Ensure population names are provided (aligns with completion check)
+      if (!sdprxConfig.pop1?.name || !sdprxConfig.pop1.name.trim()) {
+        errors.push("SDPRX: Missing Pop1 name")
+      }
+      if (!sdprxConfig.pop2?.name || !sdprxConfig.pop2.name.trim()) {
+        errors.push("SDPRX: Missing Pop2 name")
+      }
+
+      if (!sdprxConfig.pop1?.sumstats_path) {
+        errors.push("SDPRX: Missing Pop1 sumstats path")
+      }
+      if (!sdprxConfig.pop1?.phenotype_path) {
+        errors.push("SDPRX: Missing Pop1 phenotype path")
+      }
+      if (!sdprxConfig.pop1?.genotype_path) {
+        errors.push("SDPRX: Missing Pop1 genotype path")
+      }
+      if (!sdprxConfig.pop2?.sumstats_path) {
+        errors.push("SDPRX: Missing Pop2 sumstats path")
+      }
+      if (!sdprxConfig.pop2?.phenotype_path) {
+        errors.push("SDPRX: Missing Pop2 phenotype path")
+      }
+      if (!sdprxConfig.pop2?.genotype_path) {
+        errors.push("SDPRX: Missing Pop2 genotype path")
+      }
+
+      // Top-level genotype_path is no longer required; rely on per-population genotype paths
+
+      // Removed: output_dir validation per specification
+
+      const missingColumns = SDPRX_REQUIRED_COLUMNS.filter((column) => {
+        const value = sdprxConfig.column_mappings?.[column]
+        return !value || value.trim() === ""
+      })
+      if (missingColumns.length > 0) {
+        errors.push(
+          `SDPRX: Missing column mappings for ${missingColumns.join(", ")}`
+        )
+      }
+
+      const patterns = sdprxConfig.genotype_config?.file_patterns || {}
+      if (
+        !patterns.bed?.trim() ||
+        !patterns.bim?.trim() ||
+        !patterns.fam?.trim()
+      ) {
+        errors.push(
+          "SDPRX: Provide file patterns for BED, BIM, and FAM files"
+        )
+      }
+
+      const populationReference =
+        sdprxConfig.genotype_config?.population_reference
+      if (!populationReference) {
+        errors.push("SDPRX: Select a population reference (pop1 or pop2)")
+      } else if (
+        populationReference !== "pop1" &&
+        populationReference !== "pop2"
+      ) {
+        errors.push(
+          "SDPRX: Population reference must be pop1 or pop2 (Target or Base Population)"
+        )
+      }
+
+      if (!sdprxConfig.options?.evaluation_type) {
+        errors.push(
+          "SDPRX: Select an evaluation type in processing options"
+        )
+      }
+
+      // Phenotype selection validation based on evaluation type
+      const et = sdprxConfig.options?.evaluation_type || evaluationType
+      const pop1 = sdprxConfig.phenotype_config?.pop1
+      const pop2 = sdprxConfig.phenotype_config?.pop2
+      if (et === "binary") {
+        const p1 = Array.isArray(pop1?.binary_traits) ? pop1!.binary_traits : []
+        const p2 = Array.isArray(pop2?.binary_traits) ? pop2!.binary_traits : []
+        if (p1.length === 0) {
+          errors.push("SDPRX: Select at least one binary trait for pop1")
+        }
+        if (p2.length === 0) {
+          errors.push("SDPRX: Select at least one binary trait for pop2")
+        }
+      } else if (et === "quantitative") {
+        const p1 = Array.isArray(pop1?.quantitative_traits)
+          ? pop1!.quantitative_traits
+          : []
+        const p2 = Array.isArray(pop2?.quantitative_traits)
+          ? pop2!.quantitative_traits
+          : []
+        if (p1.length === 0) {
+          errors.push(
+            "SDPRX: Select at least one quantitative trait for pop1"
+          )
+        }
+        if (p2.length === 0) {
+          errors.push(
+            "SDPRX: Select at least one quantitative trait for pop2"
+          )
+        }
+      } else if (et === "both") {
+        const p1Has =
+          (Array.isArray(pop1?.binary_traits) &&
+            pop1!.binary_traits.length > 0) ||
+          (Array.isArray(pop1?.quantitative_traits) &&
+            pop1!.quantitative_traits.length > 0)
+        const p2Has =
+          (Array.isArray(pop2?.binary_traits) &&
+            pop2!.binary_traits.length > 0) ||
+          (Array.isArray(pop2?.quantitative_traits) &&
+            pop2!.quantitative_traits.length > 0)
+        if (!p1Has) {
+          errors.push(
+            "SDPRX: Select at least one trait (binary or quantitative) for pop1"
+          )
+        }
+        if (!p2Has) {
+          errors.push(
+            "SDPRX: Select at least one trait (binary or quantitative) for pop2"
+          )
+        }
+      }
+
+      // Processing state validation
+      const sdprxProcessing =
+        (sdprxProcessingConfigs[toolId] as SdprxProcessingState) || undefined
+      const processingErrors = getSdprxProcessingErrors(
+        sdprxConfig,
+        sdprxProcessing,
+        et
       )
       errors.push(...processingErrors)
 
@@ -1866,6 +2513,60 @@ const showDebug = false
     }
   }
 
+  const sanitizeSdprxConfig = (
+    config: SdprxPreProcessingConfig
+  ): SdprxPreProcessingConfig => {
+    const evaluationType = config.options.evaluation_type || "both"
+
+    const sanitizePopulation = (
+      traits: { binary_traits: string[]; quantitative_traits: string[] }
+    ) => ({
+      binary_traits:
+        evaluationType === "binary" || evaluationType === "both"
+          ? (traits.binary_traits || []).filter(Boolean)
+          : [],
+      quantitative_traits:
+        evaluationType === "quantitative" || evaluationType === "both"
+          ? (traits.quantitative_traits || []).filter(Boolean)
+          : [],
+    })
+
+    return {
+      ...config,
+      phenotype_config: {
+        pop1: sanitizePopulation(
+          // @ts-expect-error migrating schema
+          (config.phenotype_config as any).pop1 || config.phenotype_config.target_population
+        ),
+        pop2: sanitizePopulation(
+          // @ts-expect-error migrating schema
+          (config.phenotype_config as any).pop2 || config.phenotype_config.base_population
+        ),
+      },
+      options: {
+        ...config.options,
+        evaluation_type: evaluationType,
+        process_binary_phenotypes:
+          evaluationType === "binary" || evaluationType === "both",
+        process_quantitative_phenotypes:
+          evaluationType === "quantitative" || evaluationType === "both",
+      },
+      genotype_config: {
+        ...config.genotype_config,
+        file_patterns: {
+          bed: (config.genotype_config.file_patterns.bed || "").trim(),
+          bim: (config.genotype_config.file_patterns.bim || "").trim(),
+          fam: (config.genotype_config.file_patterns.fam || "").trim(),
+        },
+      },
+      // Ensure optional Z column is present (blank) for server payload compatibility
+      column_mappings: {
+        ...(config.column_mappings || {}),
+        Z: config.column_mappings?.Z ?? "",
+      },
+    }
+  }
+
   const buildPrscsxProcessingPayload = (
     preProcessing: PrscsxPreProcessingConfig,
     processingState: PrscsxProcessingState,
@@ -1960,6 +2661,91 @@ const showDebug = false
     return result
   }
 
+  const buildSdprxProcessingPayload = (
+    preProcessing: SdprxPreProcessingConfig,
+    processingState: SdprxProcessingState,
+    mode: EvaluationType
+  ): SdprxProcessingPayload => {
+    const result: SdprxProcessingPayload = {}
+
+    const normalize = (p: string | undefined) => (p || "").replace(/\\/g, "/")
+
+    const pop1 = (preProcessing?.pop1?.name || "").trim()
+    const pop2 = (preProcessing?.pop2?.name || "").trim()
+    const preOutDir = normalize(preProcessing?.output_dir) || "results/preprocessed_data/preprocessed_sdprx_output"
+    const populationReference = preProcessing?.genotype_config?.population_reference || "pop1"
+    const scoringPop = populationReference === "pop1" ? pop1 : pop2
+
+    const buildModePayload = (key: keyof SdprxProcessingState) => {
+      const state = processingState[key]
+      if (!state) return null
+
+      const isBinary = key === "binary"
+
+      // Editable numeric/flags from UI
+      const n1 = (state.n1 || "").trim()
+      const n2 = (state.n2 || "").trim()
+      const chrom = (state.chrom || "").trim()
+      const rho = (state.rho || "").trim()
+      const forceShared = Boolean(state.force_shared)
+
+      // Hardcoded paths per config-example.json (adapted for pop1/pop2)
+      const ss1 = `${preOutDir}/sumstats/${pop2}/${pop2}_sumstats.txt`
+      const ss2 = `${preOutDir}/sumstats/${pop1}/${pop1}_sumstats.txt`
+      const geno = `${preOutDir}/genotypes/${scoringPop}/geno`
+      const valid = `${geno}.bim`
+      const pheno = isBinary
+        ? `${preOutDir}/phenotypes/pheno_bin_${scoringPop}.txt`
+        : `${preOutDir}/phenotypes/pheno_quant_${scoringPop}.txt`
+      const outDir = isBinary ? "results/prs_results_binary/sdprx" : "results/prs_results/sdprx"
+      const plinkOutputPrefix = isBinary
+        ? `results/prs_results_binary/sdprx_plink/${scoringPop}_test_${scoringPop}_result`
+        : `results/prs_results/sdprx_plink/${scoringPop}_test_${scoringPop}_result`
+      const scoreFile = "results_2.txt"
+      const logDir = isBinary ? "results/log_files_binary/sdprx_log" : "results/log_files/sdprx_log"
+
+      // Minimal required fields for a valid run
+      const required = [pop1, pop2, ss1, ss2, geno, outDir, n1, n2, chrom, rho, pheno]
+      if (required.some((v) => !v)) return null
+
+      const payload: SdprxProcessingModePayload = {
+        ss1,
+        ss2,
+        sdprx_genotype_file: geno,
+        n1,
+        n2,
+        force_shared: forceShared,
+        load_ld: "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+        valid,
+        chrom,
+        rho,
+        output_dir: outDir,
+        score_file: scoreFile,
+        plink_output_prefix: plinkOutputPrefix,
+        pheno,
+        log_dir: logDir,
+      }
+
+      return payload
+    }
+
+    if (mode === "binary" || mode === "both") {
+      const payload = buildModePayload("binary")
+      if (payload) {
+        result.binary = payload
+      }
+    }
+
+    if (mode === "quantitative" || mode === "both") {
+      const payload = buildModePayload("quantitative")
+      if (payload) {
+        result.quantitative = payload
+      }
+    }
+
+    return result
+  }
+
   const handleSubmit = async () => {
     const allErrors: string[] = []
     normalizedTools.forEach((toolId) => {
@@ -1989,6 +2775,10 @@ const showDebug = false
         } else if (isPrscsx(toolId)) {
           acc[toolId] = sanitizePrscsxConfig(
             config as PrscsxPreProcessingConfig
+          )
+        } else if (isSdprx(toolId)) {
+          acc[toolId] = sanitizeSdprxConfig(
+            config as SdprxPreProcessingConfig
           )
         }
         return acc
@@ -2030,11 +2820,26 @@ const showDebug = false
               acc[toolId] = payload
             }
           }
+        } else if (isSdprx(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | SdprxPreProcessingConfig
+            | undefined
+          const processingState = sdprxProcessingConfigs[toolId]
+          if (preProcessing && processingState) {
+            const payload = buildSdprxProcessingPayload(
+              preProcessing,
+              processingState,
+              preProcessing.options.evaluation_type || evaluationType
+            )
+            if (payload.binary || payload.quantitative) {
+              acc[toolId] = payload
+            }
+          }
         }
 
         return acc
       },
-      {} as Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload>
+      {} as Record<string, PrscsxProcessingPayload | BridgeprsProcessingPayload | SdprxProcessingPayload>
     )
 
     const requestBody = {
@@ -2088,6 +2893,15 @@ const showDebug = false
     setEvaluationType(value)
   }
 
+  const stepBadge = <Badge variant="outline">Step 5</Badge>
+  const allToolsConfigured = normalizedTools.every(isToolComplete)
+  const isNextDisabled = normalizedTools.length === 0 || !allToolsConfigured
+  const debugErrors = isNextDisabled
+    ? normalizedTools
+        .flatMap((toolId) => validateConfiguration(toolId).errors)
+        .slice(0, 8)
+    : []
+
   if (normalizedTools.length === 0) {
     return (
       <div className="space-y-6">
@@ -2100,16 +2914,41 @@ const showDebug = false
             Back
           </Button>
         )}
+        {isNextDisabled && debugErrors.length > 0 && (
+          <div className="mt-3 text-sm text-red-600">
+            <p className="font-medium">Resolve the following to enable Next:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {debugErrors.map((err, idx) => (
+                <li key={idx}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     )
   }
 
-  const stepBadge = <Badge variant="outline">Step 5</Badge>
-  const allToolsConfigured = normalizedTools.every(isToolComplete)
-  const isNextDisabled = normalizedTools.length === 0 || !allToolsConfigured
-
   const renderToolConfiguration = (toolId: string) => {
     const config = configs[toolId]
+
+    if (isSdprx(toolId)) {
+      return (
+        <SdprxToolConfiguration
+          key={toolId}
+          toolId={toolId}
+          config={config as SdprxPreProcessingConfig}
+          jobId={jobId}
+          onConfigChange={(nextConfig) => setConfigForTool(toolId, nextConfig)}
+          stepBadge={stepBadge}
+          evaluationType={evaluationType}
+          processingConfig={sdprxProcessingConfigs[toolId]}
+          onProcessingChange={(updater) =>
+            setSdprxProcessingConfigForTool(toolId, updater)
+          }
+        />
+      )
+    }
+
     if (!config) return null
 
     if (isBridgeprs(toolId)) {
@@ -2257,6 +3096,17 @@ const showDebug = false
           Next
         </Button>
       </div>
+
+      {isNextDisabled && debugErrors.length > 0 && (
+        <div className="mt-2 text-sm text-red-600">
+          <p className="font-medium">Cannot continue. Please fix the following:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {debugErrors.map((err, idx) => (
+              <li key={idx}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Debug previews moved to Global Debug Drawer */}
     </div>

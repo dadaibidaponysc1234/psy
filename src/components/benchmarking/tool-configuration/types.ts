@@ -126,6 +126,7 @@ export type ToolPreProcessingConfig =
   | PrsicePreProcessingConfig
   | PrscsxPreProcessingConfig
   | BridgeprsPreProcessingConfig
+  | SdprxPreProcessingConfig
 
 export type BridgeprsColumnKey =
   | "CHR"
@@ -211,4 +212,99 @@ export interface BridgeprsProcessingModePayload {
 export interface BridgeprsProcessingPayload {
   binary?: BridgeprsProcessingModePayload
   quantitative?: BridgeprsProcessingModePayload
+}
+
+// SDPRX types
+export interface SdprxPopulationConfig {
+  name: string
+  sumstats_path: string
+  genotype_path: string
+  phenotype_path: string
+}
+
+export interface SdprxPhenotypeTraits {
+  binary_traits: string[]
+  quantitative_traits: string[]
+}
+
+export interface SdprxPhenotypeConfig {
+  pop1: SdprxPhenotypeTraits
+  pop2: SdprxPhenotypeTraits
+}
+
+export interface SdprxGenotypeConfig {
+  file_type: "merged" | "split_by_chromosome"
+  // Optional to maintain backward compatibility in UI; schema may omit this
+  population_reference?: "pop1" | "pop2"
+  file_patterns: {
+    bed: string
+    bim: string
+    fam: string
+  }
+}
+
+export type SdprxColumnKey = "SNP" | "A1" | "A2" | "N" | "Z"
+
+export interface SdprxPreProcessingConfig {
+  pop1: SdprxPopulationConfig
+  pop2: SdprxPopulationConfig
+  genotype_path: string
+  output_dir: string
+  column_mappings: Partial<Record<SdprxColumnKey, string>>
+  fixed_N1?: string
+  fixed_N2?: string
+  genotype_config: SdprxGenotypeConfig
+  phenotype_config: SdprxPhenotypeConfig
+  covariate_config?: {
+    pop1: string[]
+    pop2: string[]
+  }
+  options: ProcessingOptions
+}
+
+export interface SdprxProcessingModeState {
+  ss1: string
+  ss2: string
+  sdprx_genotype_file: string
+  n1: string
+  n2: string
+  force_shared: boolean
+  load_ld: string
+  valid: string
+  chrom: string
+  rho: string
+  output_dir: string
+  score_file: string
+  plink_output_prefix: string
+  pheno: string
+  log_dir: string
+}
+
+export interface SdprxProcessingState {
+  binary: SdprxProcessingModeState
+  quantitative: SdprxProcessingModeState
+}
+
+// SDPRX processing payload types (mirrors state keys used by builder)
+export interface SdprxProcessingModePayload {
+  ss1: string
+  ss2: string
+  sdprx_genotype_file: string
+  n1: string
+  n2: string
+  force_shared: boolean
+  load_ld: string
+  valid: string
+  chrom: string
+  rho: string
+  output_dir: string
+  score_file: string
+  plink_output_prefix: string
+  pheno: string
+  log_dir: string
+}
+
+export interface SdprxProcessingPayload {
+  binary?: SdprxProcessingModePayload
+  quantitative?: SdprxProcessingModePayload
 }

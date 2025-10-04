@@ -53,6 +53,7 @@ import {
 import { PrsicePopulationConfiguration } from "./mapping/tools/prsice-population-configuration"
 import { PrscsxPopulationConfiguration } from "./mapping/tools/prscsx-population-configuration"
 import { BridgeprsPopulationConfiguration } from "./mapping/tools/bridgeprs-population-configuration"
+import { SdprxPopulationConfiguration } from "./mapping/tools/sdprx-population-configuration"
 
 interface DirectoryItem {
   name: string
@@ -161,11 +162,11 @@ interface MappingProps {
   data?: any
   toolsData?: any
 }
-
 const toolDisplayNames: Record<string, string> = {
   prsice: "PRSice",
   prscsx: "PRScsx",
   bridgeprs: "BridgePRS",
+  sdprx: "SDPRX",
 }
 
 // Get mapping fields based on the config structure
@@ -266,6 +267,30 @@ const getToolMappingFields = (
           id: field.id.replace("source_population", "pop2"),
           label: field.label.replace("Source Population", "Base Population"),
           description,
+        }
+      }
+
+      return { ...field }
+    })
+  }
+
+  if (toolKey === "sdprx") {
+    return baseFields.map((field) => {
+      if (field.population === "target") {
+        return {
+          ...field,
+          id: field.id.replace("target_population", "pop1"),
+          label: field.label,
+          description: field.description,
+        }
+      }
+
+      if (field.population === "source") {
+        return {
+          ...field,
+          id: field.id.replace("source_population", "pop2"),
+          label: field.label.replace("Source Population", "Base Population"),
+          description: field.description.replace("source population", "base population"),
         }
       }
 
@@ -767,29 +792,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   ])
 
   useEffect(() => {
-    setSavedPopulations((prev) => {
-      let next = prev
-      selectedTools.forEach((tool) => {
-        const lower = tool.toLowerCase()
-        if (lower === "prscsx") {
-          return
-        }
-        const storeToolId = resolveStoreToolId(tool)
-        const populations = toolConfigs[storeToolId]?.populations
-        const key = storeToolId.toLowerCase()
-        if (
-          populations?.targetPopulation &&
-          populations?.sourcePopulation &&
-          prev[key] === undefined
-        ) {
-          if (next === prev) {
-            next = { ...prev }
-          }
-          next[key] = true
-        }
-      })
-      return next
-    })
+    // Do not auto-mark populations as saved based on non-empty inputs.
+    // Completion should only occur after an explicit Save action
+    // or when hydrating from existing job configuration data.
   }, [selectedToolsKey, toolConfigs, resolveStoreToolId])
 
   type MappingValue = FileInfo | DirectoryItem | null
@@ -906,14 +911,18 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     const populations = getPopulationForTool(toolId)
 
     if (
-      (toolKey === "prsice" || toolKey === "bridgeprs") &&
+      (toolKey === "prsice" ||
+        toolKey === "bridgeprs" ||
+        toolKey === "sdprx") &&
       (!populations.targetPopulation || !populations.sourcePopulation)
     ) {
       return false
     }
 
     if (
-      (toolKey === "prsice" || toolKey === "bridgeprs") &&
+      (toolKey === "prsice" ||
+        toolKey === "bridgeprs" ||
+        toolKey === "sdprx") &&
       !savedPopulations[toolKey]
     ) {
       return false
@@ -945,7 +954,11 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     if (!toolId) return false
     const toolKey = toolId.toLowerCase()
 
-    if (toolKey === "prsice" || toolKey === "bridgeprs") {
+    if (
+      toolKey === "prsice" ||
+      toolKey === "bridgeprs" ||
+      toolKey === "sdprx"
+    ) {
       const populations = getPopulationForTool(toolId)
       return Boolean(
         savedPopulations[toolKey] &&
@@ -1306,6 +1319,19 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       },
       bridgeprs: () => (
         <BridgeprsPopulationConfiguration
+          toolId={tool}
+          populations={populations}
+          isOpen={isOpen}
+          onOpenChange={handleOpenChange}
+          onPopulationChange={(field, value) =>
+            updatePopulationValue(tool, field, value)
+          }
+          onSave={() => handlePopulationFormSubmit(tool)}
+          isCompleted={isSaved}
+        />
+      ),
+      sdprx: () => (
+        <SdprxPopulationConfiguration
           toolId={tool}
           populations={populations}
           isOpen={isOpen}
@@ -1930,6 +1956,51 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
             pop1: pop1Config,
             pop2: pop2Config,
             genotype_path: sharedGenotypePath,
+          },
+        }
+
+        return
+      }
+
+      if (toolKey === "sdprx") {
+        const pop1Config = {
+          name: populations.targetPopulation,
+          sumstats_path: mappingPath("pop1.sumstats_path"),
+          genotype_path: mappingPath("pop1.genotype_path"),
+          phenotype_path: mappingPath("pop1.phenotype_path"),
+        }
+
+        const pop2Config = {
+          name: populations.sourcePopulation,
+          sumstats_path: mappingPath("pop2.sumstats_path"),
+          genotype_path: mappingPath("pop2.genotype_path"),
+          phenotype_path: mappingPath("pop2.phenotype_path"),
+        }
+
+        const sharedGenotypePath =
+          mappingPath("pop1.genotype_path") ||
+          mappingPath("pop2.genotype_path") ||
+          ""
+
+        configData[tool] = {
+          pre_processing: {
+            pop1: pop1Config,
+            pop2: pop2Config,
+            genotype_path: sharedGenotypePath,
+            output_dir: "results/preprocessed_data/preprocessed_sdprx_output",
+            fixed_N1: "",
+            fixed_N2: "",
+            column_mappings: { by_population: {} },
+            genotype_config: {
+              file_type: "merged",
+              population_reference: "target_population",
+              file_patterns: { bed: "", bim: "", fam: "" },
+            },
+            phenotype_config: {
+              pop1: { binary_traits: [], quantitative_traits: [] },
+              pop2: { binary_traits: [], quantitative_traits: [] },
+            },
+            options: {},
           },
         }
 

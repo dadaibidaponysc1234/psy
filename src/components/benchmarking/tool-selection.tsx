@@ -43,7 +43,7 @@ const toolOptions = [
     description:
       "Supervised dimensionality reduction for polygenic risk prediction",
     category: "PRS Tools",
-    supported: false,
+    supported: true,
   },
 ]
 
