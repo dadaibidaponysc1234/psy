@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   ChevronRight,
   ChevronDown,
@@ -68,6 +69,14 @@ export function FileExplorer({
   const [previewContent, setPreviewContent] = useState<any>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewFileName, setPreviewFileName] = useState("")
+  const [sortAscending, setSortAscending] = useState(true)
+  const [sortDirectoriesToo, setSortDirectoriesToo] = useState(true)
+
+  // Control badge visibility to avoid wrapping on long names
+  const NAME_BADGE_THRESHOLD = 28
+  const shouldShowBadge = (name: string) => name.trim().length <= NAME_BADGE_THRESHOLD
+  // Tooltip display delay (ms)
+  const TOOLTIP_DELAY_MS = 1200
 
   const toggleFolder = (folderPath: string) => {
     const newExpanded = new Set(expandedFolders)
@@ -157,55 +166,92 @@ export function FileExplorer({
     return File
   }
 
-  const getFilesInDirectory = (dirPath: string): FileItem[] => {
-    return (
-      datasetStructure?.files.filter((file) => {
-        // Handle both forward and backward slashes
-        const normalizedPath = file.path.replace(/\\/g, "/")
-        const normalizedDirPath = dirPath.replace(/\\/g, "/")
-        const fileDir = normalizedPath.substring(
-          0,
-          normalizedPath.lastIndexOf("/")
-        )
-        return fileDir === normalizedDirPath
-      }) || []
-    )
+  const getFilesInDirectory = (directoryPath: string): FileItem[] => {
+    if (!datasetStructure || !datasetStructure.files) return []
+
+    const safeNormalize = (p: unknown): string | null => {
+      if (typeof p !== "string") return null
+      return p.replace(/\\/g, "/")
+    }
+
+    const normalizedTargetDir = safeNormalize(directoryPath) ?? ""
+
+    const files = datasetStructure.files
+      .filter((file) => {
+        const normalizedPath = safeNormalize(file.path)
+        if (!normalizedPath) return false
+        const lastSlash = normalizedPath.lastIndexOf("/")
+        const fileDir = lastSlash >= 0 ? normalizedPath.substring(0, lastSlash) : ""
+        return fileDir === normalizedTargetDir
+      })
+      .sort((a, b) =>
+        sortAscending
+          ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+          : b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
+      )
+
+    return files
   }
 
   const getSubdirectories = (parentPath: string): DirectoryItem[] => {
-    return (
-      datasetStructure?.directories.filter((dir) => {
-        // Handle both forward and backward slashes
-        const normalizedPath = dir.path.replace(/\\/g, "/")
-        const normalizedParentPath = parentPath.replace(/\\/g, "/")
-        const parentDir = normalizedPath.substring(
-          0,
-          normalizedPath.lastIndexOf("/")
-        )
-        return parentDir === normalizedParentPath
-      }) || []
+    const list =
+      (datasetStructure?.directories
+        .filter((dir) => {
+          if (!dir?.path || typeof dir.path !== "string") return false
+          // Handle both forward and backward slashes safely
+          const normalizedPath = dir.path.replace(/\\/g, "/")
+          const normalizedParentPath = (parentPath ?? "").replace(/\\/g, "/")
+          // Avoid self-child or cyclic references
+          if (normalizedPath === normalizedParentPath) return false
+          const lastSlash = normalizedPath.lastIndexOf("/")
+          const parentDir = lastSlash >= 0 ? normalizedPath.substring(0, lastSlash) : ""
+          return parentDir === normalizedParentPath
+        })) || []
+    if (!sortDirectoriesToo) return list
+    return list.sort((a, b) =>
+      sortAscending
+        ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+        : b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
     )
   }
 
   const getRootDirectories = (): DirectoryItem[] => {
-    return (
-      datasetStructure?.directories.filter((dir) => {
-        // Handle both forward and backward slashes
-        const normalizedPath = dir.path.replace(/\\/g, "/")
-        const pathParts = normalizedPath.split("/")
-        return pathParts.length === 1
-      }) || []
+    const list =
+      (datasetStructure?.directories
+        .filter((dir) => {
+          if (!dir?.path || typeof dir.path !== "string") return false
+          // Handle both forward and backward slashes safely
+          const normalizedPath = dir.path.replace(/\\/g, "/")
+          const pathParts = normalizedPath.split("/")
+          // Exclude empty or whitespace-only paths
+          if (!normalizedPath.trim()) return false
+          return pathParts.length === 1
+        })) || []
+    if (!sortDirectoriesToo) return list
+    return list.sort((a, b) =>
+      sortAscending
+        ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+        : b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
     )
   }
 
   const getRootFiles = (): FileItem[] => {
     return (
-      datasetStructure?.files.filter((file) => {
-        // Handle both forward and backward slashes
-        const normalizedPath = file.path.replace(/\\/g, "/")
-        const pathParts = normalizedPath.split("/")
-        return pathParts.length === 1
-      }) || []
+      (datasetStructure?.files
+        .filter((file) => {
+          if (!file?.path || typeof file.path !== "string") return false
+          // Handle both forward and backward slashes safely
+          const normalizedPath = file.path.replace(/\\/g, "/")
+          const pathParts = normalizedPath.split("/")
+          // Exclude empty or whitespace-only paths
+          if (!normalizedPath.trim()) return false
+          return pathParts.length === 1
+        })
+        .sort((a, b) =>
+          sortAscending
+            ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+            : b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
+        )) || []
     )
   }
 
@@ -227,14 +273,20 @@ export function FileExplorer({
           ) : (
             <ChevronRight className="h-4 w-4" />
           )}
+          {/* Remove directory size display in directory header */}
           <Folder className="h-4 w-4 text-blue-500" />
-          <span className="font-medium">{directory.name}</span>
-          <Badge variant="outline" className="text-xs">
-            {directory.file_count} file{directory.file_count !== 1 ? "s" : ""}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {directory.total_size_formatted}
-          </span>
+          <div className="min-w-0 flex-1">
+            <Tooltip content={directory.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+              <span className="truncate font-medium">{directory.name}</span>
+            </Tooltip>
+          </div>
+          {shouldShowBadge(directory.name) && (subDirs.length > 0 || files.length > 0) && (
+            <Badge variant="outline" className="text-xs flex-shrink-0">
+              {subDirs.length > 0
+                ? `${subDirs.length} folder${subDirs.length !== 1 ? "s" : ""}`
+                : `${files.length} file${files.length !== 1 ? "s" : ""}`}
+            </Badge>
+          )}
         </div>
 
         {/* Subdirectories and Files */}
@@ -290,15 +342,20 @@ export function FileExplorer({
                             className="flex flex-1 cursor-pointer items-center gap-2"
                             onClick={() => handleDirectorySelect(subDir)}
                           >
+                          {/* Remove directory size display in subdirectory header (first occurrence) */}
                           <Folder className="h-4 w-4 text-blue-500" />
-                          <span className="font-medium">{subDir.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {subDir.file_count} file
-                            {subDir.file_count !== 1 ? "s" : ""}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {subDir.total_size_formatted}
-                          </span>
+                          <div className="min-w-0 flex-1">
+                            <Tooltip content={subDir.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                              <span className="truncate font-medium">{subDir.name}</span>
+                            </Tooltip>
+                          </div>
+                          {shouldShowBadge(subDir.name) && (subDirSubDirs.length > 0 || subDirFiles.length > 0) && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {subDirSubDirs.length > 0
+                                ? `${subDirSubDirs.length} folder${subDirSubDirs.length !== 1 ? "s" : ""}`
+                                : `${subDirFiles.length} file${subDirFiles.length !== 1 ? "s" : ""}`}
+                            </Badge>
+                          )}
                         </div>
                         
                         <div {...provided.dragHandleProps}>
@@ -342,7 +399,11 @@ export function FileExplorer({
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                        <span className="truncate text-sm">{file.name}</span>
+                        <div className="min-w-0 flex-1">
+                          <Tooltip content={file.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                            <span className="truncate text-sm">{file.name}</span>
+                          </Tooltip>
+                        </div>
                         {file.is_previewable && (
                           <Badge
                             variant="outline"
@@ -373,11 +434,32 @@ export function FileExplorer({
   if (!datasetStructure) {
     return (
       <Card>
+        // Header when datasetStructure is null
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Folder className="h-5 w-5" />
             File Explorer
           </CardTitle>
+        </CardHeader>
+        // Header when datasetStructure exists
+        <CardHeader className="space-y-2">
+          <CardTitle className="flex items-center gap-2">
+            <Folder className="h-5 w-5" />
+            File Explorer
+          </CardTitle>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>{datasetStructure.total_directories} directories</span>
+            <span>{datasetStructure.total_files} files</span>
+            <span>{datasetStructure.extracted_size} total</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSortAscending((prev) => !prev)}>
+              Sort {sortAscending ? "A→Z" : "Z→A"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSortDirectoriesToo((prev) => !prev)}>
+              Scope: {sortDirectoriesToo ? "Files + Dirs" : "Files only"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
@@ -447,13 +529,18 @@ export function FileExplorer({
                       onClick={() => handleDirectorySelect(subDir)}
                     >
                       <Folder className="h-4 w-4 text-blue-500" />
-                      <span className="font-medium">{subDir.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {subDir.file_count} file{subDir.file_count !== 1 ? "s" : ""}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {subDir.total_size_formatted}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <Tooltip content={subDir.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                          <span className="truncate font-medium">{subDir.name}</span>
+                        </Tooltip>
+                      </div>
+                      {shouldShowBadge(subDir.name) && (getSubdirectories(subDir.path).length > 0 || getFilesInDirectory(subDir.path).length > 0) && (
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {getSubdirectories(subDir.path).length > 0
+                            ? `${getSubdirectories(subDir.path).length} folder${getSubdirectories(subDir.path).length !== 1 ? "s" : ""}`
+                            : `${getFilesInDirectory(subDir.path).length} file${getFilesInDirectory(subDir.path).length !== 1 ? "s" : ""}`}
+                        </Badge>
+                      )}
                     </div>
 
                     <div {...provided.dragHandleProps}>
@@ -491,7 +578,11 @@ export function FileExplorer({
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm">{file.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <Tooltip content={file.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                        <span className="truncate text-sm">{file.name}</span>
+                      </Tooltip>
+                    </div>
                     {file.is_previewable && (
                       <Badge
                         variant="outline"
@@ -520,18 +611,26 @@ export function FileExplorer({
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-2">
           <CardTitle className="flex items-center gap-2">
             <Folder className="h-5 w-5" />
             File Explorer
           </CardTitle>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>{datasetStructure.total_directories} directories</span>
             <span>{datasetStructure.total_files} files</span>
             <span>{datasetStructure.extracted_size} total</span>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSortAscending((prev) => !prev)}>
+              Sort {sortAscending ? "A→Z" : "Z→A"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSortDirectoriesToo((prev) => !prev)}>
+              Scope: {sortDirectoriesToo ? "Files + Dirs" : "Files only"}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="h-auto overflow-y-auto max-h-[62svh] sm:max-h-[64svh] md:max-h-[68svh] lg:max-h-[74svh] xl:max-h-[78svh]">
           <div className="space-y-2">
             {/* Root Files */}
             {rootFiles.map((file, index) => {
@@ -555,7 +654,11 @@ export function FileExplorer({
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                        <span className="truncate text-sm">{file.name}</span>
+                        <div className="min-w-0 flex-1">
+                          <Tooltip content={file.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                            <span className="truncate text-sm">{file.name}</span>
+                          </Tooltip>
+                        </div>
                         {file.is_previewable && (
                           <Badge
                             variant="outline"
@@ -626,11 +729,21 @@ export function FileExplorer({
                              onClick={() => handleDirectorySelect(dir)}
                            >
                             <Folder className="h-4 w-4 text-blue-500" />
-                            <span className="truncate text-sm">{dir.name}</span>
+                            <div className="min-w-0 flex-1">
+                              <Tooltip content={dir.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                                <span className="truncate text-sm">{dir.name}</span>
+                              </Tooltip>
+                            </div>
+                            {shouldShowBadge(dir.name) && (subDirs.length > 0 || files.length > 0) && (
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                {subDirs.length > 0
+                                  ? `${subDirs.length} folder${subDirs.length !== 1 ? "s" : ""}`
+                                  : `${files.length} file${files.length !== 1 ? "s" : ""}`}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{dir.total_size_formatted}</span>
                           <div {...provided.dragHandleProps}>
                             <Grip className="h-4 w-4 cursor-grab text-gray-400" />
                           </div>
@@ -694,13 +807,18 @@ export function FileExplorer({
                                      onClick={() => handleDirectorySelect(subDir)}
                                    >
                                      <Folder className="h-4 w-4 text-blue-500" />
-                                     <span className="font-medium">{subDir.name}</span>
-                                     <Badge variant="outline" className="text-xs">
-                                       {subDir.file_count} file{subDir.file_count !== 1 ? "s" : ""}
-                                     </Badge>
-                                     <span className="text-xs text-muted-foreground">
-                                       {subDir.total_size_formatted}
-                                     </span>
+                                     <div className="min-w-0 flex-1">
+                                       <Tooltip content={subDir.path} delayMs={TOOLTIP_DELAY_MS} containerClassName="block w-full">
+                                         <span className="truncate font-medium">{subDir.name}</span>
+                                       </Tooltip>
+                                     </div>
+                                     {shouldShowBadge(subDir.name) && (childSubDirs.length > 0 || childFiles.length > 0) && (
+                                       <Badge variant="outline" className="text-xs flex-shrink-0">
+                                         {childSubDirs.length > 0
+                                           ? `${childSubDirs.length} folder${childSubDirs.length !== 1 ? "s" : ""}`
+                                           : `${childFiles.length} file${childFiles.length !== 1 ? "s" : ""}`}
+                                       </Badge>
+                                     )}
                                    </div>
 
                                    <div {...provided.dragHandleProps}>
@@ -846,20 +964,73 @@ export function FileExplorer({
                       Preview Content (First {previewContent.preview_line_count}{" "}
                       lines)
                     </h4>
-                    <div className="rounded-md border bg-white">
+                    <div className="rounded-lg border">
                       <div className="max-h-96 overflow-auto">
-                        {previewContent.preview_lines?.map(
-                          (line: string, index: number) => (
-                            <div
-                              key={index}
-                              className={`border-b px-3 py-2 font-mono text-xs ${
-                                index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                              }`}
-                            >
-                              {line}
-                            </div>
+                        {(() => {
+                          const lines = previewContent.preview_lines || []
+                          const firstLine = (lines[0] || "").trim()
+                          const headerCells = firstLine
+                            ? firstLine.includes("\t")
+                              ? firstLine.split("\t")
+                              : firstLine.split(/\s+/)
+                            : []
+                          const dataLines = headerCells.length > 0 ? lines.slice(1) : lines
+
+                          // Decide layout based on column count
+                          const columnCount = headerCells.length
+                          const useWideLayout = columnCount > 10
+                          const tableClass = useWideLayout
+                            ? "min-w-max table-auto text-xs"
+                            : "w-full table-fixed text-xs"
+                          const thClass = useWideLayout
+                            ? "min-w-[120px] px-3 py-1.5 text-left font-semibold text-gray-900 border-r last:border-r-0"
+                            : "px-3 py-1.5 text-left font-semibold text-gray-900 border-r last:border-r-0"
+                          const tdClass = useWideLayout
+                            ? "min-w-[120px] px-3 py-1.5 text-left border-r last:border-r-0"
+                            : "px-3 py-1.5 text-left border-r last:border-r-0"
+                          const spanClass = useWideLayout
+                            ? "inline-block max-w-[200px] truncate align-middle"
+                            : "inline-block truncate align-middle"
+
+                          return (
+                            <table className={tableClass}>
+                              {headerCells.length > 0 && (
+                                <thead className="bg-gray-200">
+                                  <tr className="border-b">
+                                    {headerCells.map((cell: string, idx: number) => (
+                                      <th key={idx} className={thClass}>
+                                        <span className={spanClass} title={cell}>
+                                          {cell}
+                                        </span>
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                              )}
+                              <tbody>
+                                {dataLines?.map((line: string, index: number) => {
+                                  const trimmed = line?.trim() ?? ""
+                                  const cells = trimmed.includes("\t")
+                                    ? trimmed.split("\t")
+                                    : trimmed.length > 0
+                                      ? trimmed.split(/\s+/)
+                                      : []
+                                  return (
+                                    <tr key={index} className="border-b">
+                                      {cells.map((cell: string, cellIdx: number) => (
+                                        <td key={cellIdx} className={tdClass}>
+                                          <span className={spanClass} title={cell}>
+                                            {cell}
+                                          </span>
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
                           )
-                        )}
+                        })()}
                       </div>
                     </div>
                   </div>

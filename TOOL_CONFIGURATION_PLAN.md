@@ -119,7 +119,7 @@ src/components/benchmarking/
 ## Step 4 Completed ✅
 
 - Implemented collapsible Genotype Configuration section
-- Added dropdown for file type: merged | split_by_chromosome
+- Added dropdown for file type: merged | multi_chromosome
 - Added dropdown for population reference: target_population | source_population
 - Added inputs for file patterns: bed, bim, fam
 - Wired up updates to `genotype_config`
@@ -150,3 +150,74 @@ Ready to implement **Step 6: Integration & Polish** which will include:
 - Test data flow and state persistence
 - Add error handling and loading states
 - Style consistency with Mapping component
+
+## BridgePRS Tool Configuration Upgrade Plan
+
+### Goals
+- Make BridgePRS configuration UI and behavior consistent with PRSice.
+- Support file preview for both populations (pop1/Target and pop2/Base) and auto-map required columns.
+- Enable phenotype header preview for both populations with checkbox selection of traits.
+- Mirror PRSice genotype configuration controls and processing options.
+- Use global evaluation type from the parent and persist via the store.
+- Ensure final payload matches `reference/config-example.json` for BridgePRS.
+
+### Final Payload Conformance
+- Pre-processing structure for BridgePRS must follow:
+  - `pop1` and `pop2` objects with `name`, `sumstats_path`, `phenotype_path`, `genotype_path`.
+  - `column_mappings` for required keys: `CHR`, `ID`, `PS`, `A1`, `REF`, `BETA`, `SE`, `P`, `N`.
+  - `fixed_N` optional number.
+  - `genotype_config` with `file_type`, `population_reference`, `file_patterns` (bed, bim, fam).
+  - `phenotype_config` for `pop1` and `pop2` with `binary_traits`, `quantitative_traits`.
+  - `options` with `evaluation_type`, `process_binary_phenotypes`, `process_quantitative_phenotypes`, `skip_missing_columns`, `overwrite_existing`.
+
+### UI & Behavior Parity with PRSice
+1. Collapsible sections identical to PRSice:
+   - Column Mapping
+   - Phenotype Configuration
+   - Genotype Configuration
+   - Processing Options
+
+2. Column Mapping
+   - Add API-backed file preview for `pop1.sumstats_path` and `pop2.sumstats_path` using `getBenchmarkPreviewUrl(jobId, path)`.
+   - Build alias dictionaries for BridgePRS required columns.
+   - Auto-map columns from headers for both populations; if mappings differ between populations, warn and require user reconciliation. Apply the common mapping (prefer `pop1`) to `config.column_mappings` to conform with final payload.
+   - Use a dropdown with dynamic options sourced from preview headers, excluding already-selected headers (same UX as PRSice).
+
+3. Phenotype Configuration
+   - Preview phenotype files for both populations; parse headers and present checkbox lists.
+   - Respect global `evaluationType` to enable/disable binary/quantitative trait selection.
+   - Update `config.phenotype_config.pop1` and `.pop2` arrays accordingly.
+
+4. Genotype Configuration
+- Mirror PRSice controls: `file_type` (merged/multi_chromosome), `population_reference` (pop1/pop2), and file patterns (bed/bim/fam).
+   - Include BridgePRS-specific `genotype_path` and `output_dir` fields.
+   - Add `fixed_N` input with validation (numeric only).
+
+5. Processing Options
+   - Same checkboxes as PRSice; align copy and layout.
+   - Do not manage `evaluation_type` internally — consume and display the global evaluation type passed from parent.
+
+### Integration Changes
+- Update `ToolConfiguration.tsx` to pass `jobId` and `evaluationType` props to `BridgeprsToolConfiguration` for preview and trait gating.
+- Propagate global `evaluationType` into BridgePRS `options.evaluation_type` in the same effect that updates PRSice/PRScsx.
+- Keep existing `sanitizeBridgeprsConfig` and validation logic; ensure new UI writes to compatible fields.
+
+### Auto-Mapping Strategy
+- Define `BRIDGEPRS_COLUMN_ALIASES` for keys: `CHR`, `ID`, `PS`, `A1`, `REF`, `BETA`, `SE`, `P`, `N`.
+- When previews are available:
+  - Find matches in `pop1` and `pop2` headers using case-insensitive alias matching.
+  - If both populations agree on a header for a key, set that in `column_mappings`.
+  - If they differ, show a toast warning and set the `pop1` header temporarily; highlight fields needing review.
+
+### Validation & UX Notes
+- Maintain the existing validation checks for BridgePRS (required paths, file patterns, column mappings, output dirs).
+- Display loaded header counts and loading states like PRSice.
+- Ensure consistent styling and section behavior with PRSice for a uniform experience.
+
+### Testing & Preview
+- Start the dev server, navigate to the benchmarking Tool Configuration step, and verify:
+  - Previews load for both populations.
+  - Auto-mapping populates required fields and handles mismatches.
+  - Trait selection reflects evaluation type gating.
+  - Genotype and processing options update the config correctly.
+- Confirm final payload structure matches `reference/config-example.json` for BridgePRS.

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useMemo, useState } from "react"
+import React, { useCallback, useMemo, useState, useEffect } from "react"
 import axios from "axios"
 import {
   Card,
@@ -36,6 +36,7 @@ import type {
   BridgeprsColumnKey,
   BridgeprsProcessingState,
 } from "./types"
+import { COMMON_COLUMN_ALIASES, aliasMatches } from "./column-aliases"
 
 interface BridgeprsToolConfigurationProps {
   toolId: string
@@ -46,9 +47,7 @@ interface BridgeprsToolConfigurationProps {
   evaluationType: EvaluationType
   processingConfig: BridgeprsProcessingState
   onProcessingChange: (
-    updater: (
-      state: BridgeprsProcessingState
-    ) => BridgeprsProcessingState
+    updater: (state: BridgeprsProcessingState) => BridgeprsProcessingState
   ) => void
 }
 
@@ -63,11 +62,13 @@ export function BridgeprsToolConfiguration({
   onProcessingChange,
 }: BridgeprsToolConfigurationProps) {
   const targetLabel = config?.pop1?.name || "Target Population"
+  const baseLabel = config?.pop2?.name || "Base Population"
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [previewLines, setPreviewLines] = useState<string[]>([])
   const [headers, setHeaders] = useState<string[]>([])
   const [expanded, setExpanded] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<string[]>([])
   const [phenotypeHeaders, setPhenotypeHeaders] = useState<{
     pop1: string[]
     pop2: string[]
@@ -101,18 +102,79 @@ export function BridgeprsToolConfiguration({
   ]
 
   const COLUMN_ALIASES: Record<BridgeprsColumnKey, string[]> = {
-    CHR: ["CHR", "CHROM", "CHROMOSOME"],
-    ID: ["ID", "SNP", "RSID"],
-    PS: ["PS", "POSTERIOR", "POSTERIOR_SCORE"],
-    A1: ["A1", "ALT", "ALLELE1"],
-    REF: ["REF", "A2", "REF_ALLELE", "ALLELE2"],
-    BETA: ["BETA", "B", "EFFECT", "LOG_ODDS", "EFFECT_SIZE"],
-    SE: ["SE", "STDERR", "STANDARD_ERROR"],
-    P: ["P", "PVAL", "PVALUE", "P_VALUE"],
-    N: ["N", "SAMPLES", "N_SAMPLES"],
+    CHR: COMMON_COLUMN_ALIASES.CHR,
+    ID: COMMON_COLUMN_ALIASES.SNP, // BridgePRS uses ID, map to SNP aliases
+    PS: COMMON_COLUMN_ALIASES.PS,
+    A1: COMMON_COLUMN_ALIASES.A1,
+    REF: COMMON_COLUMN_ALIASES.REF,
+    BETA: COMMON_COLUMN_ALIASES.BETA,
+    SE: COMMON_COLUMN_ALIASES.SE,
+    P: COMMON_COLUMN_ALIASES.P,
+    N: COMMON_COLUMN_ALIASES.N,
   }
 
   type ProcessingModeKey = keyof BridgeprsProcessingState
+
+  // Hoist active processing tab to parent to avoid remount-induced resets
+  const initialProcessingTab: ProcessingModeKey = allowBinaryTraits
+    ? "binary"
+    : "quantitative"
+  const [processingActiveTab, setProcessingActiveTab] =
+    useState<ProcessingModeKey>(initialProcessingTab)
+  useEffect(() => {
+    const tabs: ProcessingModeKey[] = []
+    if (allowBinaryTraits) tabs.push("binary")
+    if (allowQuantitativeTraits) tabs.push("quantitative")
+    if (!tabs.includes(processingActiveTab)) {
+      setProcessingActiveTab(tabs[0] ?? "binary")
+    }
+  }, [allowBinaryTraits, allowQuantitativeTraits, processingActiveTab])
+
+  const updatePopPath = (
+    pop: "pop1" | "pop2",
+    field:
+      | "sumstats_path"
+      | "phenotype_path"
+      | "genotype_path"
+      | "covariate_path",
+    value: string
+  ) => {
+    onConfigChange({
+      ...config,
+      [pop]: {
+        ...config[pop],
+        [field]: value,
+      },
+    })
+  }
+
+  // Clear sumstats preview when target path changes
+  useEffect(() => {
+    setPreviewLines([])
+    setHeaders([])
+    setPreviewError(null)
+  }, [config?.pop1?.sumstats_path])
+
+  // Clear phenotype headers when any phenotype path changes
+  useEffect(() => {
+    setPhenotypeHeaders({ pop1: [], pop2: [] })
+    setPhenotypeErrors({})
+  }, [config?.pop1?.phenotype_path, config?.pop2?.phenotype_path])
+
+  const toggleSection = useCallback((key: string) => {
+    setExpandedSections((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }, [])
+
+  const setSectionOpen = useCallback((key: string, open: boolean) => {
+    setExpandedSections((prev) => {
+      if (open) {
+        return prev.includes(key) ? prev : [...prev, key]
+      }
+      return prev.filter((k) => k !== key)
+    })
+  }, [])
 
   const updateProcessingMode = useCallback(
     (
@@ -127,6 +189,16 @@ export function BridgeprsToolConfiguration({
       }))
     },
     [onProcessingChange]
+  )
+
+  const traitOptionsForMode = useCallback(
+    (mode: ProcessingModeKey): string[] => {
+      const traitKey =
+        mode === "binary" ? "binary_traits" : "quantitative_traits"
+      const options = config?.phenotype_config?.pop1?.[traitKey] || []
+      return options
+    },
+    [config?.phenotype_config?.pop1]
   )
 
   const updateColumnMapping = (field: BridgeprsColumnKey, header: string) => {
@@ -148,116 +220,276 @@ export function BridgeprsToolConfiguration({
     })
   }
 
-  const ProcessingEditor = () => {
+  const renderProcessingSection = () => {
     const tabs: ProcessingModeKey[] = []
     if (allowBinaryTraits) tabs.push("binary")
     if (allowQuantitativeTraits) tabs.push("quantitative")
 
     const renderMode = (mode: ProcessingModeKey) => {
       const state = processingConfig[mode]
+      const traitOptions = traitOptionsForMode(mode)
+      const isBinary = mode === "binary"
+      const isMerged = config?.genotype_config?.file_type === "merged"
+      const basenameRequired =
+        isMerged &&
+        !(state.bridgeprs_genotype_file && state.bridgeprs_genotype_file.trim())
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor={`${toolId}-${mode}-phenotype`}>Phenotype name</Label>
-            <Input
-              id={`${toolId}-${mode}-phenotype`}
-              value={state.bridgeprs_phenotype}
-              placeholder="e.g. BMI or case_control"
-              onChange={(e) =>
-                updateProcessingMode(mode, (prev) => ({
-                  ...prev,
-                  bridgeprs_phenotype: e.target.value,
-                }))
-              }
-            />
+        <div className="space-y-4">
+          <div className="rounded-md border p-3">
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              {isBinary ? "Binary" : "Quantitative"} Mode
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-fst`}>FST</Label>
+                <Input
+                  id={`${toolId}-${mode}-fst`}
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min={0}
+                  max={1}
+                  value={state.fst}
+                  placeholder="0.1"
+                  onChange={(e) =>
+                    updateProcessingMode(mode, (prev) => {
+                      const raw = e.target.value
+                      // Allow only digits and a single decimal point
+                      let filtered = raw.replace(/[^\d.]/g, "")
+                      const dotIndex = filtered.indexOf(".")
+                      if (dotIndex !== -1) {
+                        filtered =
+                          filtered.slice(0, dotIndex + 1) +
+                          filtered.slice(dotIndex + 1).replace(/\./g, "")
+                      }
+                      return {
+                        ...prev,
+                        fst: filtered,
+                      }
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-n-base`}>
+                  {`Sumstats size (${baseLabel})`}
+                </Label>
+                <Input
+                  id={`${toolId}-${mode}-n-base`}
+                  type="number"
+                  inputMode="numeric"
+                  step={1}
+                  min={0}
+                  value={state.sumstats_size_EUR}
+                  placeholder="e.g. 100000"
+                  onChange={(e) =>
+                    updateProcessingMode(mode, (prev) => ({
+                      ...prev,
+                      sumstats_size_EUR: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-n-target`}>
+                  {`Sumstats size (${targetLabel})`}
+                </Label>
+                <Input
+                  id={`${toolId}-${mode}-n-target`}
+                  type="number"
+                  inputMode="numeric"
+                  step={1}
+                  min={0}
+                  value={state.sumstats_size_AFR}
+                  placeholder="e.g. 50000"
+                  onChange={(e) =>
+                    updateProcessingMode(mode, (prev) => ({
+                      ...prev,
+                      sumstats_size_AFR: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            {isMerged && (
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor={`${toolId}-${mode}-bridgeprs-geno-prefix`}>
+                    Genotype Prefix (basename)
+                  </Label>
+                  <Input
+                    id={`${toolId}-${mode}-bridgeprs-geno-prefix`}
+                    value={state.bridgeprs_genotype_file || ""}
+                    placeholder={"e.g. geno or mygenoset"}
+                    required
+                    aria-invalid={basenameRequired}
+                    onChange={(e) =>
+                      updateProcessingMode(mode, (prev) => {
+                        const raw = e.target.value || ""
+                        const basename =
+                          raw
+                            .replace(/\\+/g, "/")
+                            .split("/")
+                            .filter(Boolean)
+                            .pop() || ""
+                        return {
+                          ...prev,
+                          bridgeprs_genotype_file: basename,
+                        }
+                      })
+                    }
+                  />
+                  {basenameRequired && (
+                    <p className="text-xs text-red-500">
+                      Genotype prefix is required.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Enter basename (no path) or prefix of the geno files. If a
+                    path is pasted, only the last segment is used.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor={`${toolId}-${mode}-fst`}>FST</Label>
-            <Input
-              id={`${toolId}-${mode}-fst`}
-              value={state.fst}
-              placeholder="e.g. 0.12"
-              onChange={(e) =>
-                updateProcessingMode(mode, (prev) => ({
-                  ...prev,
-                  fst: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${toolId}-${mode}-n-eur`}>Sumstats size (EUR)</Label>
-            <Input
-              id={`${toolId}-${mode}-n-eur`}
-              value={state.sumstats_size_EUR}
-              placeholder="e.g. 100000"
-              onChange={(e) =>
-                updateProcessingMode(mode, (prev) => ({
-                  ...prev,
-                  sumstats_size_EUR: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${toolId}-${mode}-n-afr`}>Sumstats size (AFR)</Label>
-            <Input
-              id={`${toolId}-${mode}-n-afr`}
-              value={state.sumstats_size_AFR}
-              placeholder="e.g. 50000"
-              onChange={(e) =>
-                updateProcessingMode(mode, (prev) => ({
-                  ...prev,
-                  sumstats_size_AFR: e.target.value,
-                }))
-              }
-            />
+            <Label className="text-xs uppercase">Phenotype Column</Label>
+            {traitOptions.length > 0 ? (
+              <Select
+                value={state.bridgeprs_phenotype || undefined}
+                onValueChange={(value) =>
+                  updateProcessingMode(mode, (prev) => ({
+                    ...prev,
+                    bridgeprs_phenotype: value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={`Select ${isBinary ? "binary" : "quantitative"} trait`}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {traitOptions.map((trait) => (
+                    <SelectItem key={`${mode}-${trait}`} value={trait}>
+                      {trait}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No {isBinary ? "binary" : "quantitative"} traits configured for{" "}
+                {targetLabel}. Update the phenotype configuration to continue.
+              </p>
+            )}
           </div>
         </div>
       )
     }
 
     if (tabs.length === 0) return null
+    // Active tab is controlled by parent state to prevent reset on re-render
 
-    const defaultValue = tabs[0]
     return (
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Processing Options</CardTitle>
-          <CardDescription>
-            Set phenotype and study parameters for BridgePRS.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue={defaultValue} className="w-full">
-            <TabsList>
+      <Collapsible
+        open={expandedSections.includes("processing")}
+        onOpenChange={(open) => setSectionOpen("processing", open)}
+      >
+        <CollapsibleTrigger asChild>
+          <div className="mt-6 flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
+            <div>
+              <h4 className="font-medium">Processing Configuration</h4>
+              <p className="text-sm text-muted-foreground">
+                Set runtime parameters for BridgePRS scoring
+              </p>
+            </div>
+            {expandedSections.includes("processing") ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-4 pb-4">
+          <div className="space-y-4">
+            <div className="rounded-lg border border-dashed p-3">
+              <p className="text-xs text-muted-foreground">
+                Evaluation type is currently set to
+                <span className="ml-1 font-medium capitalize">
+                  {evaluationType}
+                </span>
+                .
+              </p>
+              {!allowBinaryTraits && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Enable binary evaluation to configure binary processing.
+                </p>
+              )}
+              {!allowQuantitativeTraits && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Enable quantitative evaluation to configure quantitative
+                  processing.
+                </p>
+              )}
+            </div>
+
+            <Tabs
+              value={processingActiveTab}
+              onValueChange={(v) =>
+                setProcessingActiveTab(v as ProcessingModeKey)
+              }
+              className="w-full"
+            >
+              <TabsList>
+                {tabs.includes("binary") && (
+                  <TabsTrigger value="binary" disabled={!allowBinaryTraits}>
+                    Binary
+                  </TabsTrigger>
+                )}
+                {tabs.includes("quantitative") && (
+                  <TabsTrigger
+                    value="quantitative"
+                    disabled={!allowQuantitativeTraits}
+                  >
+                    Quantitative
+                  </TabsTrigger>
+                )}
+              </TabsList>
               {tabs.includes("binary") && (
-                <TabsTrigger value="binary">Binary</TabsTrigger>
+                <TabsContent value="binary">{renderMode("binary")}</TabsContent>
               )}
               {tabs.includes("quantitative") && (
-                <TabsTrigger value="quantitative">Quantitative</TabsTrigger>
+                <TabsContent value="quantitative">
+                  {renderMode("quantitative")}
+                </TabsContent>
               )}
-            </TabsList>
-            {tabs.includes("binary") && (
-              <TabsContent value="binary">{renderMode("binary")}</TabsContent>
-            )}
-            {tabs.includes("quantitative") && (
-              <TabsContent value="quantitative">
-                {renderMode("quantitative")}
-              </TabsContent>
-            )}
-          </Tabs>
-        </CardContent>
-      </Card>
+            </Tabs>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     )
   }
 
   const getAvailableOptions = (field: BridgeprsColumnKey) => {
     const selected = new Set(Object.values(config.column_mappings || {}))
-    const options = headers.filter((h) => !selected.has(h))
     const mapped = config.column_mappings?.[field]
-    // Always include the currently mapped option at the front
-    return mapped ? [mapped, ...options.filter((o) => o !== mapped)] : options
+    const aliasSource = COLUMN_ALIASES[field] || []
+
+    // Manual fallback: if no headers loaded and there was a preview error, use aliases
+    if (headers.length === 0 && previewError) {
+      return mapped && !aliasSource.includes(mapped)
+        ? [mapped, ...aliasSource]
+        : aliasSource
+    }
+
+    // With preview headers, allow any header from preview (exclude already used)
+    const options = headers.filter((h) => {
+      const isCurrent = mapped === h
+      if (isCurrent) return true
+      return !selected.has(h)
+    })
+    return mapped && !options.includes(mapped) ? [mapped, ...options] : options
   }
 
   const fetchTargetPreview = useCallback(async () => {
@@ -275,8 +507,14 @@ export function BridgeprsToolConfiguration({
     setIsLoadingPreview(true)
     setPreviewError(null)
     try {
-      const url = getBenchmarkPreviewUrl(jobId, config.pop1.sumstats_path)
+      const sumstatsType = config.sumstats_file_type || "merged"
+      const url = getBenchmarkPreviewUrl(jobId, config.pop1.sumstats_path, {
+        randomPick: sumstatsType === "multi_chromosome",
+      })
+      // Log request URL and the response payload for visibility
+      console.log("[BridgePRS Preview] GET:", url)
       const response = await axios.get(url)
+      console.log("[BridgePRS Preview] Response:", response?.data)
       const lines: string[] = response?.data?.preview_lines || []
       setPreviewLines(lines)
       const first = (lines?.[0] || "").trim()
@@ -292,12 +530,9 @@ export function BridgeprsToolConfiguration({
         const autoMappings: Partial<Record<BridgeprsColumnKey, string>> = {}
         const used = new Set<string>()
         REQUIRED_COLUMNS.forEach((field) => {
-          const aliases = COLUMN_ALIASES[field] || []
           const match = hdrs.find((header) => {
             if (used.has(header)) return false
-            return aliases.some(
-              (alias) => header.toLowerCase() === alias.toLowerCase()
-            )
+            return aliasMatches(field, header)
           })
           if (match) {
             autoMappings[field] = match
@@ -456,39 +691,64 @@ export function BridgeprsToolConfiguration({
             <CollapsibleContent className="px-4 pb-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Target: {targetLabel}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={fetchTargetPreview}
-                    disabled={isLoadingPreview}
-                  >
-                    {isLoadingPreview ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                        Loading
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="mr-2 h-4 w-4" />{" "}
-                        {previewLines.length > 0
-                          ? "Reload Preview"
-                          : "Preview File"}
-                      </>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Preview your sumstats file to see available columns
+                    </p>
+                    {config?.sumstats_file_type === "multi_chromosome" && (
+                      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5 text-orange-500" />
+                        Multi-chromosome input: if the path is a directory,
+                        preview selects a random file. Ensure headers are
+                        uniform across files; if they differ, reload preview or
+                        map using a representative file.
+                      </p>
                     )}
-                  </Button>
+                    {previewLines.length > 0 && (
+                      <p className="mt-1 text-xs text-green-600">
+                        ✓ Headers loaded – {headers.length} columns available
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchTargetPreview}
+                      disabled={isLoadingPreview}
+                    >
+                      {isLoadingPreview ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                          Loading
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="mr-2 h-4 w-4" />{" "}
+                          {previewLines.length > 0
+                            ? "Reload Preview"
+                            : "Preview File"}
+                        </>
+                      )}
+                    </Button>
+                    {config?.pop1?.sumstats_path && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        File: {config.pop1.sumstats_path}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {previewError && (
                   <div className="text-sm text-destructive">{previewError}</div>
                 )}
 
-                {config?.pop1?.sumstats_path && (
-                  <div className="text-xs text-muted-foreground">
-                    File: {config.pop1.sumstats_path}
-                  </div>
+                {previewError && (
+                  <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                    Preview failed. Manual mapping is enabled below; choices are
+                    limited to known aliases per required column.
+                  </p>
                 )}
 
                 {previewLines.length > 0 && (
@@ -506,27 +766,43 @@ export function BridgeprsToolConfiguration({
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b bg-muted/40">
-                            {(previewLines[0] || "").split("\t").map((h, i) => (
-                              <th
-                                key={`h-${i}`}
-                                className="whitespace-nowrap px-2 py-1 text-left font-medium"
-                              >
-                                {h}
-                              </th>
-                            ))}
+                            {(() => {
+                              const first = (previewLines[0] || "").trim()
+                              const cells = first.includes("\t")
+                                ? first.split("\t")
+                                : first.length > 0
+                                  ? first.split(/\s+/)
+                                  : []
+                              return cells.map((h, i) => (
+                                <th
+                                  key={`h-${i}`}
+                                  className="whitespace-nowrap px-2 py-1 text-left font-medium"
+                                >
+                                  {h}
+                                </th>
+                              ))
+                            })()}
                           </tr>
                         </thead>
                         <tbody>
                           {previewLines.slice(1, 6).map((line, rowIndex) => (
                             <tr key={`r-${rowIndex}`} className="border-b">
-                              {line.split("\t").map((cell, cellIndex) => (
-                                <td
-                                  key={`c-${cellIndex}`}
-                                  className="whitespace-nowrap px-2 py-1"
-                                >
-                                  {cell}
-                                </td>
-                              ))}
+                              {(() => {
+                                const trimmed = line.trim()
+                                const cells = trimmed.includes("\t")
+                                  ? trimmed.split("\t")
+                                  : trimmed.length > 0
+                                    ? trimmed.split(/\s+/)
+                                    : []
+                                return cells.map((cell, cellIndex) => (
+                                  <td
+                                    key={`c-${cellIndex}`}
+                                    className="whitespace-nowrap px-2 py-1"
+                                  >
+                                    {cell}
+                                  </td>
+                                ))
+                              })()}
                             </tr>
                           ))}
                         </tbody>
@@ -682,7 +958,7 @@ export function BridgeprsToolConfiguration({
                                 ? config.pop1.name || "Population 1"
                                 : config.pop2.name || "Population 2"}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {population === "pop1"
                                 ? config.pop1.phenotype_path ||
                                   "No phenotype file mapped"
@@ -800,32 +1076,12 @@ export function BridgeprsToolConfiguration({
             <CollapsibleContent className="px-4 pb-4">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-3">
-                  <Label className="text-sm">File Type</Label>
+                  <Label className="flex items-center gap-2 text-sm">
+                    Population Reference
+                    <Badge variant="outline">Coming soon</Badge>
+                  </Label>
                   <Select
-                    value={config.genotype_config.file_type}
-                    onValueChange={(value) =>
-                      updateGenotypeConfig({
-                        file_type:
-                          value as BridgeprsPreProcessingConfig["genotype_config"]["file_type"],
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select file type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="merged">
-                        Merged (bed, bim, fam)
-                      </SelectItem>
-                      <SelectItem value="split_by_chromosome">
-                        Split by Chromosome (bed, bim, fam)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-sm">Population Reference</Label>
-                  <Select
+                    // Keep value bound to config; default is pop1
                     value={config.genotype_config.population_reference}
                     onValueChange={(value) =>
                       updateGenotypeConfig({
@@ -834,7 +1090,11 @@ export function BridgeprsToolConfiguration({
                       })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger
+                      disabled
+                      aria-disabled
+                      className="cursor-not-allowed opacity-80"
+                    >
                       <SelectValue placeholder="Select population" />
                     </SelectTrigger>
                     <SelectContent>
@@ -846,6 +1106,7 @@ export function BridgeprsToolConfiguration({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {/* <p className="text-xs text-muted-foreground">Defaults to target population; editing disabled for now.</p> */}
                 </div>
               </div>
 
@@ -939,6 +1200,27 @@ export function BridgeprsToolConfiguration({
                     </span>
                   </span>
                 </label>
+                {config?.sumstats_file_type === "multi_chromosome" && (
+                  <label className="flex items-start gap-3 text-sm">
+                    <Checkbox
+                      checked={Boolean(config.options.sumstats_strict_single)}
+                      onCheckedChange={(checked) =>
+                        updateOptions({
+                          sumstats_strict_single: Boolean(checked),
+                        })
+                      }
+                    />
+                    <span>
+                      Enforce one sumstats file per chromosome
+                      <span className="block text-xs text-muted-foreground">
+                        Sets strictness for sumstats files. If multiple files
+                        exist for the same chromosome, the pipeline fails when
+                        enabled; when disabled, one file is auto-selected and
+                        the selection criteria is logged.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="fixed-n">
                     Fixed N (override sample size)
@@ -966,14 +1248,11 @@ export function BridgeprsToolConfiguration({
                     When set, BridgePRS uses this value instead of column N.
                   </span>
                 </div>
-                <label className="flex items-start gap-3 text-xs text-muted-foreground md:col-span-2">
-                  <Info className="mt-0.5 h-4 w-4" />
-                  Evaluation type is managed globally on this step; options here
-                  control BridgePRS preprocessing behaviour only.
-                </label>
+                {/* Removed evaluation-type info note per request */}
               </div>
             </CollapsibleContent>
           </Collapsible>
+          {renderProcessingSection()}
         </CardContent>
       </Card>
     </div>

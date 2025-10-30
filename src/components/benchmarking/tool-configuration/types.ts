@@ -6,6 +6,8 @@ export interface ProcessingOptions {
   process_quantitative_phenotypes: boolean
   skip_missing_columns: boolean
   overwrite_existing: boolean
+  // When true, treat multi-chromosome sumstats strictly as a single file
+  sumstats_strict_single?: boolean
 }
 
 export interface PrsicePopulationConfig {
@@ -26,8 +28,10 @@ export interface PrsicePhenotypeConfig {
 }
 
 export interface PrsiceGenotypeConfig {
-  file_type: "merged" | "split_by_chromosome"
+  file_type: "merged" | "multi_chromosome"
   population_reference: "target_population" | "source_population"
+  // Optional chromosome selector for multi-chromosome inputs
+  chrom?: number[]
   file_patterns: {
     bed: string
     bim: string
@@ -42,6 +46,7 @@ export interface PrsicePreProcessingConfig {
   column_mappings: Record<string, string>
   phenotype_config: PrsicePhenotypeConfig
   genotype_config: PrsiceGenotypeConfig
+  sumstats_file_type?: "merged" | "multi_chromosome"
   options: ProcessingOptions
 }
 
@@ -71,7 +76,9 @@ export interface PrscsxColumnMappings {
 }
 
 export interface PrscsxGenotypeConfig {
-  file_type: "merged" | "split_by_chromosome"
+  file_type: "merged" | "multi_chromosome"
+  // Optional chromosome selector for multi-chromosome inputs
+  chrom?: number[]
 }
 
 export interface PrscsxPreProcessingConfig {
@@ -79,6 +86,7 @@ export interface PrscsxPreProcessingConfig {
   column_mappings: PrscsxColumnMappings
   phenotype_config: PrscsxPhenotypeConfig
   genotype_config: PrscsxGenotypeConfig
+  sumstats_file_type?: "merged" | "multi_chromosome"
   options: ProcessingOptions
   output_dir: string
 }
@@ -157,7 +165,7 @@ export interface BridgeprsPhenotypeConfig {
 }
 
 export interface BridgeprsGenotypeConfig {
-  file_type: "merged" | "split_by_chromosome"
+  file_type: "merged" | "multi_chromosome"
   population_reference: "pop1" | "pop2"
   file_patterns: {
     bed: string
@@ -175,6 +183,7 @@ export interface BridgeprsPreProcessingConfig {
   fixed_N?: number | null
   genotype_config: BridgeprsGenotypeConfig
   phenotype_config: BridgeprsPhenotypeConfig
+  sumstats_file_type?: "merged" | "multi_chromosome"
   options: ProcessingOptions
 }
 
@@ -184,6 +193,7 @@ export interface BridgeprsProcessingModeState {
   fst: string
   sumstats_size_EUR: string
   sumstats_size_AFR: string
+  bridgeprs_genotype_file?: string
 }
 
 export interface BridgeprsProcessingState {
@@ -214,6 +224,24 @@ export interface BridgeprsProcessingPayload {
   quantitative?: BridgeprsProcessingModePayload
 }
 
+// ----- PRSice processing types -----
+export interface PrsiceProcessingModePayload {
+  input_prsice_data: string
+  sumstats: string
+  target_data: string
+  pheno: string
+  threads: number
+  stat: string
+  binary_target: "T" | "F"
+  output_dir: string
+  log_dir: string
+}
+
+export interface PrsiceProcessingPayload {
+  binary?: PrsiceProcessingModePayload
+  quantitative?: PrsiceProcessingModePayload
+}
+
 // SDPRX types
 export interface SdprxPopulationConfig {
   name: string
@@ -233,9 +261,11 @@ export interface SdprxPhenotypeConfig {
 }
 
 export interface SdprxGenotypeConfig {
-  file_type: "merged" | "split_by_chromosome"
+  file_type: "merged" | "multi_chromosome"
   // Optional to maintain backward compatibility in UI; schema may omit this
   population_reference?: "pop1" | "pop2"
+  // Optional chromosome selector for multi-chromosome inputs
+  chrom?: number[]
   file_patterns: {
     bed: string
     bim: string
@@ -259,6 +289,7 @@ export interface SdprxPreProcessingConfig {
     pop1: string[]
     pop2: string[]
   }
+  sumstats_file_type?: "merged" | "multi_chromosome"
   options: ProcessingOptions
 }
 
@@ -276,6 +307,8 @@ export interface SdprxProcessingModeState {
   output_dir: string
   score_file: string
   plink_output_prefix: string
+  // Optional: for per-chromosome runs, prefix or directory for plink genotypes
+  plink_genotype_prefix?: string
   pheno: string
   log_dir: string
 }
@@ -300,6 +333,8 @@ export interface SdprxProcessingModePayload {
   output_dir: string
   score_file: string
   plink_output_prefix: string
+  // Optional: for per-chromosome runs, prefix or directory for plink genotypes
+  plink_genotype_prefix?: string
   pheno: string
   log_dir: string
 }

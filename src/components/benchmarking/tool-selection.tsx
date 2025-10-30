@@ -11,6 +11,7 @@ import { getBenchmarkJobsUrl } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
+import { useJobId, useJobStatus } from "@/stores/benchmarking-store"
 
 const toolOptions = [
   {
@@ -59,6 +60,8 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [isCreatingJob, setIsCreatingJob] = useState(false)
   const { setJobId, setJobStatus } = useBenchmarkingStore()
+  const jobId = useJobId()
+  const jobStatus = useJobStatus()
 
   const groupedTools = toolOptions.reduce(
     (acc, tool) => {
@@ -76,6 +79,13 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
   const handleConfirmJobCreation = async () => {
     setIsCreatingJob(true)
     try {
+      // If a job already exists, extend tools within the same job instead of creating a new one
+      if (jobId) {
+        setShowConfirmation(false)
+        onNext({ selectedTools, jobId, jobStatus })
+        return
+      }
+
       console.log("🚀 Creating benchmark job...")
       console.log("📋 Selected tools:", selectedTools)
 
@@ -119,9 +129,12 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
     }
   }
 
-  const handleCancelJobCreation = () => {
-    setShowConfirmation(false)
-  }
+  const hasExistingJob = Boolean(jobId)
+  const modalTitle = hasExistingJob ? "Update Selected Tools" : "Create Benchmark Job"
+  const modalDescription = hasExistingJob
+    ? `You are updating the current benchmark job (${jobId}) to include the following tools: ${selectedTools.join(", ")}. Your uploads and mappings remain associated with this job.`
+    : `You are about to create a new benchmark job with the following tools: ${selectedTools.join(", ")}. This will start the benchmarking process and you'll be able to upload your datasets next.`
+  const confirmText = hasExistingJob ? "Continue" : "Create Job"
 
   return (
     <div className="space-y-6">
@@ -186,11 +199,11 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
 
       <ConfirmationModal
         isOpen={showConfirmation}
-        onClose={handleCancelJobCreation}
+        onClose={() => setShowConfirmation(false)}
         onConfirm={handleConfirmJobCreation}
-        title="Create Benchmark Job"
-        description={`You are about to create a new benchmark job with the following tools: ${selectedTools.join(", ")}. This will start the benchmarking process and you'll be able to upload your datasets next.`}
-        confirmText="Create Job"
+        title={modalTitle}
+        description={modalDescription}
+        confirmText={confirmText}
         cancelText="Cancel"
         isLoading={isCreatingJob}
       />

@@ -24,9 +24,15 @@ export const getBenchmarkJobStatusUrl = (jobId: string) => {
 }
 
 // Helper function to get the preview URL: /benchmark/{job_id}/preview/{file_path}
-export const getBenchmarkPreviewUrl = (jobId: string, filePath: string) => {
+export const getBenchmarkPreviewUrl = (
+  jobId: string,
+  filePath: string,
+  opts?: { randomPick?: boolean }
+) => {
   const encodedPath = encodeURIComponent(filePath)
-  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/preview/${encodedPath}`
+  const base = `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/preview/${encodedPath}`
+  const query = opts?.randomPick ? "?random_pick=true" : ""
+  return `${base}${query}`
 }
 
 // Helper function to get the config submission URL: /benchmark/{job_id}/config

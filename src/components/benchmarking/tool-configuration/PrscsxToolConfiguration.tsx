@@ -27,9 +27,11 @@ import {
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { ChromosomeMultiSelect } from "@/components/ui/chromosome-multi-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getBenchmarkPreviewUrl } from "@/lib/config"
 import { ChevronDown, ChevronRight, Eye, Loader2, Info } from "lucide-react"
+import { COMMON_COLUMN_ALIASES, aliasMatches } from "./column-aliases"
 
 import type {
   PrscsxPreProcessingConfig,
@@ -43,11 +45,11 @@ import type {
 const REQUIRED_COLUMNS: PrscsxColumnKey[] = ["SNP", "A1", "A2", "BETA", "P"]
 
 const COLUMN_ALIASES: Record<PrscsxColumnKey, string[]> = {
-  SNP: ["SNP", "RSID", "ID", "RS", "SNP_ID", "VARIANT_ID", "MARKERNAME"],
-  A1: ["A1", "ALT", "ALLELE1", "ALTERNATE_ALLELE", "EFFECT_ALLELE"],
-  A2: ["A2", "ALLELE2", "NONEFFECT_ALLELE", "REFERENCE_ALLELE", "REF"],
-  BETA: ["BETA", "B", "EFFECT", "LOG_ODDS", "EFFECT_SIZE"],
-  P: ["P", "PVAL", "P_VALUE", "P_DGC", "P_WALD"],
+  SNP: COMMON_COLUMN_ALIASES.SNP,
+  A1: COMMON_COLUMN_ALIASES.A1,
+  A2: COMMON_COLUMN_ALIASES.A2,
+  BETA: COMMON_COLUMN_ALIASES.BETA,
+  P: COMMON_COLUMN_ALIASES.P,
 }
 
 interface FilePreview {
@@ -107,7 +109,8 @@ export function PrscsxToolConfiguration({
     Record<string, string | null>
   >({})
 
-  const allowBinaryTraits = evaluationType === "binary" || evaluationType === "both"
+  const allowBinaryTraits =
+    evaluationType === "binary" || evaluationType === "both"
   const allowQuantitativeTraits =
     evaluationType === "quantitative" || evaluationType === "both"
 
@@ -115,13 +118,14 @@ export function PrscsxToolConfiguration({
 
   const eligiblePopulations = useMemo(
     () =>
-      populations.filter(
-        (population) =>
-          Boolean(
+      populations.filter((population) =>
+        Boolean(
+          population.name &&
+            population.name.trim() !== "" &&
             population.sumstats_path &&
-              population.genotype_path &&
-              population.phenotype_path
-          )
+            population.genotype_path &&
+            population.phenotype_path
+        )
       ),
     [populations]
   )
@@ -187,7 +191,8 @@ export function PrscsxToolConfiguration({
         return
       }
 
-      const traitKey = mode === "binary" ? "binary_traits" : "quantitative_traits"
+      const traitKey =
+        mode === "binary" ? "binary_traits" : "quantitative_traits"
       const traits =
         config.phenotype_config.by_population[runPopulation]?.[traitKey] || []
 
@@ -206,7 +211,11 @@ export function PrscsxToolConfiguration({
         }))
       }
     })
-  }, [processingConfig, config.phenotype_config.by_population, updateProcessingMode])
+  }, [
+    processingConfig,
+    config.phenotype_config.by_population,
+    updateProcessingMode,
+  ])
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) =>
@@ -246,6 +255,19 @@ export function PrscsxToolConfiguration({
         ...current.options,
         ...updates,
       },
+    }))
+  }
+
+  const updatePopulationPath = (
+    populationName: string,
+    field: "sumstats_path" | "phenotype_path" | "genotype_path" | "covariate_path",
+    value: string
+  ) => {
+    updateConfig((current) => ({
+      ...current,
+      populations: current.populations.map((pop) =>
+        pop.name === populationName ? { ...pop, [field]: value } : pop
+      ),
     }))
   }
 
@@ -303,8 +325,13 @@ export function PrscsxToolConfiguration({
     setPreviewErrors((prev) => ({ ...prev, [key]: null }))
 
     try {
-      const url = getBenchmarkPreviewUrl(jobId, population.sumstats_path)
+      const sumstatsType = config.sumstats_file_type || "merged"
+      const url = getBenchmarkPreviewUrl(jobId, population.sumstats_path, {
+        randomPick: sumstatsType === "multi_chromosome",
+      })
+      console.log("[PRScsx Preview] GET:", url)
       const response = await axios.get(url)
+      console.log("[PRScsx Preview] Response:", response?.data)
       const preview: FilePreview = {
         filename:
           population.sumstats_path.split("/").pop() || population.sumstats_path,
@@ -312,17 +339,20 @@ export function PrscsxToolConfiguration({
       }
       setPreviews((prev) => ({ ...prev, [key]: preview }))
 
-      const headers = (preview.preview_lines?.[0] || "").split("\t")
+      const first = (preview.preview_lines?.[0] || "").trim()
+      const headers =
+        first.length > 0
+          ? first.includes("\t")
+            ? first.split("\t").map((h) => h.trim())
+            : first.split(/\s+/).map((h) => h.trim())
+          : []
       const autoMappings: Partial<Record<PrscsxColumnKey, string>> = {}
       const used = new Set<string>()
 
       REQUIRED_COLUMNS.forEach((field) => {
-        const aliases = COLUMN_ALIASES[field]
         const match = headers.find((header) => {
           if (used.has(header)) return false
-          return aliases.some(
-            (alias) => header.toLowerCase() === alias.toLowerCase()
-          )
+          return aliasMatches(field, header)
         })
         if (match) {
           autoMappings[field] = match
@@ -361,6 +391,20 @@ export function PrscsxToolConfiguration({
     }
   }
 
+  // Clear previews when any population sumstats path changes to avoid stale headers
+  useEffect(() => {
+    // When any sumstats path changes, clear all previews to avoid stale data
+    setPreviews({})
+    setPreviewErrors({})
+  }, [config.populations?.map((p) => `${p.name}:${p.sumstats_path}`).join("|")])
+
+  // Clear phenotype headers when any population phenotype path changes
+  useEffect(() => {
+    // When any phenotype path changes, clear all phenotype headers to avoid staleness
+    setPhenotypeHeaders({})
+    setPhenotypeErrors({})
+  }, [config.populations?.map((p) => `${p.name}:${p.phenotype_path}`).join("|")])
+
   const fetchPhenotypePreview = async (population: PrscsxPopulationConfig) => {
     if (!jobId || !population.phenotype_path) return
     const key = population.name
@@ -371,7 +415,13 @@ export function PrscsxToolConfiguration({
     try {
       const url = getBenchmarkPreviewUrl(jobId, population.phenotype_path)
       const response = await axios.get(url)
-      const headers = (response.data.preview_lines?.[0] || "").split("\t")
+      const first = (response.data.preview_lines?.[0] || "").trim()
+      const headers =
+        first.length > 0
+          ? first.includes("\t")
+            ? first.split("\t").map((h) => h.trim())
+            : first.split(/\s+/).map((h) => h.trim())
+          : []
       setPhenotypeHeaders((prev) => ({ ...prev, [key]: headers }))
       ensurePhenotypeEntry(population.name)
     } catch (error) {
@@ -448,7 +498,12 @@ export function PrscsxToolConfiguration({
     if (!activePopulationConfig) return []
     const preview = previews[activePopulationConfig.name]
     if (!preview) return []
-    return preview.preview_lines?.[0]?.split("\t") || []
+    const first = (preview.preview_lines?.[0] || "").trim()
+    return first.length > 0
+      ? (first.includes("\t") ? first.split("\t") : first.split(/\s+/))
+          .map((h) => h.trim())
+          .filter((h) => h.length > 0)
+      : []
   }, [activePopulationConfig, previews])
 
   const getAvailableOptions = (field: PrscsxColumnKey) => {
@@ -459,11 +514,23 @@ export function PrscsxToolConfiguration({
     const mappedValues = Object.entries(mappings)
       .filter(([key]) => key !== field)
       .map(([, value]) => value)
+    const aliasSource = COLUMN_ALIASES[field] || []
 
-    return headers.filter((header) => {
-      if (mappings[field] === header) return true
+    const current = mappings[field]
+    const error = previewErrors[activePopulationConfig.name]
+    if ((!headers || headers.length === 0) && error) {
+      return current && !aliasSource.includes(current)
+        ? [current, ...aliasSource]
+        : aliasSource
+    }
+
+    const filtered = headers.filter((header) => {
+      if (current === header) return true
       return !mappedValues.includes(header)
     })
+    return current && !filtered.includes(current)
+      ? [current, ...filtered]
+      : filtered
   }
 
   const phenotypeEntryFor = (populationName: string) => {
@@ -493,10 +560,9 @@ export function PrscsxToolConfiguration({
     const modeState = processingConfig[mode]
     const runPopulation = modeState.runPopulation
     const traitKey = isBinary ? "binary_traits" : "quantitative_traits"
-    const traitOptions =
-      runPopulation
-        ? config.phenotype_config.by_population[runPopulation]?.[traitKey] || []
-        : []
+    const traitOptions = runPopulation
+      ? config.phenotype_config.by_population[runPopulation]?.[traitKey] || []
+      : []
 
     const handleRunPopulationChange = (value: string) => {
       updateProcessingMode(mode, (prev) => ({
@@ -539,7 +605,7 @@ export function PrscsxToolConfiguration({
     const modeLabel = isBinary ? "Binary" : "Quantitative"
 
     return (
-      <div className="rounded-lg border p-4 space-y-4" key={mode}>
+      <div className="space-y-4 rounded-lg border p-4" key={mode}>
         <div className="flex items-center justify-between">
           <h5 className="font-medium">{modeLabel} Processing</h5>
           <Badge variant="outline" className="text-xs capitalize">
@@ -604,7 +670,10 @@ export function PrscsxToolConfiguration({
           </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {config.populations.map((population) => (
-              <div key={`${mode}-ngwas-${population.name}`} className="space-y-1">
+              <div
+                key={`${mode}-ngwas-${population.name}`}
+                className="space-y-1"
+              >
                 <Label className="text-xs uppercase">{population.name}</Label>
                 <Input
                   value={modeState.nGwas[population.name] || ""}
@@ -639,7 +708,7 @@ export function PrscsxToolConfiguration({
               </Select>
             ) : (
               <p className="text-xs text-muted-foreground">
-                No {isBinary ? "binary" : "quantitative"} traits configured for {" "}
+                No {isBinary ? "binary" : "quantitative"} traits configured for{" "}
                 {runPopulation}. Update the phenotype configuration to continue.
               </p>
             )
@@ -733,34 +802,69 @@ export function PrscsxToolConfiguration({
                         value={population.name}
                         className="space-y-4"
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium">
-                              {population.name} Sumstats
+                            <p className="text-sm text-muted-foreground">
+                              Preview your sumstats file to see available
+                              columns
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {population.sumstats_path || "No sumstats mapped"}
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fetchFilePreview(population)}
-                            disabled={loading || !population.sumstats_path}
-                          >
-                            {loading ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Eye className="mr-2 h-4 w-4" />
+                            {config?.sumstats_file_type ===
+                              "multi_chromosome" && (
+                              <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                <Info className="h-3.5 w-3.5 text-orange-500" />
+                                Multi-chromosome input: if the path is a
+                                directory, preview selects a random file. Ensure
+                                headers are uniform across files; if they
+                                differ, reload preview or map using a
+                                representative file.
+                              </p>
                             )}
-                            {preview ? "Reload Preview" : "Preview File"}
-                          </Button>
+                            {preview && (
+                              <p className="mt-1 text-xs text-green-600">
+                                ✓ Headers loaded –{" "}
+                                {
+                                  (preview.preview_lines?.[0] || "")
+                                    .split(/\t|\s+/)
+                                    .filter((h) => h).length
+                                }{" "}
+                                columns available
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fetchFilePreview(population)}
+                              disabled={loading || !population.sumstats_path}
+                            >
+                              {loading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="mr-2 h-4 w-4" />
+                              )}
+                              {preview ? "Reload Preview" : "Preview File"}
+                            </Button>
+                            {population.sumstats_path && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                File: {population.sumstats_path}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {error && (
-                          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                            {error}
-                          </div>
+                          <>
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                              {error}
+                            </div>
+                            <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                              <Info className="h-3.5 w-3.5" />
+                              Preview failed. Manual mapping is enabled below;
+                              choices are limited to known aliases per required
+                              column.
+                            </p>
+                          </>
                         )}
 
                         {preview && (
@@ -780,16 +884,22 @@ export function PrscsxToolConfiguration({
                                     .slice(0, 5)
                                     .map((line, idx) => (
                                       <tr key={idx} className="border-b">
-                                        {line
-                                          .split("\t")
-                                          .map((cell, cellIdx) => (
+                                        {(() => {
+                                          const trimmed = line.trim()
+                                          const cells = trimmed.includes("\t")
+                                            ? trimmed.split("\t")
+                                            : trimmed.length > 0
+                                              ? trimmed.split(/\s+/)
+                                              : []
+                                          return cells.map((cell, cellIdx) => (
                                             <td
                                               key={cellIdx}
                                               className="whitespace-nowrap px-2 py-1"
                                             >
                                               {cell}
                                             </td>
-                                          ))}
+                                          ))
+                                        })()}
                                       </tr>
                                     ))}
                                 </tbody>
@@ -938,9 +1048,8 @@ export function PrscsxToolConfiguration({
                           <p className="text-sm font-semibold">
                             {population.name}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {population.phenotype_path ||
-                              "No phenotype file mapped"}
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {population.phenotype_path || "No phenotype file mapped"}
                           </p>
                         </div>
                         <Button
@@ -1130,36 +1239,27 @@ export function PrscsxToolConfiguration({
               </div>
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-3">
-                  <Label className="text-sm">File Type</Label>
-                  <Select
-                    value={config.genotype_config.file_type}
-                    onValueChange={(value) =>
+              {config.genotype_config.file_type === "multi_chromosome" && (
+                <div className="mt-6 space-y-3">
+                  <Label className="text-sm">Chromosomes</Label>
+                  <ChromosomeMultiSelect
+                    value={config.genotype_config.chrom || []}
+                    onChange={(next) =>
                       updateConfig((current) => ({
                         ...current,
                         genotype_config: {
                           ...current.genotype_config,
-                          file_type:
-                            value as PrscsxPreProcessingConfig["genotype_config"]["file_type"],
+                          chrom: next,
                         },
                       }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select file type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="merged">
-                        Merged (bed, bim, fam)
-                      </SelectItem>
-                      <SelectItem value="split_by_chromosome">
-                        Split by Chromosome
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Select one or more chromosomes to process. Leave empty to
+                    process all.
+                  </p>
                 </div>
-              </div>
+              )}
             </CollapsibleContent>
           </Collapsible>
 
@@ -1212,12 +1312,28 @@ export function PrscsxToolConfiguration({
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-3 text-xs text-muted-foreground md:col-span-2">
-                  <Info className="mt-0.5 h-4 w-4" />
-                  Adjust these options as needed before running PRScsx
-                  preprocessing. Evaluation type is managed globally on this
-                  step.
-                </label>
+                {config?.sumstats_file_type === "multi_chromosome" && (
+                  <label className="flex items-start gap-3 text-sm">
+                    <Checkbox
+                      checked={Boolean(config.options.sumstats_strict_single)}
+                      onCheckedChange={(checked) =>
+                        updateOptions({
+                          sumstats_strict_single: Boolean(checked),
+                        })
+                      }
+                    />
+                    <span>
+                      Enforce one sumstats file per chromosome
+                      <span className="block text-xs text-muted-foreground">
+                        Sets strictness for sumstats files. If multiple files
+                        exist for the same chromosome, the pipeline fails when
+                        enabled; when disabled, one file is auto-selected and the
+                        selection criteria is logged.
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {/* Removed evaluation-type info note per request */}
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -1231,7 +1347,8 @@ export function PrscsxToolConfiguration({
                 <div>
                   <h4 className="font-medium">Processing Configuration</h4>
                   <p className="text-sm text-muted-foreground">
-                    Configure PRScsx scoring inputs for the selected evaluation type.
+                    Configure PRScsx scoring inputs for the selected evaluation
+                    type.
                   </p>
                 </div>
                 {expandedSections.includes("processing-config") ? (

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect, type SearchableSelectItem } from "@/components/ui/searchable-select"
 import {
   Folder,
   File,
@@ -27,7 +28,9 @@ import {
   X,
   MapPin,
   AlertTriangle,
+  Info,
 } from "lucide-react"
+import { Tooltip } from "@/components/ui/tooltip"
 import { getBenchmarkUploadUrl, getBenchmarkJobStatusUrl } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
@@ -181,7 +184,7 @@ const getToolMappingFields = (
       id: "target_population.sumstats_path",
       label: "Target Population - Summary Statistics",
       description: "Summary statistics file for target population",
-      acceptedTypes: [".txt", ".csv", ".sumstats"],
+      acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
       required: true,
       population: "target",
       fieldType: "sumstats_path",
@@ -210,7 +213,7 @@ const getToolMappingFields = (
       id: "source_population.sumstats_path",
       label: "Source Population - Summary Statistics",
       description: "Summary statistics file for source population",
-      acceptedTypes: [".txt", ".csv", ".sumstats"],
+      acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
       required: true,
       population: "source",
       fieldType: "sumstats_path",
@@ -311,7 +314,7 @@ const getToolMappingFields = (
         id: "prscsx.target.sumstats_path",
         label: `${targetName} - Summary Statistics`,
         description: "Summary statistics file for the target population",
-        acceptedTypes: [".txt", ".csv", ".sumstats"],
+        acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
         required: true,
         population: "prscsx-target",
         populationKey: prscsxConfig.target.id,
@@ -360,7 +363,7 @@ const getToolMappingFields = (
         id: `prscsx.base.${base.id}.sumstats_path`,
         label: `${baseName} - Summary Statistics`,
         description: "Summary statistics file for this base population",
-        acceptedTypes: [".txt", ".csv", ".sumstats"],
+        acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
         required: true,
         population: "prscsx-base",
         populationKey: base.id,
@@ -488,6 +491,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       ),
     [prscsxConfig]
   )
+
+  // Live sync support: write Mapping payload to stepData as user maps
+  const setStepData = useBenchmarkingStore((state) => state.setStepData)
+  const liveSyncSignatureRef = React.useRef<string | null>(null)
 
   const handleBaseModalOpenChange = (open: boolean) => {
     if (!open) {
@@ -675,6 +682,13 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       }
 
       const fieldIds = getFieldsForTool(tool).map((field) => field.id)
+      // Register genotype file type and sumstats file type as mapping-level config for each tool
+      if (!fieldIds.includes("genotype_config.file_type")) {
+        fieldIds.push("genotype_config.file_type")
+      }
+      if (!fieldIds.includes("pre_processing.sumstats_file_type")) {
+        fieldIds.push("pre_processing.sumstats_file_type")
+      }
       if (process.env.NODE_ENV !== "production") {
         console.log("[Mapping] ensureToolFields trigger", {
           jobKey,
@@ -988,6 +1002,222 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     return ""
   }
+
+  // Live-sync Mapping payload into stepData["populations"] for ToolConfiguration
+  React.useEffect(() => {
+    if (!datasetStructure) return
+
+    try {
+      const toolMappingsPayload: Record<string, Record<string, any>> = {}
+      const populationConfigs: Record<string, ToolPopulationState> = {}
+      const configData: Record<string, any> = {}
+
+      selectedTools.forEach((tool: string) => {
+        const toolKey = tool.toLowerCase()
+        const populations = getPopulationForTool(tool)
+        const toolMapping = getMappingsForTool(tool)
+
+        populationConfigs[tool] = populations
+        toolMappingsPayload[tool] = toolMapping as any
+        const fileType = (toolMapping["genotype_config.file_type"] as string) || "merged"
+        const sumstatsType = (toolMapping["pre_processing.sumstats_file_type"] as string) || fileType
+
+        if (toolKey === "prscsx" && prscsxConfig) {
+          const targetEntry: Record<string, string> = {
+            name: prscsxConfig.target.name,
+            type: "target",
+            sumstats_path: getMappingPath(
+              "prscsx",
+              "prscsx.target.sumstats_path"
+            ),
+            genotype_path: getMappingPath(
+              "prscsx",
+              "prscsx.target.genotype_path"
+            ),
+            phenotype_path: getMappingPath(
+              "prscsx",
+              "prscsx.target.phenotype_path"
+            ),
+          }
+
+          const targetCovariatePath = getMappingPath(
+            "prscsx",
+            "prscsx.target.covariate_path"
+          )
+
+          if (prscsxConfig.target.includeCovariate && targetCovariatePath) {
+            targetEntry.covariate_path = targetCovariatePath
+          }
+
+          const baseEntries = (prscsxConfig.bases ?? []).map((base) => {
+            const prefix = `prscsx.base.${base.id}`
+            const entry: Record<string, string> = {
+              name: base.name,
+              sumstats_path: getMappingPath("prscsx", `${prefix}.sumstats_path`),
+            }
+
+            const maybeAssign = (
+              include: boolean,
+              field: "genotype_path" | "phenotype_path" | "covariate_path"
+            ) => {
+              if (!include) return
+              const value = getMappingPath("prscsx", `${prefix}.${field}`)
+              if (value) {
+                entry[field] = value
+              }
+            }
+
+            maybeAssign(base.includeGenotype, "genotype_path")
+            maybeAssign(base.includePhenotype, "phenotype_path")
+            maybeAssign(base.includeCovariate, "covariate_path")
+            return entry
+          })
+
+          const populationsPayload = [targetEntry, ...baseEntries]
+          const columnMappingsByPopulation: Record<string, Record<string, string>> = {}
+          populationsPayload.forEach((populationEntry) => {
+            if (populationEntry.name) {
+              columnMappingsByPopulation[populationEntry.name] = {}
+            }
+          })
+
+          configData[tool] = {
+            pre_processing: {
+              populations: populationsPayload,
+              column_mappings: { by_population: columnMappingsByPopulation },
+              phenotype_config: { by_population: {}, covariate_id_mapping: {} },
+              genotype_config: { file_type: fileType },
+            sumstats_file_type: sumstatsType,
+            options: {},
+            },
+          }
+
+          return
+        }
+
+        const mappingPath = (fieldId: string) => getMappingPath(tool, fieldId)
+
+        if (toolKey === "bridgeprs") {
+          const pop1Config = {
+            name: populations.targetPopulation,
+            sumstats_path: mappingPath("pop1.sumstats_path"),
+            genotype_path: mappingPath("pop1.genotype_path"),
+            phenotype_path: mappingPath("pop1.phenotype_path"),
+          }
+
+          const pop2Config = {
+            name: populations.sourcePopulation,
+            sumstats_path: mappingPath("pop2.sumstats_path"),
+            genotype_path: mappingPath("pop2.genotype_path"),
+            phenotype_path: mappingPath("pop2.phenotype_path"),
+          }
+
+          const sharedGenotypePath =
+            mappingPath("pop1.genotype_path") ||
+            mappingPath("pop2.genotype_path") ||
+            ""
+
+          configData[tool] = {
+            pre_processing: {
+              pop1: pop1Config,
+              pop2: pop2Config,
+              genotype_path: sharedGenotypePath,
+              genotype_config: { file_type: fileType },
+              sumstats_file_type: sumstatsType,
+            },
+          }
+
+          return
+        }
+
+        if (toolKey === "sdprx") {
+          const pop1Config = {
+            name: populations.targetPopulation,
+            sumstats_path: mappingPath("pop1.sumstats_path"),
+            genotype_path: mappingPath("pop1.genotype_path"),
+            phenotype_path: mappingPath("pop1.phenotype_path"),
+          }
+
+          const pop2Config = {
+            name: populations.sourcePopulation,
+            sumstats_path: mappingPath("pop2.sumstats_path"),
+            genotype_path: mappingPath("pop2.genotype_path"),
+            phenotype_path: mappingPath("pop2.phenotype_path"),
+          }
+
+          const sharedGenotypePath =
+            mappingPath("pop1.genotype_path") ||
+            mappingPath("pop2.genotype_path") ||
+            ""
+
+          configData[tool] = {
+            pre_processing: {
+              pop1: pop1Config,
+              pop2: pop2Config,
+              genotype_path: sharedGenotypePath,
+              output_dir: "results/preprocessed_data/preprocessed_sdprx_output",
+              fixed_N1: "",
+              fixed_N2: "",
+              column_mappings: { by_population: {} },
+              sumstats_file_type: sumstatsType,
+              genotype_config: {
+                file_type: fileType,
+                population_reference: "target_population",
+                file_patterns: { bed: "", bim: "", fam: "" },
+              },
+              phenotype_config: {
+                pop1: { binary_traits: [], quantitative_traits: [] },
+                pop2: { binary_traits: [], quantitative_traits: [] },
+              },
+              options: {},
+            },
+          }
+
+          return
+        }
+
+        const toolConfig: any = {
+          target_population: {
+            name: populations.targetPopulation,
+            sumstats_path: mappingPath("target_population.sumstats_path"),
+            genotype_path: mappingPath("target_population.genotype_path"),
+            phenotype_path: mappingPath("target_population.phenotype_path"),
+          },
+          source_population: {
+            name: populations.sourcePopulation,
+            sumstats_path: mappingPath("source_population.sumstats_path"),
+            genotype_path: mappingPath("source_population.genotype_path"),
+            phenotype_path: mappingPath("source_population.phenotype_path"),
+          },
+          genotype_config: { file_type: fileType },
+          sumstats_file_type: sumstatsType,
+        }
+        configData[tool] = toolConfig
+      })
+
+      const payload = {
+        toolMappings: toolMappingsPayload,
+        datasetStructure,
+        populationConfigs,
+        configData,
+      }
+
+      const signature = JSON.stringify({
+        jobId: jobId || "",
+        tools: selectedToolsKey,
+        prscsxSig: prscsxFieldSignature || "",
+        payload,
+      })
+
+      if (signature !== liveSyncSignatureRef.current) {
+        liveSyncSignatureRef.current = signature
+        setStepData("populations", payload)
+        console.log("[Mapping] live-sync populations payload updated")
+      }
+    } catch (err) {
+      console.error("[Mapping] live-sync error:", err)
+    }
+  }, [datasetStructure, jobId, selectedToolsKey, prscsxFieldSignature, jobMapping])
 
   const checkJobStatus = async (jobKey: string) => {
     try {
@@ -1373,16 +1603,15 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
         ? isValidFileForField(selectedFile, field)
         : false
       const isDirectoryCompatible = selectedDirectory
-        ? isValidDirectoryForField(selectedDirectory, field)
+        ? isValidDirectoryForField(tool, selectedDirectory, field)
         : false
       const isCompatible = isFileCompatible || isDirectoryCompatible
       const isMapped = Boolean(mappedValue)
       const eligibleFiles = getEligibleFilesForField(field)
-      const eligibleDirectories = getEligibleDirectoriesForField(field)
+      const eligibleDirectories = getEligibleDirectoriesForField(tool, field)
       const canMapSelectedFile =
         isFileCompatible && field.fieldType !== "genotype_directory"
-      const canMapSelectedDirectory =
-        isDirectoryCompatible && field.fieldType === "genotype_directory"
+      const canMapSelectedDirectory = isDirectoryCompatible
       const canMapSelection = canMapSelectedFile || canMapSelectedDirectory
 
       return (
@@ -1410,6 +1639,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                   className="border-orange-300 bg-orange-50 text-orange-700"
                 >
                   Supported: {field.acceptedTypes.join(", ")}
+                  {(field.fieldType === "genotype_directory" || (field.fieldType === "sumstats_path" && eligibleDirectories.length > 0)) ? " + directories" : ""}
                 </Badge>
               </div>
             </div>
@@ -1472,7 +1702,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                   {isMapped ? (
                     <div className="flex w-full items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {field.fieldType === "genotype_directory" ? (
+                        {(mappedValue && (mappedValue as any).file_count !== undefined) ? (
                           <Folder className="h-4 w-4 text-blue-500" />
                         ) : (
                           <File className="h-4 w-4 text-gray-500" />
@@ -1498,50 +1728,54 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                     <div className="w-full space-y-3">
                       <div className="text-center text-muted-foreground">
                         {snapshot.isDraggingOver
-                          ? field.fieldType === "genotype_directory"
-                            ? "Drop directory here"
+                          ? (field.fieldType === "genotype_directory" || eligibleDirectories.length > 0)
+                            ? "Drop file or directory here"
                             : "Drop file here"
-                          : field.fieldType === "genotype_directory"
-                            ? "Drag directory here or use dropdown"
+                          : (field.fieldType === "genotype_directory" || eligibleDirectories.length > 0)
+                            ? "Drag file or directory here or use dropdown"
                             : "Drag file here or use dropdown"}
                       </div>
                       <div className="flex items-center gap-2">
                         <Label className="text-sm">Or select:</Label>
-                        <Select
-                          onValueChange={(value) => {
+                        <SearchableSelect
+                          placeholder={
+                            field.fieldType === "genotype_directory"
+                              ? "Choose a directory..."
+                              : eligibleDirectories.length > 0
+                                ? "Choose a file or directory..."
+                                : "Choose a file..."
+                          }
+                          directoryItems={eligibleDirectories.map((directory) => ({
+                            label: directory.name,
+                            value: directory.path,
+                            description: directory.path,
+                          }) as SearchableSelectItem)}
+                          fileItems={
+                            field.fieldType === "genotype_directory"
+                              ? []
+                              : eligibleFiles.map((file) => ({
+                                  label: file.name,
+                                  value: file.path,
+                                  description: file.path,
+                                }) as SearchableSelectItem)
+                          }
+                          onSelect={(value) => {
                             if (field.fieldType === "genotype_directory") {
-                              selectDirectoryFromDropdown(field.id, value, tool)
+                              // value may be prefixed with "dir:"; strip if present
+                              const dirPath = (value as string).startsWith("dir:")
+                                ? (value as string).slice(4)
+                                : (value as string)
+                              selectDirectoryFromDropdown(field.id, dirPath, tool)
                             } else {
-                              selectFileFromDropdown(field.id, value, tool)
+                              if ((value as string).startsWith("dir:")) {
+                                selectDirectoryFromDropdown(field.id, (value as string).slice(4), tool)
+                              } else {
+                                const filePath = (value as string).startsWith("file:") ? (value as string).slice(5) : (value as string)
+                                selectFileFromDropdown(field.id, filePath, tool)
+                              }
                             }
                           }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={
-                                field.fieldType === "genotype_directory"
-                                  ? "Choose a directory..."
-                                  : "Choose a file..."
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {field.fieldType === "genotype_directory"
-                              ? eligibleDirectories.map((directory) => (
-                                  <SelectItem
-                                    key={directory.path}
-                                    value={directory.path}
-                                  >
-                                    {directory.path}
-                                  </SelectItem>
-                                ))
-                              : eligibleFiles.map((file) => (
-                                  <SelectItem key={file.path} value={file.path}>
-                                    {file.name}
-                                  </SelectItem>
-                                ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </div>
                     </div>
                   )}
@@ -1636,6 +1870,106 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto pr-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Genotype file structure</Label>
+                      <Tooltip
+                        delayMs={400}
+                        content={
+                          <div>
+                            <div className="font-semibold mb-1">Genotype file structure</div>
+                            <div>
+                              <span className="font-medium">Merged</span> means a single set of PLINK files
+                              (<code>.bed</code>, <code>.bim</code>, <code>.fam</code>) covering all chromosomes.
+                            </div>
+                            <div className="mt-1">
+                              <span className="font-medium">Multi Chromosome</span> means a directory with per-chromosome
+                              PLINK triplets (e.g., <code>chr1.bed/bim/fam</code>, <code>chr2.*</code>).
+                            </div>
+                          </div>
+                        }
+                      >
+                        <div aria-label="Genotype file structure help" className="inline-flex cursor-help">
+                          <Info className="h-3 w-3 text-orange-500" />
+                        </div>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={(getMappingsForTool(tool)["genotype_config.file_type"] as string) || "merged"}
+                      onValueChange={(value) =>
+                        setToolFieldValue(
+                          tool,
+                          "genotype_config.file_type",
+                          value as "merged" | "multi_chromosome"
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-56">
+                        <SelectValue placeholder="Select genotype file type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="merged">Merged</SelectItem>
+                        <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Sumstats file structure</Label>
+                      <Tooltip
+                        delayMs={400}
+                        content={
+                          <div>
+                            <div className="font-semibold mb-1">Sumstats file structure</div>
+                            <div>
+                              Defaults to your genotype selection: if genotype is <span className="font-medium">Merged</span>,
+                              sumstats defaults to <span className="font-medium">Merged</span>; if genotype is
+                              <span className="font-medium"> Multi Chromosome</span>, sumstats defaults to
+                              <span className="font-medium"> Multi Chromosome</span>.
+                            </div>
+                            <div className="mt-1">You can change sumstats independently here if needed.</div>
+                            <div className="mt-2">
+                              <div className="font-medium">Differences:</div>
+                              <ul className="mt-1 list-disc pl-4">
+                                <li>
+                                  <span className="font-medium">Merged</span>: a single summary statistics file containing variants across all
+                                  chromosomes (e.g., <code>sumstats.txt</code>).
+                                </li>
+                                <li>
+                                  <span className="font-medium">Multi Chromosome</span>: a directory with separate per‑chromosome files
+                                  (e.g., <code>sumstats_chr1.txt</code>, <code>sumstats_chr2.txt</code>, … or <code>chr1.sumstats</code>, <code>chr2.sumstats</code>).
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        }
+                      >
+                        <div aria-label="Sumstats file structure help" className="inline-flex cursor-help">
+                          <Info className="h-3 w-3 text-orange-500" />
+                        </div>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={(getMappingsForTool(tool)["pre_processing.sumstats_file_type"] as string) || ((getMappingsForTool(tool)["genotype_config.file_type"] as string) || "merged")}
+                      onValueChange={(value) =>
+                        setToolFieldValue(
+                          tool,
+                          "pre_processing.sumstats_file_type",
+                          value as "merged" | "multi_chromosome"
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-56">
+                        <SelectValue placeholder="Select sumstats file type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="merged">Merged</SelectItem>
+                        <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {renderMappingCards(tool)}
               </CardContent>
             </Card>
@@ -1661,28 +1995,35 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   }
 
   const isValidDirectoryForField = (
+    toolId: string,
     directory: DirectoryItem,
     field: MappingField
   ) => {
-    // Only genotype directory fields can accept directories
     if (field.fieldType === "genotype_directory") {
       return true
+    }
+    if (field.fieldType === "sumstats_path") {
+      const toolMapping = getMappingsForTool(toolId)
+      const sumstatsType =
+        (toolMapping["pre_processing.sumstats_file_type"] as string) ||
+        ((toolMapping["genotype_config.file_type"] as string) || "merged")
+      return sumstatsType === "multi_chromosome"
     }
     return false
   }
 
   const getEligibleFilesForField = (field: MappingField) => {
     if (!datasetStructure) return []
-    return datasetStructure.files.filter((file) =>
-      isValidFileForField(file, field)
-    )
+    return datasetStructure.files
+      .filter((file) => Boolean(file.path && file.path.trim()))
+      .filter((file) => isValidFileForField(file, field))
   }
 
-  const getEligibleDirectoriesForField = (field: MappingField) => {
+  const getEligibleDirectoriesForField = (toolId: string, field: MappingField) => {
     if (!datasetStructure) return []
-    return datasetStructure.directories.filter((directory) =>
-      isValidDirectoryForField(directory, field)
-    )
+    return datasetStructure.directories
+      .filter((directory) => Boolean(directory.path && directory.path.trim()))
+      .filter((directory) => isValidDirectoryForField(toolId, directory, field))
   }
 
   const handlePopulationFormSubmit = (toolId: string) => {
@@ -1848,6 +2189,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
       populationConfigs[tool] = populations
       toolMappingsPayload[tool] = toolMapping
+      const fileType = ((toolMapping["genotype_config.file_type"] as string) || "merged")
+      const sumstatsType = (toolMapping["pre_processing.sumstats_file_type"] as string) || fileType
 
       if (toolKey === "prscsx" && prscsxConfig) {
         const targetEntry: Record<string, string> = {
@@ -1921,7 +2264,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
               by_population: {},
               covariate_id_mapping: {},
             },
-            genotype_config: { file_type: "merged" },
+            genotype_config: { file_type: fileType },
+            sumstats_file_type: sumstatsType,
             options: {},
           },
         }
@@ -1956,6 +2300,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
             pop1: pop1Config,
             pop2: pop2Config,
             genotype_path: sharedGenotypePath,
+            genotype_config: { file_type: fileType },
+            sumstats_file_type: sumstatsType,
           },
         }
 
@@ -1991,8 +2337,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
             fixed_N1: "",
             fixed_N2: "",
             column_mappings: { by_population: {} },
+            sumstats_file_type: sumstatsType,
             genotype_config: {
-              file_type: "merged",
+              file_type: fileType,
               population_reference: "target_population",
               file_patterns: { bed: "", bim: "", fam: "" },
             },
@@ -2008,21 +2355,27 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       }
 
       const toolConfig: ToolConfig = {
-        target_population: {
-          name: populations.targetPopulation,
-          sumstats_path: mappingPath("target_population.sumstats_path"),
-          genotype_path: mappingPath("target_population.genotype_path"),
-          phenotype_path: mappingPath("target_population.phenotype_path"),
-        },
-        source_population: {
-          name: populations.sourcePopulation,
-          sumstats_path: mappingPath("source_population.sumstats_path"),
-          genotype_path: mappingPath("source_population.genotype_path"),
-          phenotype_path: mappingPath("source_population.phenotype_path"),
-        },
-      }
-
-      configData[tool] = toolConfig
+          target_population: {
+            name: populations.targetPopulation,
+            sumstats_path: mappingPath("target_population.sumstats_path"),
+            genotype_path: mappingPath("target_population.genotype_path"),
+            phenotype_path: mappingPath("target_population.phenotype_path"),
+          },
+          source_population: {
+            name: populations.sourcePopulation,
+            sumstats_path: mappingPath("source_population.sumstats_path"),
+            genotype_path: mappingPath("source_population.genotype_path"),
+            phenotype_path: mappingPath("source_population.phenotype_path"),
+          },
+          // Include mapping-selected genotype file type for tools like PRSice
+          // This will be consumed by ToolConfiguration when building preprocessing config
+          // and ensures consistency with the Mapping page selection
+          // @ts-ignore
+          genotype_config: { file_type: fileType },
+          // @ts-ignore
+          sumstats_file_type: sumstatsType,
+        }
+        configData[tool] = toolConfig
     })
 
     onNext({

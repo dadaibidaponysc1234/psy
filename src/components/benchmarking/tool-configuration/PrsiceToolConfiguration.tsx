@@ -27,54 +27,27 @@ import {
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { ChromosomeMultiSelect } from "@/components/ui/chromosome-multi-select"
 import { getBenchmarkPreviewUrl } from "@/lib/config"
-import {
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  Info,
-  Loader2,
-} from "lucide-react"
+import { ChevronDown, ChevronRight, Eye, Info, Loader2 } from "lucide-react"
 
 import type {
   PrsicePreProcessingConfig,
   ProcessingOptions,
   EvaluationType,
 } from "./types"
+import { COMMON_COLUMN_ALIASES, aliasMatches } from "./column-aliases"
 
 const REQUIRED_COLUMNS = ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"]
 
 const COLUMN_ALIASES: Record<string, string[]> = {
-  SNP: ["SNP", "RSID", "RS", "ID", "MARKERNAME", "VARIANT_ID", "SNP_ID"],
-  CHR: ["CHR", "CHROMOSOME", "#CHROM", "CHROM"],
-  BP: [
-    "BP",
-    "POS",
-    "PS",
-    "POSITION",
-    "BP_HG19",
-    "BP_HG38",
-    "CHR_POSB36",
-    "BASE_PAIR_LOCATION",
-  ],
-  A1: ["A1", "ALLELE1", "EFFECT_ALLELE", "ALTERNATE_ALLELE", "ALT"],
-  A2: [
-    "A2",
-    "ALLELE2",
-    "ALLELE0",
-    "NONEFFECT_ALLELE",
-    "REFERENCE_ALLELE",
-    "REF",
-  ],
-  BETA: [
-    "BETA",
-    "B",
-    "EFFECT",
-    "LOG_ODDS",
-    "ESTIMATE",
-    "EFFECT_SIZE",
-  ],
-  P: ["P", "PVAL", "P_VALUE", "P_DGC", "P_WALD"],
+  SNP: COMMON_COLUMN_ALIASES.SNP,
+  CHR: COMMON_COLUMN_ALIASES.CHR,
+  BP: COMMON_COLUMN_ALIASES.BP,
+  A1: COMMON_COLUMN_ALIASES.A1,
+  A2: COMMON_COLUMN_ALIASES.A2,
+  BETA: COMMON_COLUMN_ALIASES.BETA,
+  P: COMMON_COLUMN_ALIASES.P,
 }
 
 interface FilePreview {
@@ -123,7 +96,8 @@ export function PrsiceToolConfiguration({
     source?: string | null
   }>({})
 
-  const allowBinaryTraits = evaluationType === "binary" || evaluationType === "both"
+  const allowBinaryTraits =
+    evaluationType === "binary" || evaluationType === "both"
   const allowQuantitativeTraits =
     evaluationType === "quantitative" || evaluationType === "both"
 
@@ -138,7 +112,10 @@ export function PrsiceToolConfiguration({
     if (!sourcePath) {
       setPhenotypeHeaders((prev) => ({ ...prev, source: [] }))
     }
-  }, [config?.target_population?.phenotype_path, config?.source_population?.phenotype_path])
+  }, [
+    config?.target_population?.phenotype_path,
+    config?.source_population?.phenotype_path,
+  ])
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) =>
@@ -201,7 +178,9 @@ export function PrsiceToolConfiguration({
     }))
   }
 
-  const updateGenotypeConfig = (updates: Partial<PrsicePreProcessingConfig["genotype_config"]>) => {
+  const updateGenotypeConfig = (
+    updates: Partial<PrsicePreProcessingConfig["genotype_config"]>
+  ) => {
     updateConfig((current) => ({
       ...current,
       genotype_config: {
@@ -215,6 +194,13 @@ export function PrsiceToolConfiguration({
     }))
   }
 
+  // Force population reference to target population and prevent changes
+  useEffect(() => {
+    if (config?.genotype_config?.population_reference !== "target_population") {
+      updateGenotypeConfig({ population_reference: "target_population" })
+    }
+  }, [config?.genotype_config?.population_reference])
+
   const fetchFilePreview = async () => {
     if (!config?.target_population?.sumstats_path || !jobId || isLoadingPreview)
       return
@@ -223,11 +209,17 @@ export function PrsiceToolConfiguration({
     setPreviewError(null)
 
     try {
+      const sumstatsType = config.sumstats_file_type || "merged"
       const url = getBenchmarkPreviewUrl(
         jobId,
-        config.target_population.sumstats_path
+        config.target_population.sumstats_path,
+        { randomPick: sumstatsType === "multi_chromosome" }
       )
+      // Log request URL for visibility when previewing or reloading
+      console.log("[PRSice Preview] GET:", url)
       const response = await axios.get(url)
+      // Log response payload alongside the request URL
+      console.log("[PRSice Preview] Response:", response?.data)
       const previewData: FilePreview = {
         filename:
           config.target_population.sumstats_path.split("/").pop() ||
@@ -235,16 +227,22 @@ export function PrsiceToolConfiguration({
         preview_lines: response.data.preview_lines || [],
       }
       setPreview(previewData)
-
-      const headers = (previewData.preview_lines?.[0] || "").split("\t")
+      // Robust header parsing: support tab or whitespace-delimited headers
+      const firstLine = previewData.preview_lines?.[0] || ""
+      const headers = (
+        firstLine.includes("\t")
+          ? firstLine.split("\t")
+          : firstLine.trim().split(/\s+/)
+      )
+        .map((h) => h.trim())
+        .filter((h) => h.length > 0)
       const autoMappings: Record<string, string> = {}
       const usedHeaders = new Set<string>()
 
       REQUIRED_COLUMNS.forEach((field) => {
-        const aliases = COLUMN_ALIASES[field] || []
         const match = headers.find((header) => {
           if (usedHeaders.has(header)) return false
-          return aliases.some((alias) => header.toLowerCase() === alias.toLowerCase())
+          return aliasMatches(field, header)
         })
 
         if (match) {
@@ -293,7 +291,12 @@ export function PrsiceToolConfiguration({
     try {
       const url = getBenchmarkPreviewUrl(jobId, filePath)
       const response = await axios.get(url)
-      const headers = (response.data.preview_lines?.[0] || "").split("\t")
+      const first = response.data.preview_lines?.[0] || ""
+      const headers = (
+        first.includes("\t") ? first.split("\t") : first.trim().split(/\s+/)
+      )
+        .map((h: string) => h.trim())
+        .filter((h: string) => h.length > 0)
       setPhenotypeHeaders((prev) => ({
         ...prev,
         [population]: headers,
@@ -322,7 +325,8 @@ export function PrsiceToolConfiguration({
     if (traitType === "quantitative_traits" && !allowQuantitativeTraits) return
 
     const isChecked = Boolean(checked)
-    const currentTraits = config?.phenotype_config?.[population]?.[traitType] || []
+    const currentTraits =
+      config?.phenotype_config?.[population]?.[traitType] || []
     const next = new Set(currentTraits)
     if (isChecked) next.add(value)
     else next.delete(value)
@@ -331,7 +335,11 @@ export function PrsiceToolConfiguration({
 
   const availableHeaders = useMemo(() => {
     if (!preview) return []
-    return preview.preview_lines?.[0]?.split("\t") || []
+    const first = preview.preview_lines?.[0] || ""
+    const raw = first.includes("\t")
+      ? first.split("\t")
+      : first.trim().split(/\s+/)
+    return raw.map((h) => h.trim()).filter((h) => h.length > 0)
   }, [preview])
 
   const getAvailableOptions = (field: string) => {
@@ -340,12 +348,28 @@ export function PrsiceToolConfiguration({
       .filter(([key]) => key !== field)
       .map(([, value]) => value)
 
-    return headers.filter((header) => {
-      if (config.column_mappings[field] === header) {
-        return true
-      }
+    // Manual fallback: if preview failed, provide dictionary aliases directly
+    if (!preview && previewError) {
+      const mapped = config.column_mappings[field]
+      const aliasOptions = COLUMN_ALIASES[field] || []
+      return mapped && !aliasOptions.includes(mapped)
+        ? [mapped, ...aliasOptions]
+        : aliasOptions
+    }
+
+    // With preview headers, allow any header from preview (exclude already-mapped)
+    const filtered = headers.filter((header) => {
+      const isCurrent = config.column_mappings[field] === header
+      if (isCurrent) return true
       return !mappedValues.includes(header)
     })
+
+    // Ensure currently mapped header stays selectable
+    const current = config.column_mappings[field]
+    if (current && !filtered.includes(current)) {
+      return [current, ...filtered]
+    }
+    return filtered
   }
 
   return (
@@ -356,7 +380,7 @@ export function PrsiceToolConfiguration({
           {stepBadge}
         </CardTitle>
         <CardDescription>
-          Configure column mappings, phenotype settings, and processing options
+          Configure column mappings, phenotype settings, and preprocessing options
           for PRSice
         </CardDescription>
       </CardHeader>
@@ -388,9 +412,19 @@ export function PrsiceToolConfiguration({
                     <p className="text-sm text-muted-foreground">
                       Preview your sumstats file to see available columns
                     </p>
+                    {config?.sumstats_file_type === "multi_chromosome" && (
+                      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5 text-orange-500" />
+                        Multi-chromosome input: if the path is a directory,
+                        preview selects a random file. Ensure headers are
+                        uniform across files; if they differ, reload preview or
+                        map using a representative file.
+                      </p>
+                    )}
                     {preview && (
                       <p className="mt-1 text-xs text-green-600">
-                        ✓ Headers loaded – {availableHeaders.length} columns available
+                        ✓ Headers loaded – {availableHeaders.length} columns
+                        available
                       </p>
                     )}
                   </div>
@@ -400,7 +434,8 @@ export function PrsiceToolConfiguration({
                       size="sm"
                       onClick={fetchFilePreview}
                       disabled={
-                        !config?.target_population?.sumstats_path || isLoadingPreview
+                        !config?.target_population?.sumstats_path ||
+                        isLoadingPreview
                       }
                     >
                       {isLoadingPreview ? (
@@ -422,10 +457,19 @@ export function PrsiceToolConfiguration({
                   <div className="rounded-lg border border-red-200 bg-red-50 p-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-red-600">{previewError}</p>
-                      <Button variant="outline" size="sm" onClick={fetchFilePreview}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fetchFilePreview}
+                      >
                         Retry
                       </Button>
                     </div>
+                    <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Info className="h-3.5 w-3.5" />
+                      Preview failed. Manual mapping is enabled below; choices
+                      are limited to known aliases per required column.
+                    </p>
                   </div>
                 )}
 
@@ -442,18 +486,25 @@ export function PrsiceToolConfiguration({
                     <div className="max-h-60 overflow-auto">
                       <table className="w-full text-xs">
                         <tbody>
-                          {preview.preview_lines.slice(0, 5).map((line, index) => (
-                            <tr key={index} className="border-b">
-                              {line.split("\t").map((cell, cellIndex) => (
-                                <td
-                                  key={cellIndex}
-                                  className="whitespace-nowrap px-2 py-1"
-                                >
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
+                          {preview.preview_lines
+                            .slice(0, 5)
+                            .map((line, index) => {
+                              const cells = line.includes("\t")
+                                ? line.split("\t")
+                                : line.trim().split(/\s+/)
+                              return (
+                                <tr key={index} className="border-b">
+                                  {cells.map((cell, cellIndex) => (
+                                    <td
+                                      key={cellIndex}
+                                      className="whitespace-nowrap px-2 py-1"
+                                    >
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              )
+                            })}
                         </tbody>
                       </table>
                     </div>
@@ -479,11 +530,17 @@ export function PrsiceToolConfiguration({
                             </p>
                           </div>
                           {isMapped ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700">
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700"
+                            >
                               Mapped
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-red-50 text-red-700">
+                            <Badge
+                              variant="outline"
+                              className="bg-red-50 text-red-700"
+                            >
                               Required
                             </Badge>
                           )}
@@ -506,7 +563,9 @@ export function PrsiceToolConfiguration({
                             </SelectTrigger>
                             <SelectContent>
                               {isMapped && (
-                                <SelectItem value="__remove__">Remove mapping</SelectItem>
+                                <SelectItem value="__remove__">
+                                  Remove mapping
+                                </SelectItem>
                               )}
                               {options.length > 0 ? (
                                 options.map((option) => (
@@ -544,7 +603,8 @@ export function PrsiceToolConfiguration({
                 <div>
                   <h4 className="font-medium">Phenotype Configuration</h4>
                   <p className="text-sm text-muted-foreground">
-                    Configure phenotype settings for target and source populations
+                    Configure phenotype settings for target and source
+                    populations
                   </p>
                 </div>
                 {expandedSections.includes("phenotype-config") ? (
@@ -556,55 +616,6 @@ export function PrsiceToolConfiguration({
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4">
               <div className="space-y-6">
-                <div className="flex flex-wrap gap-3">
-                  <div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchPhenotypePreview("target")}
-                      disabled={
-                        loadingPhenotypes.target ||
-                        !config?.target_population?.phenotype_path
-                      }
-                    >
-                      {loadingPhenotypes.target ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Eye className="mr-2 h-4 w-4" />
-                      )}
-                      Preview Target Phenotype
-                    </Button>
-                    {config?.target_population?.phenotype_path && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        File: {config.target_population.phenotype_path}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchPhenotypePreview("source")}
-                      disabled={
-                        loadingPhenotypes.source ||
-                        !config?.source_population?.phenotype_path
-                      }
-                    >
-                      {loadingPhenotypes.source ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Eye className="mr-2 h-4 w-4" />
-                      )}
-                      Preview Source Phenotype
-                    </Button>
-                    {config?.source_population?.phenotype_path && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        File: {config.source_population.phenotype_path}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {(phenotypeErrors.target || phenotypeErrors.source) && (
                   <div className="text-sm text-red-600">
                     {phenotypeErrors.target && <p>{phenotypeErrors.target}</p>}
@@ -615,7 +626,10 @@ export function PrsiceToolConfiguration({
                 <div className="rounded-lg border border-dashed p-3">
                   <p className="text-xs text-muted-foreground">
                     Evaluation type is currently set to
-                    <span className="ml-1 font-medium capitalize">{evaluationType}</span>.
+                    <span className="ml-1 font-medium capitalize">
+                      {evaluationType}
+                    </span>
+                    .
                   </p>
                   {!allowBinaryTraits && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -624,7 +638,8 @@ export function PrsiceToolConfiguration({
                   )}
                   {!allowQuantitativeTraits && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Enable quantitative evaluation to select quantitative traits.
+                      Enable quantitative evaluation to select quantitative
+                      traits.
                     </p>
                   )}
                 </div>
@@ -635,18 +650,60 @@ export function PrsiceToolConfiguration({
                       populationKey === "target"
                         ? "target_population"
                         : "source_population"
-                    const headers = phenotypeHeaders[populationKey as "target" | "source"]
-                    const binaryTraits = config.phenotype_config[population].binary_traits
+                    const headers =
+                      phenotypeHeaders[populationKey as "target" | "source"]
+                    const binaryTraits =
+                      config.phenotype_config[population].binary_traits
                     const quantitativeTraits =
                       config.phenotype_config[population].quantitative_traits
 
                     return (
                       <div key={population} className="rounded-lg border p-4">
-                        <div className="flex items-center gap-2">
-                          <h5 className="font-medium capitalize">{populationKey} population</h5>
-                          <Badge variant="outline" className="bg-muted text-xs">
-                            Traits
-                          </Badge>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              {populationKey === "target"
+                                ? config?.target_population?.name ||
+                                  "Target Population"
+                                : config?.source_population?.name ||
+                                  "Source Population"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {populationKey === "target"
+                                ? config?.target_population?.phenotype_path ||
+                                  "No phenotype file mapped"
+                                : config?.source_population?.phenotype_path ||
+                                  "No phenotype file mapped"}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              fetchPhenotypePreview(
+                                populationKey as "target" | "source"
+                              )
+                            }
+                            disabled={
+                              (populationKey === "target"
+                                ? loadingPhenotypes.target
+                                : loadingPhenotypes.source) ||
+                              !(populationKey === "target"
+                                ? config?.target_population?.phenotype_path
+                                : config?.source_population?.phenotype_path)
+                            }
+                          >
+                            {(
+                              populationKey === "target"
+                                ? loadingPhenotypes.target
+                                : loadingPhenotypes.source
+                            ) ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="mr-2 h-4 w-4" />
+                            )}
+                            Preview Phenotype
+                          </Button>
                         </div>
 
                         {allowBinaryTraits && (
@@ -656,7 +713,8 @@ export function PrsiceToolConfiguration({
                             </p>
                             {headers.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
-                                Preview the phenotype file to load column headers.
+                                Preview the phenotype file to load column
+                                headers.
                               </p>
                             ) : (
                               <div className="space-y-2">
@@ -691,7 +749,8 @@ export function PrsiceToolConfiguration({
                             </p>
                             {headers.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
-                                Preview the phenotype file to load column headers.
+                                Preview the phenotype file to load column
+                                headers.
                               </p>
                             ) : (
                               <div className="space-y-2">
@@ -701,7 +760,9 @@ export function PrsiceToolConfiguration({
                                     className="flex items-center gap-2 text-xs"
                                   >
                                     <Checkbox
-                                      checked={quantitativeTraits.includes(header)}
+                                      checked={quantitativeTraits.includes(
+                                        header
+                                      )}
                                       onCheckedChange={(checked) =>
                                         toggleTrait(
                                           population,
@@ -749,48 +810,41 @@ export function PrsiceToolConfiguration({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="space-y-3">
-                    <Label className="text-sm">File Type</Label>
-                    <Select
-                      value={config.genotype_config.file_type}
-                      onValueChange={(value) =>
-                        updateGenotypeConfig({
-                          file_type: value as PrsicePreProcessingConfig["genotype_config"]["file_type"],
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select file type" />
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Population Reference</Label>
+                      <Badge variant="outline" className="text-xs">
+                        Coming soon
+                      </Badge>
+                    </div>
+                    <Select value="target_population">
+                      <SelectTrigger disabled>
+                        <SelectValue placeholder="Target Population" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="merged">Merged (bed, bim, fam)</SelectItem>
-                        <SelectItem value="split_by_chromosome">
-                          Split by Chromosome (bed, bim, fam)
+                        <SelectItem value="target_population">
+                          Target Population
                         </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-3">
-                    <Label className="text-sm">Population Reference</Label>
-                    <Select
-                      value={config.genotype_config.population_reference}
-                      onValueChange={(value) =>
-                        updateGenotypeConfig({
-                          population_reference: value as PrsicePreProcessingConfig["genotype_config"]["population_reference"],
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select population" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="target_population">Target Population</SelectItem>
-                        <SelectItem value="source_population">Source Population</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {config.genotype_config.file_type === "multi_chromosome" && (
+                    <div className="space-y-3 md:col-span-2">
+                      <Label className="text-sm">Chromosomes</Label>
+                      <ChromosomeMultiSelect
+                        value={config.genotype_config.chrom || []}
+                        onChange={(next) =>
+                          updateGenotypeConfig({ chrom: next })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Select one or more chromosomes to process. Leave empty
+                        to process all.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     <Label className="text-sm">File Patterns (bed)</Label>
                     <Input
@@ -847,7 +901,7 @@ export function PrsiceToolConfiguration({
             <CollapsibleTrigger asChild>
               <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
                 <div>
-                  <h4 className="font-medium">Processing Options</h4>
+                  <h4 className="font-medium">Preprocessing Options</h4>
                   <p className="text-sm text-muted-foreground">
                     Configure additional preprocessing behaviour
                   </p>
@@ -889,11 +943,33 @@ export function PrsiceToolConfiguration({
                     </span>
                   </span>
                 </label>
+                {config?.sumstats_file_type === "multi_chromosome" && (
+                  <label className="flex items-start gap-3 text-sm">
+                    <Checkbox
+                      checked={Boolean(config.options.sumstats_strict_single)}
+                      onCheckedChange={(checked) =>
+                        updateOptions({
+                          sumstats_strict_single: Boolean(checked),
+                        })
+                      }
+                    />
+                    <span>
+                      Enforce one sumstats file per chromosome
+                      <span className="block text-xs text-muted-foreground">
+                        Sets strictness for sumstats files. If multiple files
+                        exist for the same chromosome, the pipeline fails when
+                        enabled; when disabled, one file is auto-selected and the
+                        selection criteria is logged.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <label className="flex items-start gap-3 text-sm md:col-span-2">
                   <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    Adjust these options to control how the preprocessing behaves when encountering
-                    previously generated outputs or missing data.
+                    Adjust these options to control how the preprocessing
+                    behaves when encountering previously generated outputs or
+                    missing data.
                   </span>
                 </label>
               </div>

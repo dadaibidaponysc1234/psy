@@ -34,9 +34,11 @@ import type {
   SdprxProcessingState,
   SdprxProcessingModeState,
 } from "./types"
+import { COMMON_COLUMN_ALIASES, aliasMatches } from "./column-aliases"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ChromosomeMultiSelect } from "@/components/ui/chromosome-multi-select"
 
 interface SdprxToolConfigurationProps {
   toolId: string
@@ -75,12 +77,13 @@ export function SdprxToolConfiguration({
   }, [])
   const REQUIRED_COLUMNS: SdprxColumnKey[] = ["SNP", "A1", "A2", "N"]
 
+  // Use centralized aliases to keep parity with PRSice/PRScsx/BridgePRS
   const COLUMN_ALIASES: Record<SdprxColumnKey, string[]> = {
-    SNP: ["SNP", "ID", "RSID"],
-    A1: ["A1", "ALT", "ALLELE1"],
-    A2: ["A2", "REF", "REF_ALLELE", "ALLELE2"],
-    N: ["N", "SAMPLES", "N_SAMPLES", "NCAS", "NCON"],
-    Z: ["Z", "ZSCORE", "Z_SCORE"],
+    SNP: COMMON_COLUMN_ALIASES.SNP,
+    A1: COMMON_COLUMN_ALIASES.A1,
+    A2: COMMON_COLUMN_ALIASES.A2,
+    N: COMMON_COLUMN_ALIASES.N,
+    Z: COMMON_COLUMN_ALIASES.Z,
   }
 
   const updateColumnMapping = (field: SdprxColumnKey, header: string) => {
@@ -117,16 +120,23 @@ export function SdprxToolConfiguration({
     try {
       setIsLoadingPreview(true)
       setPreviewError(null)
-      const url = getBenchmarkPreviewUrl(
-        jobId,
-        config.pop1.sumstats_path
-      )
+      const sumstatsType = config.sumstats_file_type || "merged"
+      const url = getBenchmarkPreviewUrl(jobId, config.pop1.sumstats_path, {
+        randomPick: sumstatsType === "multi_chromosome",
+      })
+      console.log("[SDPRX Preview] GET:", url)
       const response = await axios.get(url)
+      console.log("[SDPRX Preview] Response:", response?.data)
       const lines: string[] = response?.data?.preview_lines || []
       setPreviewLines(lines)
 
       const firstLine = (lines[0] || "").trim()
-      const hdrs = firstLine.length > 0 ? firstLine.split("\t") : []
+      const hdrs =
+        firstLine.length > 0
+          ? firstLine.includes("\t")
+            ? firstLine.split("\t").map((h) => h.trim())
+            : firstLine.split(/\s+/).map((h) => h.trim())
+          : []
       setHeaders(hdrs)
 
       // Auto-map based on aliases
@@ -136,10 +146,7 @@ export function SdprxToolConfiguration({
       REQUIRED_COLUMNS.forEach((field) => {
         if (config?.column_mappings?.[field]) return
         const match = options.find((header) => {
-          const aliases = COLUMN_ALIASES[field] || []
-          return aliases.some(
-            (alias) => header.toLowerCase() === alias.toLowerCase()
-          )
+          return aliasMatches(field, header)
         })
         if (match) autoMappings[field] = match
       })
@@ -185,21 +192,30 @@ export function SdprxToolConfiguration({
   const buildDefaultSdprxProcessingState = useCallback(
     (cfg: SdprxPreProcessingConfig): SdprxProcessingState => {
       const refPop = cfg?.genotype_config?.population_reference || "pop1"
-      const geno = refPop === "pop2" ? cfg?.pop2?.genotype_path : cfg?.pop1?.genotype_path
+      const geno =
+        refPop === "pop2" ? cfg?.pop2?.genotype_path : cfg?.pop1?.genotype_path
+      const chromStr =
+        Array.isArray(cfg?.genotype_config?.chrom) &&
+        cfg.genotype_config.chrom.length > 0
+          ? cfg.genotype_config.chrom.join(",")
+          : ""
       const baseDefaults = {
         ss1: cfg?.pop1?.sumstats_path || "",
         ss2: cfg?.pop2?.sumstats_path || "",
-        sdprx_genotype_file: geno || "",
+        // For merged runs, sdprx_genotype_file is a basename; default to "geno".
+        sdprx_genotype_file: "geno",
         n1: "",
         n2: "",
         force_shared: false,
-        load_ld: "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+        load_ld:
+          "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
         valid: "",
-        chrom: "",
+        chrom: chromStr,
         rho: "",
         output_dir: cfg?.output_dir || "",
         score_file: "",
         plink_output_prefix: "",
+        plink_genotype_prefix: "",
         pheno: "",
         log_dir: "",
       }
@@ -211,9 +227,10 @@ export function SdprxToolConfiguration({
     []
   )
 
-  const [localProcessingConfig, setLocalProcessingConfig] = useState<SdprxProcessingState>(() =>
-    buildDefaultSdprxProcessingState(config)
-  )
+  const [localProcessingConfig, setLocalProcessingConfig] =
+    useState<SdprxProcessingState>(() =>
+      buildDefaultSdprxProcessingState(config)
+    )
 
   // Keep local processing defaults in sync when config changes (only if parent does not manage processing)
   useEffect(() => {
@@ -222,9 +239,40 @@ export function SdprxToolConfiguration({
     }
   }, [config, processingConfig, buildDefaultSdprxProcessingState])
 
+  const effectiveProcessing: SdprxProcessingState =
+    processingConfig ?? localProcessingConfig
 
-
-  const effectiveProcessing: SdprxProcessingState = processingConfig ?? localProcessingConfig
+  // Keep processing chrom in sync with genotype_config.chrom for multi-chromosome only
+  useEffect(() => {
+    if (config?.genotype_config?.file_type !== "multi_chromosome") return
+    const chromStr =
+      Array.isArray(config?.genotype_config?.chrom) &&
+      (config.genotype_config.chrom?.length ?? 0) > 0
+        ? (config.genotype_config.chrom as number[]).join(",")
+        : ""
+    const needsUpdate =
+      effectiveProcessing.binary.chrom !== chromStr ||
+      effectiveProcessing.quantitative.chrom !== chromStr
+    if (!needsUpdate) return
+    if (onProcessingChange) {
+      onProcessingChange((current) => ({
+        ...current,
+        binary: { ...current.binary, chrom: chromStr },
+        quantitative: { ...current.quantitative, chrom: chromStr },
+      }))
+    } else {
+      setLocalProcessingConfig((current) => ({
+        ...current,
+        binary: { ...current.binary, chrom: chromStr },
+        quantitative: { ...current.quantitative, chrom: chromStr },
+      }))
+    }
+  }, [
+    config?.genotype_config?.chrom,
+    config?.genotype_config?.file_type,
+    onProcessingChange,
+    effectiveProcessing,
+  ])
 
   const updateProcessingMode = useCallback(
     (
@@ -250,7 +298,8 @@ export function SdprxToolConfiguration({
 
   const traitOptionsForMode = useCallback(
     (mode: ProcessingModeKey): string[] => {
-      const traitKey = mode === "binary" ? "binary_traits" : "quantitative_traits"
+      const traitKey =
+        mode === "binary" ? "binary_traits" : "quantitative_traits"
       const options = config?.phenotype_config?.pop1?.[traitKey] || []
       return options
     },
@@ -264,14 +313,17 @@ export function SdprxToolConfiguration({
 
     const state = effectiveProcessing[mode]
     const traitOptions = traitOptionsForMode(mode)
+    const isMerged = config?.genotype_config?.file_type === "merged"
 
     return (
       <div className="space-y-4">
         <div className="rounded-md border p-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">{isBinary ? "Binary" : "Quantitative"} Mode</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            {isBinary ? "Binary" : "Quantitative"} Mode
+          </p>
 
           {/* Editable numeric fields */}
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor={`${toolId}-${mode}-n1`}>N1 (Target)</Label>
               <Input
@@ -279,7 +331,10 @@ export function SdprxToolConfiguration({
                 value={state.n1}
                 placeholder={"e.g. 500"}
                 onChange={(e) =>
-                  updateProcessingMode(mode, (prev) => ({ ...prev, n1: e.target.value }))
+                  updateProcessingMode(mode, (prev) => ({
+                    ...prev,
+                    n1: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -290,25 +345,19 @@ export function SdprxToolConfiguration({
                 value={state.n2}
                 placeholder={"e.g. 500"}
                 onChange={(e) =>
-                  updateProcessingMode(mode, (prev) => ({ ...prev, n2: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`${toolId}-${mode}-chrom`}>Chromosome</Label>
-              <Input
-                id={`${toolId}-${mode}-chrom`}
-                value={state.chrom}
-                placeholder="e.g. 22"
-                onChange={(e) =>
-                  updateProcessingMode(mode, (prev) => ({ ...prev, chrom: e.target.value }))
+                  updateProcessingMode(mode, (prev) => ({
+                    ...prev,
+                    n2: e.target.value,
+                  }))
                 }
               />
             </div>
           </div>
 
-          {/* Editable rho and force_shared only */}
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* Editable fields: rho, force_shared, chromosome & genotype prefix (merged only) */}
+          <div
+            className={`mt-4 grid grid-cols-1 gap-4 ${isMerged ? "md:grid-cols-4" : "md:grid-cols-2"}`}
+          >
             <div className="space-y-2">
               <Label htmlFor={`${toolId}-${mode}-rho`}>Rho</Label>
               <Input
@@ -316,7 +365,10 @@ export function SdprxToolConfiguration({
                 value={state.rho}
                 placeholder="e.g. 0.8"
                 onChange={(e) =>
-                  updateProcessingMode(mode, (prev) => ({ ...prev, rho: e.target.value }))
+                  updateProcessingMode(mode, (prev) => ({
+                    ...prev,
+                    rho: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -324,7 +376,10 @@ export function SdprxToolConfiguration({
               <Checkbox
                 checked={state.force_shared}
                 onCheckedChange={(checked) =>
-                  updateProcessingMode(mode, (prev) => ({ ...prev, force_shared: Boolean(checked) }))
+                  updateProcessingMode(mode, (prev) => ({
+                    ...prev,
+                    force_shared: Boolean(checked),
+                  }))
                 }
               />
               <span>
@@ -334,11 +389,51 @@ export function SdprxToolConfiguration({
                 </span>
               </span>
             </label>
+            {isMerged && (
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-chrom`}>Chromosome</Label>
+                <Input
+                  id={`${toolId}-${mode}-chrom`}
+                  value={state.chrom}
+                  placeholder={"e.g. 1,2,3 or X"}
+                  onChange={(e) =>
+                    updateProcessingMode(mode, (prev) => ({
+                      ...prev,
+                      chrom: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            )}
+            {isMerged && (
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-sdprx-geno-prefix`}>
+                  Genotype Prefix (basename)
+                </Label>
+                <Input
+                  id={`${toolId}-${mode}-sdprx-geno-prefix`}
+                  value={state.sdprx_genotype_file}
+                  placeholder={"e.g. geno"}
+                  onChange={(e) =>
+                    updateProcessingMode(mode, (prev) => ({
+                      ...prev,
+                      sdprx_genotype_file: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            )}
           </div>
 
           {/* Informational note about hardcoded paths */}
           <div className="mt-3 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-            Paths (sumstats, genotype, phenotype, output, plink, logs) are auto-configured based on preprocessing output and the selected populations, following the reference config. Only N1, N2, Chromosome, Rho, and Force Shared are editable here.
+            Paths (sumstats, genotype, phenotype, output, plink, logs) are
+            auto-configured based on preprocessing output and the selected
+            populations, following the reference config. Only{" "}
+            {isMerged
+              ? "N1, N2, Chromosome, Rho, Genotype Prefix, and Force Shared"
+              : "N1, N2, Rho, and Force Shared"}{" "}
+            are editable here.
           </div>
         </div>
       </div>
@@ -348,25 +443,37 @@ export function SdprxToolConfiguration({
   const getAvailableOptions = useCallback(
     (field: SdprxColumnKey) => {
       const selected = new Set(Object.values(config?.column_mappings || {}))
-      const options = headers.filter((h) => !selected.has(h))
       const mapped = config?.column_mappings?.[field]
-      if (mapped && !selected.has(mapped)) {
-        options.unshift(mapped)
+      const aliasSource = COLUMN_ALIASES[field] || []
+
+      // Manual fallback when headers are unavailable
+      if (headers.length === 0 && previewError) {
+        return mapped && !aliasSource.includes(mapped)
+          ? [mapped, ...aliasSource]
+          : aliasSource
       }
-      return options
+
+      const options = headers.filter((h) => {
+        const isCurrent = mapped === h
+        if (isCurrent) return true
+        return !selected.has(h)
+      })
+      return mapped && !options.includes(mapped)
+        ? [mapped, ...options]
+        : options
     },
-    [headers, config?.column_mappings]
+    [headers, config?.column_mappings, previewError]
   )
 
   const updateOptions = (
-      partial: Partial<SdprxPreProcessingConfig["options"]>
-    ) => {
-      const next = {
-        ...(config?.options ?? {}),
-        ...partial,
-      }
-      onConfigChange({ ...config, options: next })
+    partial: Partial<SdprxPreProcessingConfig["options"]>
+  ) => {
+    const next = {
+      ...(config?.options ?? {}),
+      ...partial,
     }
+    onConfigChange({ ...config, options: next })
+  }
 
   // Phenotype preview state
   const [phenotypeHeaders, setPhenotypeHeaders] = useState<{
@@ -386,7 +493,10 @@ export function SdprxToolConfiguration({
         toast.error("No job ID. Create a job before previewing.")
         return
       }
-      const phenoPath = which === "pop1" ? config?.pop1?.phenotype_path : config?.pop2?.phenotype_path
+      const phenoPath =
+        which === "pop1"
+          ? config?.pop1?.phenotype_path
+          : config?.pop2?.phenotype_path
       if (!phenoPath) {
         setPhenotypeError("Missing phenotype path for selected population")
         toast.error("Set the phenotype path before preview.")
@@ -394,13 +504,26 @@ export function SdprxToolConfiguration({
       }
       setLoadingPhenotypes((prev) => ({ ...prev, [which]: true }))
       setPhenotypeError(null)
-      const url = getBenchmarkPreviewUrl(jobId, phenoPath)
-      const response = await axios.get(url)
-      const lines: string[] = response?.data?.preview_lines || []
-      const firstLine = lines[0] || ""
-      const hdrs = firstLine.length > 0 ? firstLine.split("\t") : []
-      setPhenotypeHeaders((prev) => ({ ...prev, [which]: hdrs }))
-      toast.success(`Loaded ${hdrs.length} phenotype columns for ${which}`)
+      try {
+        const url = getBenchmarkPreviewUrl(jobId, phenoPath)
+        const response = await axios.get(url)
+        const lines: string[] = response?.data?.preview_lines || []
+        const firstLine = (lines[0] || "").trim()
+        const hdrs =
+          firstLine.length > 0
+            ? firstLine.includes("\t")
+              ? firstLine.split("\t").map((h) => h.trim())
+              : firstLine.split(/\s+/).map((h) => h.trim())
+            : []
+        setPhenotypeHeaders((prev) => ({ ...prev, [which]: hdrs }))
+        toast.success(`Loaded ${hdrs.length} phenotype columns for ${which}`)
+      } catch (err) {
+        console.error("Failed to fetch phenotype preview", err)
+        setPhenotypeError("Failed to load phenotype preview")
+        toast.error("Failed to load phenotype preview")
+      } finally {
+        setLoadingPhenotypes((prev) => ({ ...prev, [which]: false }))
+      }
     },
     [jobId, config?.pop1?.phenotype_path, config?.pop2?.phenotype_path]
   )
@@ -435,23 +558,23 @@ export function SdprxToolConfiguration({
   const targetLabel = config?.pop1?.name || "Target Population"
 
   const updateGenotypeConfig = (
-     partial: Partial<SdprxPreProcessingConfig["genotype_config"]>
-   ) => {
-     const prev = config?.genotype_config ?? {
-       file_type: "merged",
-       population_reference: "pop1",
-       file_patterns: { bed: "", bim: "", fam: "" },
-     }
-     const next: SdprxPreProcessingConfig["genotype_config"] = {
-       ...prev,
-       ...partial,
-       file_patterns: {
-         ...(prev.file_patterns || {}),
-         ...(partial.file_patterns ?? {}),
-       },
-     }
-     onConfigChange({ ...config, genotype_config: next })
-   }
+    partial: Partial<SdprxPreProcessingConfig["genotype_config"]>
+  ) => {
+    const prev = config?.genotype_config ?? {
+      file_type: "merged",
+      population_reference: "pop1",
+      file_patterns: { bed: "", bim: "", fam: "" },
+    }
+    const next: SdprxPreProcessingConfig["genotype_config"] = {
+      ...prev,
+      ...partial,
+      file_patterns: {
+        ...(prev.file_patterns || {}),
+        ...(partial.file_patterns ?? {}),
+      },
+    }
+    onConfigChange({ ...config, genotype_config: next })
+  }
 
   return (
     <Card>
@@ -484,46 +607,72 @@ export function SdprxToolConfiguration({
           <CollapsibleContent className="px-4 pb-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Target: {targetLabel}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={fetchTargetPreview}
-                  disabled={isLoadingPreview}
-                >
-                  {isLoadingPreview ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" />{" "}
-                      {previewLines.length > 0
-                        ? "Reload Preview"
-                        : "Preview File"}
-                    </>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Preview your sumstats file to see available columns
+                  </p>
+                  {config?.sumstats_file_type === "multi_chromosome" && (
+                    <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Info className="h-3.5 w-3.5 text-orange-500" />
+                      Multi-chromosome input: if the path is a directory,
+                      preview selects a random file. Ensure headers are uniform
+                      across files; if they differ, reload preview or map using
+                      a representative file.
+                    </p>
                   )}
-                </Button>
+                  {previewLines.length > 0 && (
+                    <p className="mt-1 text-xs text-green-600">
+                      ✓ Headers loaded – {headers.length} columns available
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchTargetPreview}
+                    disabled={isLoadingPreview}
+                  >
+                    {isLoadingPreview ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                        Loading
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="mr-2 h-4 w-4" />{" "}
+                        {previewLines.length > 0
+                          ? "Reload Preview"
+                          : "Preview File"}
+                      </>
+                    )}
+                  </Button>
+                  {config?.pop1?.sumstats_path && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      File: {config.pop1.sumstats_path}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {previewError && (
-                <div className="text-sm text-destructive">{previewError}</div>
+                <>
+                  <div className="text-sm text-destructive">{previewError}</div>
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                    Preview failed. Manual mapping is enabled below; choices are
+                    limited to known aliases per required column.
+                  </p>
+                </>
               )}
 
-              {config?.pop1?.sumstats_path && (
-                <div className="text-xs text-muted-foreground">
-                  File: {config.pop1.sumstats_path}
-                </div>
-              )}
+              {/* File path moved under the preview button above to match PRSice layout */}
               {previewLines.length > 0 && (
                 <div className="rounded-lg border shadow-sm">
                   <div className="flex items-center justify-between border-b p-2 text-sm">
                     <div className="font-medium">
-                      {config.pop1.sumstats_path
-                        .split("/")
-                        .pop() || config.pop1.sumstats_path}
+                      {config.pop1.sumstats_path.split("/").pop() ||
+                        config.pop1.sumstats_path}
                     </div>
                     <div className="text-muted-foreground">
                       {headers.length} columns detected
@@ -533,27 +682,43 @@ export function SdprxToolConfiguration({
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b bg-muted/40">
-                          {(previewLines[0] || "").split("\t").map((h, i) => (
-                            <th
-                              key={`h-${i}`}
-                              className="whitespace-nowrap px-2 py-1 text-left font-medium"
-                            >
-                              {h}
-                            </th>
-                          ))}
+                          {(() => {
+                            const first = (previewLines[0] || "").trim()
+                            const cells = first.includes("\t")
+                              ? first.split("\t")
+                              : first.length > 0
+                                ? first.split(/\s+/)
+                                : []
+                            return cells.map((h, i) => (
+                              <th
+                                key={`h-${i}`}
+                                className="whitespace-nowrap px-2 py-1 text-left font-medium"
+                              >
+                                {h}
+                              </th>
+                            ))
+                          })()}
                         </tr>
                       </thead>
                       <tbody>
                         {previewLines.slice(1, 6).map((line, rowIndex) => (
                           <tr key={`r-${rowIndex}`} className="border-b">
-                            {line.split("\t").map((cell, cellIndex) => (
-                              <td
-                                key={`c-${cellIndex}`}
-                                className="whitespace-nowrap px-2 py-1"
-                              >
-                                {cell}
-                              </td>
-                            ))}
+                            {(() => {
+                              const trimmed = line.trim()
+                              const cells = trimmed.includes("\t")
+                                ? trimmed.split("\t")
+                                : trimmed.length > 0
+                                  ? trimmed.split(/\s+/)
+                                  : []
+                              return cells.map((cell, cellIndex) => (
+                                <td
+                                  key={`c-${cellIndex}`}
+                                  className="whitespace-nowrap px-2 py-1"
+                                >
+                                  {cell}
+                                </td>
+                              ))
+                            })()}
                           </tr>
                         ))}
                       </tbody>
@@ -649,7 +814,8 @@ export function SdprxToolConfiguration({
               <div>
                 <h4 className="font-medium">Phenotype Configuration</h4>
                 <p className="text-sm text-muted-foreground">
-                  Preview phenotype headers and select traits for Pop1 and Pop2 populations
+                  Preview phenotype headers and select traits for Pop1 and Pop2
+                  populations
                 </p>
               </div>
               <ChevronRight className="h-4 w-4" />
@@ -752,7 +918,9 @@ export function SdprxToolConfiguration({
                                   className="flex items-center gap-2 text-xs"
                                 >
                                   <Checkbox
-                                    checked={traits.binary_traits.includes(header)}
+                                    checked={traits.binary_traits.includes(
+                                      header
+                                    )}
                                     onCheckedChange={(checked) =>
                                       toggleTrait(
                                         key,
@@ -778,7 +946,9 @@ export function SdprxToolConfiguration({
                                   className="flex items-center gap-2 text-xs"
                                 >
                                   <Checkbox
-                                    checked={traits.quantitative_traits.includes(header)}
+                                    checked={traits.quantitative_traits.includes(
+                                      header
+                                    )}
                                     onCheckedChange={(checked) =>
                                       toggleTrait(
                                         key,
@@ -819,96 +989,92 @@ export function SdprxToolConfiguration({
           <CollapsibleContent className="px-4 pb-4">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-3">
-                <Label className="text-sm">File Type</Label>
-                <Select
-                  value={config?.genotype_config?.file_type ?? "merged"}
-                  onValueChange={(value) =>
-                    updateGenotypeConfig({
-                      file_type:
-                        value as SdprxPreProcessingConfig["genotype_config"]["file_type"],
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select file type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="merged">
-                      Merged (bed, bim, fam)
-                    </SelectItem>
-                    <SelectItem value="split_by_chromosome">
-                      Split by Chromosome (bed, bim, fam)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-3">
-                <Label className="text-sm">Population Reference</Label>
-                <Select
-                  value={config?.genotype_config?.population_reference ?? "pop1"}
-                  onValueChange={(value) =>
-                    updateGenotypeConfig({
-                      population_reference:
-                        value as SdprxPreProcessingConfig["genotype_config"]["population_reference"],
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select population" />
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Population Reference</Label>
+                  <Badge variant="outline" className="text-xs">
+                    Coming soon
+                  </Badge>
+                </div>
+                <Select value="pop1">
+                  <SelectTrigger disabled>
+                    <SelectValue
+                      placeholder={config?.pop1?.name || "Target Population"}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pop1">
                       {config?.pop1?.name || "Target Population"}
                     </SelectItem>
-                    <SelectItem value="pop2">
-                      {config?.pop2?.name || "Base Population"}
-                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+            {config?.genotype_config?.file_type === "multi_chromosome" && (
+              <div className="mt-6 space-y-3">
+                <Label className="text-sm">Chromosomes</Label>
+                <ChromosomeMultiSelect
+                  value={config?.genotype_config?.chrom || []}
+                  onChange={(next) => updateGenotypeConfig({ chrom: next })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Select one or more chromosomes to process. Leave empty to
+                  process all.
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-3">
                 <Label className="text-sm">File Patterns (bed)</Label>
-                 <Input
-                   value={config?.genotype_config?.file_patterns?.bed ?? ""}
-                   onChange={(event) =>
-                     updateGenotypeConfig({ file_patterns: { bed: event.target.value } })
-                   }
-                 />
+                <Input
+                  value={config?.genotype_config?.file_patterns?.bed ?? ""}
+                  onChange={(event) =>
+                    updateGenotypeConfig({
+                      file_patterns: { bed: event.target.value },
+                    })
+                  }
+                />
               </div>
               <div className="space-y-3">
                 <Label className="text-sm">File Patterns (bim)</Label>
-                 <Input
-                   value={config?.genotype_config?.file_patterns?.bim ?? ""}
-                   onChange={(event) =>
-                     updateGenotypeConfig({ file_patterns: { bim: event.target.value } })
-                   }
-                 />
+                <Input
+                  value={config?.genotype_config?.file_patterns?.bim ?? ""}
+                  onChange={(event) =>
+                    updateGenotypeConfig({
+                      file_patterns: { bim: event.target.value },
+                    })
+                  }
+                />
               </div>
             </div>
             <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-3">
                 <Label className="text-sm">File Patterns (fam)</Label>
-                 <Input
-                   value={config?.genotype_config?.file_patterns?.fam ?? ""}
-                   onChange={(event) =>
-                     updateGenotypeConfig({ file_patterns: { fam: event.target.value } })
-                   }
-                 />
+                <Input
+                  value={config?.genotype_config?.file_patterns?.fam ?? ""}
+                  onChange={(event) =>
+                    updateGenotypeConfig({
+                      file_patterns: { fam: event.target.value },
+                    })
+                  }
+                />
               </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
 
         {/* Preprocessing Options */}
-        <Collapsible open={expandedSections.includes("preprocessing")} onOpenChange={() => toggleSection("preprocessing")}>
+        <Collapsible
+          open={expandedSections.includes("preprocessing")}
+          onOpenChange={() => toggleSection("preprocessing")}
+        >
           <CollapsibleTrigger asChild>
             <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
               <div>
                 <h4 className="font-medium">Preprocessing Options</h4>
-                <p className="text-sm text-muted-foreground">Adjust preprocessing behavior for SDPRX</p>
+                <p className="text-sm text-muted-foreground">
+                  Adjust preprocessing behavior for SDPRX
+                </p>
               </div>
               {expandedSections.includes("preprocessing") ? (
                 <ChevronDown className="h-4 w-4" />
@@ -943,25 +1109,47 @@ export function SdprxToolConfiguration({
                 <span>
                   Overwrite existing outputs
                   <span className="block text-xs text-muted-foreground">
-                    Allow replacing previously generated files during preprocessing
+                    Allow replacing previously generated files during
+                    preprocessing
                   </span>
                 </span>
               </label>
-              <label className="flex items-start gap-3 text-sm text-muted-foreground md:col-span-2">
-                <Info className="mt-0.5 h-4 w-4" />
-                Evaluation type is managed globally on this step.
-              </label>
+              {config?.sumstats_file_type === "multi_chromosome" && (
+                <label className="flex items-start gap-3 text-sm">
+                  <Checkbox
+                    checked={Boolean(config?.options?.sumstats_strict_single)}
+                    onCheckedChange={(checked) =>
+                      updateOptions({ sumstats_strict_single: Boolean(checked) })
+                    }
+                  />
+                  <span>
+                    Enforce one sumstats file per chromosome
+                    <span className="block text-xs text-muted-foreground">
+                      Sets strictness for sumstats files. If multiple files exist
+                      for the same chromosome, the pipeline fails when enabled;
+                      when disabled, one file is auto-selected and the selection
+                      criteria is logged.
+                    </span>
+                  </span>
+                </label>
+              )}
+              {/* Removed evaluation-type info note per request */}
             </div>
           </CollapsibleContent>
         </Collapsible>
 
         {/* Processing Configuration */}
-        <Collapsible open={expandedSections.includes("processing")} onOpenChange={() => toggleSection("processing")}>
+        <Collapsible
+          open={expandedSections.includes("processing")}
+          onOpenChange={() => toggleSection("processing")}
+        >
           <CollapsibleTrigger asChild>
             <div className="flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
               <div>
                 <h4 className="font-medium">Processing Configuration</h4>
-                <p className="text-sm text-muted-foreground">Set runtime parameters for SDPRX scoring</p>
+                <p className="text-sm text-muted-foreground">
+                  Set runtime parameters for SDPRX scoring
+                </p>
               </div>
               {expandedSections.includes("processing") ? (
                 <ChevronDown className="h-4 w-4" />
@@ -975,7 +1163,10 @@ export function SdprxToolConfiguration({
               <div className="rounded-lg border border-dashed p-3">
                 <p className="text-xs text-muted-foreground">
                   Evaluation type is currently set to
-                  <span className="ml-1 font-medium capitalize">{evaluationType}</span>.
+                  <span className="ml-1 font-medium capitalize">
+                    {evaluationType}
+                  </span>
+                  .
                 </p>
                 {!allowBinaryTraits && (
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -984,14 +1175,25 @@ export function SdprxToolConfiguration({
                 )}
                 {!allowQuantitativeTraits && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Enable quantitative evaluation to configure quantitative processing.
+                    Enable quantitative evaluation to configure quantitative
+                    processing.
                   </p>
                 )}
               </div>
-              <Tabs defaultValue={allowBinaryTraits ? "binary" : "quantitative"} className="w-full">
+              <Tabs
+                defaultValue={allowBinaryTraits ? "binary" : "quantitative"}
+                className="w-full"
+              >
                 <TabsList>
-                  <TabsTrigger value="binary" disabled={!allowBinaryTraits}>Binary</TabsTrigger>
-                  <TabsTrigger value="quantitative" disabled={!allowQuantitativeTraits}>Quantitative</TabsTrigger>
+                  <TabsTrigger value="binary" disabled={!allowBinaryTraits}>
+                    Binary
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="quantitative"
+                    disabled={!allowQuantitativeTraits}
+                  >
+                    Quantitative
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="binary">
                   {renderProcessingMode("binary")}
