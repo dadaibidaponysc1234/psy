@@ -46,6 +46,13 @@ const toolOptions = [
     category: "PRS Tools",
     supported: true,
   },
+  {
+    id: "xpass",
+    name: "XPASS",
+    description: "Cross-population PRS leveraging genetic correlation",
+    category: "PRS Tools",
+    supported: true,
+  },
 ]
 
 interface ToolSelectionProps {
@@ -130,7 +137,9 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
   }
 
   const hasExistingJob = Boolean(jobId)
-  const modalTitle = hasExistingJob ? "Update Selected Tools" : "Create Benchmark Job"
+  const modalTitle = hasExistingJob
+    ? "Update Selected Tools"
+    : "Create Benchmark Job"
   const modalDescription = hasExistingJob
     ? `You are updating the current benchmark job (${jobId}) to include the following tools: ${selectedTools.join(", ")}. Your uploads and mappings remain associated with this job.`
     : `You are about to create a new benchmark job with the following tools: ${selectedTools.join(", ")}. This will start the benchmarking process and you'll be able to upload your datasets next.`

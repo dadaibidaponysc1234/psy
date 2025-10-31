@@ -135,6 +135,7 @@ export type ToolPreProcessingConfig =
   | PrscsxPreProcessingConfig
   | BridgeprsPreProcessingConfig
   | SdprxPreProcessingConfig
+  | XpassPreProcessingConfig
 
 export type BridgeprsColumnKey =
   | "CHR"
@@ -342,4 +343,71 @@ export interface SdprxProcessingModePayload {
 export interface SdprxProcessingPayload {
   binary?: SdprxProcessingModePayload
   quantitative?: SdprxProcessingModePayload
+}
+
+// XPASS types
+export type XpassColumnKey = "SNP" | "A1" | "A2" | "N" | "Z"
+
+export interface XpassPopulationEntry {
+  name: string
+  type: "target" | "auxiliary" | "validation"
+  sumstats_path: string
+  genotype_path: string
+}
+
+export interface XpassColumnMappings {
+  by_population: Record<string, Partial<Record<XpassColumnKey, string>>>
+}
+
+export interface XpassGenotypeConfig {
+  file_type: "merged" | "multi_chromosome"
+  chrom?: number[]
+  file_patterns: {
+    bed: string
+    bim: string
+    fam: string
+  }
+}
+
+export interface XpassPreProcessingConfig {
+  populations: XpassPopulationEntry[]
+  column_mappings: XpassColumnMappings
+  fixed_N1?: string
+  fixed_N2?: string
+  fixed_N3?: string
+  genotype_config: XpassGenotypeConfig
+  sumstats_file_type?: "merged" | "multi_chromosome"
+  covariate_config?: {
+    target_population: string
+    auxiliary_population: string
+    validation_population: string
+  }
+  options: ProcessingOptions
+  output_dir: string
+}
+
+export interface XpassProcessingState {
+  compPRS: "T" | "F"
+  sd_method: string
+  compPosMean: "T" | "F"
+  outputName: string
+  xpass_pop1?: string // target population name
+  chrom?: number // single chromosome for per-chrom runs
+  output_dir?: string
+  log_dir?: string
+}
+
+export interface XpassProcessingPayload {
+  target_data: string
+  auxillary_data: string
+  ref_pop1: string
+  ref_pop2: string
+  test_data: string
+  compPRS: "T" | "F"
+  sd_method: string
+  compPosMean: "T" | "F"
+  outputName: string
+  xpass_pop1: string
+  output_dir: string
+  log_dir: string
 }

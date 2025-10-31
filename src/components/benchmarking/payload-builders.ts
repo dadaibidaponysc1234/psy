@@ -20,6 +20,10 @@ import type {
   SdprxPreProcessingConfig,
   SdprxProcessingState,
   SdprxProcessingPayload,
+  XpassPreProcessingConfig,
+  XpassProcessingState,
+  XpassProcessingPayload,
+  XpassColumnKey,
 } from "@/components/benchmarking/tool-configuration/types"
 
 // ----- Shared sanitizers (moved from tool-configuration.tsx) -----
@@ -52,11 +56,16 @@ const PRSCsx_REQUIRED_COLUMNS: PrscsxColumnKey[] = [
   "P",
 ]
 
+// XPASS required/recognized column keys (aligned to updated schema)
+const XPASS_REQUIRED_COLUMNS: XpassColumnKey[] = ["SNP", "A1", "A2", "N", "Z"]
+
 export const sanitizeChromArray = (input: unknown): number[] => {
   const toNums = (vals: (string | number)[]) =>
     vals
       .map((v) => Number(v))
-      .filter((n) => Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 22)
+      .filter(
+        (n) => Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 22
+      )
   if (Array.isArray(input)) {
     const nums = toNums(input)
     return Array.from(new Set(nums)).sort((a, b) => a - b)
@@ -111,25 +120,37 @@ export const sanitizeBridgeprsConfig = (
     quantitative_traits: traits.quantitative_traits.filter(Boolean),
   })
 
-  const sanitizedColumns = BRIDGEPRS_REQUIRED_COLUMNS.reduce((acc, column) => {
-    const value = config.column_mappings?.[column]?.trim()
-    if (value) acc[column] = value
-    return acc
-  }, {} as Partial<Record<BridgeprsColumnKey, string>>)
+  const sanitizedColumns = BRIDGEPRS_REQUIRED_COLUMNS.reduce(
+    (acc, column) => {
+      const value = config.column_mappings?.[column]?.trim()
+      if (value) acc[column] = value
+      return acc
+    },
+    {} as Partial<Record<BridgeprsColumnKey, string>>
+  )
 
   const sanitizedOptions = {
     ...DEFAULT_PROCESSING_OPTIONS,
     ...(config.options ?? {}),
   }
 
-  const nextEvaluation = (sanitizedOptions.evaluation_type || "both") as EvaluationType
+  const nextEvaluation = (sanitizedOptions.evaluation_type ||
+    "both") as EvaluationType
   sanitizedOptions.evaluation_type = nextEvaluation
   sanitizedOptions.process_binary_phenotypes =
-    nextEvaluation === "quantitative" ? false : Boolean(sanitizedOptions.process_binary_phenotypes)
+    nextEvaluation === "quantitative"
+      ? false
+      : Boolean(sanitizedOptions.process_binary_phenotypes)
   sanitizedOptions.process_quantitative_phenotypes =
-    nextEvaluation === "binary" ? false : Boolean(sanitizedOptions.process_quantitative_phenotypes)
-  sanitizedOptions.skip_missing_columns = Boolean(sanitizedOptions.skip_missing_columns)
-  sanitizedOptions.overwrite_existing = Boolean(sanitizedOptions.overwrite_existing)
+    nextEvaluation === "binary"
+      ? false
+      : Boolean(sanitizedOptions.process_quantitative_phenotypes)
+  sanitizedOptions.skip_missing_columns = Boolean(
+    sanitizedOptions.skip_missing_columns
+  )
+  sanitizedOptions.overwrite_existing = Boolean(
+    sanitizedOptions.overwrite_existing
+  )
 
   return {
     ...config,
@@ -147,11 +168,17 @@ export const sanitizeBridgeprsConfig = (
     },
     genotype_path: config.genotype_path?.trim() || "",
     output_dir: config.output_dir?.trim() || "",
-    fixed_N: typeof config.fixed_N === "number" && Number.isFinite(config.fixed_N) ? config.fixed_N : null,
+    fixed_N:
+      typeof config.fixed_N === "number" && Number.isFinite(config.fixed_N)
+        ? config.fixed_N
+        : null,
     column_mappings: sanitizedColumns,
     genotype_config: {
       ...existingGenotypeConfig,
-      population_reference: existingGenotypeConfig.population_reference === "pop2" ? "pop2" : "pop1",
+      population_reference:
+        existingGenotypeConfig.population_reference === "pop2"
+          ? "pop2"
+          : "pop1",
       file_patterns: {
         bed: existingPatterns.bed?.trim() || "",
         bim: existingPatterns.bim?.trim() || "",
@@ -171,7 +198,9 @@ export const sanitizePrsiceConfig = (
 ): PrsicePreProcessingConfig => {
   const evaluationType = config.options.evaluation_type || "both"
 
-  const sanitizePopulation = (population: "target_population" | "source_population") => {
+  const sanitizePopulation = (
+    population: "target_population" | "source_population"
+  ) => {
     const traits = config.phenotype_config[population]
     return {
       binary_traits:
@@ -194,8 +223,10 @@ export const sanitizePrsiceConfig = (
     options: {
       ...config.options,
       evaluation_type: evaluationType,
-      process_binary_phenotypes: evaluationType === "binary" || evaluationType === "both",
-      process_quantitative_phenotypes: evaluationType === "quantitative" || evaluationType === "both",
+      process_binary_phenotypes:
+        evaluationType === "binary" || evaluationType === "both",
+      process_quantitative_phenotypes:
+        evaluationType === "quantitative" || evaluationType === "both",
       sumstats_strict_single: Boolean(config.options.sumstats_strict_single),
     },
     genotype_config: {
@@ -216,35 +247,45 @@ export const sanitizePrscsxConfig = (
   const evaluationType = config.options.evaluation_type || "both"
   const populations = config.populations ?? []
 
-  const filteredTraits = populations.reduce((acc, population) => {
-    const traits = config.phenotype_config.by_population[population.name] || {
-      binary_traits: [],
-      quantitative_traits: [],
-    }
+  const filteredTraits = populations.reduce(
+    (acc, population) => {
+      const traits = config.phenotype_config.by_population[population.name] || {
+        binary_traits: [],
+        quantitative_traits: [],
+      }
 
-    acc[population.name] = {
-      binary_traits:
-        evaluationType === "binary" || evaluationType === "both"
-          ? traits.binary_traits.filter(Boolean)
-          : [],
-      quantitative_traits:
-        evaluationType === "quantitative" || evaluationType === "both"
-          ? traits.quantitative_traits.filter(Boolean)
-          : [],
-    }
-    return acc
-  }, {} as Record<string, PrsicePhenotypePopulationConfig>)
+      acc[population.name] = {
+        binary_traits:
+          evaluationType === "binary" || evaluationType === "both"
+            ? traits.binary_traits.filter(Boolean)
+            : [],
+        quantitative_traits:
+          evaluationType === "quantitative" || evaluationType === "both"
+            ? traits.quantitative_traits.filter(Boolean)
+            : [],
+      }
+      return acc
+    },
+    {} as Record<string, PrsicePhenotypePopulationConfig>
+  )
 
-  const columnMappings = populations.reduce((acc, population) => {
-    const mappings = config.column_mappings.by_population[population.name] || {}
-    const cleaned = PRSCsx_REQUIRED_COLUMNS.reduce((inner, column) => {
-      const value = mappings[column]
-      if (value) inner[column] = value
-      return inner
-    }, {} as Record<PrscsxColumnKey, string>)
-    acc[population.name] = cleaned
-    return acc
-  }, {} as Record<string, Record<PrscsxColumnKey, string>>)
+  const columnMappings = populations.reduce(
+    (acc, population) => {
+      const mappings =
+        config.column_mappings.by_population[population.name] || {}
+      const cleaned = PRSCsx_REQUIRED_COLUMNS.reduce(
+        (inner, column) => {
+          const value = mappings[column]
+          if (value) inner[column] = value
+          return inner
+        },
+        {} as Record<PrscsxColumnKey, string>
+      )
+      acc[population.name] = cleaned
+      return acc
+    },
+    {} as Record<string, Record<PrscsxColumnKey, string>>
+  )
 
   return {
     ...config,
@@ -259,8 +300,10 @@ export const sanitizePrscsxConfig = (
     options: {
       ...config.options,
       evaluation_type: evaluationType,
-      process_binary_phenotypes: evaluationType === "binary" || evaluationType === "both",
-      process_quantitative_phenotypes: evaluationType === "quantitative" || evaluationType === "both",
+      process_binary_phenotypes:
+        evaluationType === "binary" || evaluationType === "both",
+      process_quantitative_phenotypes:
+        evaluationType === "quantitative" || evaluationType === "both",
       sumstats_strict_single: Boolean(config.options.sumstats_strict_single),
     },
     genotype_config: {
@@ -275,7 +318,10 @@ export const sanitizeSdprxConfig = (
 ): SdprxPreProcessingConfig => {
   const evaluationType = config.options.evaluation_type || "both"
 
-  const sanitizePopulation = (traits: { binary_traits: string[]; quantitative_traits: string[] }) => ({
+  const sanitizePopulation = (traits: {
+    binary_traits: string[]
+    quantitative_traits: string[]
+  }) => ({
     binary_traits:
       evaluationType === "binary" || evaluationType === "both"
         ? (traits.binary_traits || []).filter(Boolean)
@@ -291,18 +337,22 @@ export const sanitizeSdprxConfig = (
     phenotype_config: {
       pop1: sanitizePopulation(
         // @ts-expect-error migrating schema
-        (config.phenotype_config as any).pop1 || config.phenotype_config.target_population
+        (config.phenotype_config as any).pop1 ||
+          config.phenotype_config.target_population
       ),
       pop2: sanitizePopulation(
         // @ts-expect-error migrating schema
-        (config.phenotype_config as any).pop2 || config.phenotype_config.base_population
+        (config.phenotype_config as any).pop2 ||
+          config.phenotype_config.base_population
       ),
     },
     options: {
       ...config.options,
       evaluation_type: evaluationType,
-      process_binary_phenotypes: evaluationType === "binary" || evaluationType === "both",
-      process_quantitative_phenotypes: evaluationType === "quantitative" || evaluationType === "both",
+      process_binary_phenotypes:
+        evaluationType === "binary" || evaluationType === "both",
+      process_quantitative_phenotypes:
+        evaluationType === "quantitative" || evaluationType === "both",
       sumstats_strict_single: Boolean(config.options.sumstats_strict_single),
     },
     genotype_config: {
@@ -322,6 +372,115 @@ export const sanitizeSdprxConfig = (
   }
 }
 
+export const sanitizeXpassConfig = (
+  config: XpassPreProcessingConfig
+): XpassPreProcessingConfig => {
+  // Normalize options
+  const sanitizedOptions = {
+    ...DEFAULT_PROCESSING_OPTIONS,
+    ...(config.options ?? {}),
+  }
+  const nextEvaluation = (sanitizedOptions.evaluation_type ||
+    "both") as EvaluationType
+  sanitizedOptions.evaluation_type = nextEvaluation
+  sanitizedOptions.process_binary_phenotypes =
+    nextEvaluation === "quantitative"
+      ? false
+      : Boolean(sanitizedOptions.process_binary_phenotypes)
+  sanitizedOptions.process_quantitative_phenotypes =
+    nextEvaluation === "binary"
+      ? false
+      : Boolean(sanitizedOptions.process_quantitative_phenotypes)
+  sanitizedOptions.skip_missing_columns = Boolean(
+    sanitizedOptions.skip_missing_columns
+  )
+  sanitizedOptions.overwrite_existing = Boolean(
+    sanitizedOptions.overwrite_existing
+  )
+
+  // Populations: trim and filter to allowed types
+  const populations = Array.isArray((config as any).populations)
+    ? ((config as any).populations as any[])
+        .map((p) => ({
+          name: (p?.name || "").trim(),
+          type:
+            p?.type === "auxiliary" || p?.type === "validation"
+              ? p.type
+              : "target",
+          sumstats_path: (p?.sumstats_path || "").trim(),
+          genotype_path: (p?.genotype_path || "").trim(),
+        }))
+        .filter((p) => p.name.length > 0)
+    : []
+
+  // Column mappings by population: only keep recognized keys and non-empty values
+  const byPopulationRaw = (config as any)?.column_mappings?.by_population || {}
+  const byPopulationSanitized: Record<
+    string,
+    Partial<Record<XpassColumnKey, string>>
+  > = {}
+  Object.keys(byPopulationRaw || {}).forEach((popName) => {
+    const raw = byPopulationRaw[popName] || {}
+    const mapped: Partial<Record<XpassColumnKey, string>> = {}
+    XPASS_REQUIRED_COLUMNS.forEach((key) => {
+      const v = (raw[key] || "").trim()
+      if (v) mapped[key] = v
+    })
+    if (Object.keys(mapped).length > 0) {
+      byPopulationSanitized[popName] = mapped
+    }
+  })
+
+  // Genotype config
+  const existingGenotypeConfig = (config as any)?.genotype_config || {
+    file_type: "merged" as const,
+    chrom: [],
+    file_patterns: { bed: "", bim: "", fam: "" },
+  }
+  const patterns = existingGenotypeConfig.file_patterns || {
+    bed: "",
+    bim: "",
+    fam: "",
+  }
+
+  return {
+    populations,
+    column_mappings: { by_population: byPopulationSanitized },
+    fixed_N1: ((config as any)?.fixed_N1 || "").trim() || undefined,
+    fixed_N2: ((config as any)?.fixed_N2 || "").trim() || undefined,
+    fixed_N3: ((config as any)?.fixed_N3 || "").trim() || undefined,
+    genotype_config: {
+      file_type:
+        existingGenotypeConfig.file_type === "multi_chromosome"
+          ? "multi_chromosome"
+          : "merged",
+      file_patterns: {
+        bed: (patterns.bed || "").trim(),
+        bim: (patterns.bim || "").trim(),
+        fam: (patterns.fam || "").trim(),
+      },
+      chrom: sanitizeChromArray(existingGenotypeConfig.chrom),
+    },
+    sumstats_file_type: ((config as any)?.sumstats_file_type ||
+      "merged") as any,
+    covariate_config: {
+      target_population: (
+        ((config as any)?.covariate_config?.target_population || "") as string
+      ).trim(),
+      auxiliary_population: (
+        ((config as any)?.covariate_config?.auxiliary_population ||
+          "") as string
+      ).trim(),
+      validation_population: (
+        ((config as any)?.covariate_config?.validation_population ||
+          "") as string
+      ).trim(),
+    },
+    options: sanitizedOptions,
+    output_dir: (((config as any)?.output_dir || "") as string).trim(),
+  }
+}
+
 // ----- Processing payload builders (moved from tool-configuration.tsx) -----
 
 type ProcessingModeKey = "binary" | "quantitative"
@@ -337,7 +496,8 @@ export const buildPrscsxProcessingPayload = (
 
   const basePlaceholder = "{base_pop}"
   const targetPlaceholder = "{target_pop}"
-  const targetPopulationName = populations.find((population) => population.type === "target")?.name || ""
+  const targetPopulationName =
+    populations.find((population) => population.type === "target")?.name || ""
 
   const sstFiles = [
     `${baseOutputDir}/sumstats/${basePlaceholder}/${basePlaceholder}_sumstats.txt`,
@@ -351,7 +511,9 @@ export const buildPrscsxProcessingPayload = (
     const state = processingState[key]
     if (!state?.runPopulation) return null
 
-    const nGwasList = populationNames.map((name) => state.nGwas[name]?.trim() || "")
+    const nGwasList = populationNames.map(
+      (name) => state.nGwas[name]?.trim() || ""
+    )
     if (nGwasList.some((value) => !value)) return null
 
     const chromValue = (state.chrom || "").trim()
@@ -362,9 +524,14 @@ export const buildPrscsxProcessingPayload = (
     if (!phenoColumn) return null
 
     const runPopulation = state.runPopulation
-    const selectedPopulation = populations.find((population) => population.name === runPopulation)
-    const selectedType = selectedPopulation?.type || (runPopulation === targetPopulationName ? "target" : "base")
-    const scoringPlaceholder = selectedType === "target" ? targetPlaceholder : basePlaceholder
+    const selectedPopulation = populations.find(
+      (population) => population.name === runPopulation
+    )
+    const selectedType =
+      selectedPopulation?.type ||
+      (runPopulation === targetPopulationName ? "target" : "base")
+    const scoringPlaceholder =
+      selectedType === "target" ? targetPlaceholder : basePlaceholder
     const evaluationLabel = key === "binary" ? "bin" : "quant"
     const genotypePrefix = `${baseOutputDir}/genotypes/${scoringPlaceholder}/geno`
     const phenoFile = `${baseOutputDir}/phenotypes/pheno_${evaluationLabel}_${scoringPlaceholder}.txt`
@@ -423,8 +590,11 @@ export const buildSdprxProcessingPayload = (
 
   const pop1 = (preProcessing?.pop1?.name || "").trim()
   const pop2 = (preProcessing?.pop2?.name || "").trim()
-  const preOutDir = normalize(preProcessing?.output_dir) || "results/preprocessed_data/preprocessed_sdprx_output"
-  const populationReference = preProcessing?.genotype_config?.population_reference || "pop1"
+  const preOutDir =
+    normalize(preProcessing?.output_dir) ||
+    "results/preprocessed_data/preprocessed_sdprx_output"
+  const populationReference =
+    preProcessing?.genotype_config?.population_reference || "pop1"
   const scoringPop = populationReference === "pop1" ? pop1 : pop2
   const sumstatsFileType = preProcessing?.sumstats_file_type || "merged"
   const genotypeFileType = preProcessing?.genotype_config?.file_type || "merged"
@@ -455,11 +625,9 @@ export const buildSdprxProcessingPayload = (
     // Users provide only the basename (no directory). We construct the full path
     // by replacing the previous fixed "geno" basename in the standard location.
     const mergedPrefixRaw = (state.sdprx_genotype_file || "geno").trim()
-    const mergedPrefixBasename = mergedPrefixRaw
-      .replace(/\\+/g, "/")
-      .split("/")
-      .filter(Boolean)
-      .pop() || "geno"
+    const mergedPrefixBasename =
+      mergedPrefixRaw.replace(/\\+/g, "/").split("/").filter(Boolean).pop() ||
+      "geno"
     const multiChromGenoDir = `${preOutDir}/genotypes/${scoringPop}/`
     const isMergedGenotype = genotypeFileType !== "multi_chromosome"
     const genopath = isMergedGenotype
@@ -469,14 +637,30 @@ export const buildSdprxProcessingPayload = (
     const pheno = isBinary
       ? `${preOutDir}/phenotypes/pheno_bin_${scoringPop}.txt`
       : `${preOutDir}/phenotypes/pheno_quant_${scoringPop}.txt`
-    const outDir = isBinary ? "results/prs_results_binary/sdprx" : "results/prs_results/sdprx"
+    const outDir = isBinary
+      ? "results/prs_results_binary/sdprx"
+      : "results/prs_results/sdprx"
     const plinkOutputPrefix = isBinary
       ? `results/prs_results_binary/sdprx_plink/${scoringPop}_test_${scoringPop}_result`
       : `results/prs_results/sdprx_plink/${scoringPop}_test_${scoringPop}_result`
     const scoreFile = "results_2.txt"
-    const logDir = isBinary ? "results/log_files_binary/sdprx_log" : "results/log_files/sdprx_log"
+    const logDir = isBinary
+      ? "results/log_files_binary/sdprx_log"
+      : "results/log_files/sdprx_log"
 
-    const required = [pop1, pop2, ss1, ss2, genopath, outDir, n1, n2, chrom, rho, pheno]
+    const required = [
+      pop1,
+      pop2,
+      ss1,
+      ss2,
+      genopath,
+      outDir,
+      n1,
+      n2,
+      chrom,
+      rho,
+      pheno,
+    ]
     if (required.some((v) => !v)) return null
 
     const payload: any = {
@@ -486,7 +670,8 @@ export const buildSdprxProcessingPayload = (
       n1,
       n2,
       force_shared: forceShared,
-      load_ld: "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+      load_ld:
+        "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
       valid,
       chrom,
       rho,
@@ -533,7 +718,9 @@ export const buildBridgeprsProcessingPayload = (
 
   const pop1 = (preProcessing?.pop1?.name || "").trim()
   const pop2 = (preProcessing?.pop2?.name || "").trim()
-  const preOutDir = normalize(preProcessing?.output_dir) || "results/preprocessed_data/preprocessed_bridgeprs_output"
+  const preOutDir =
+    normalize(preProcessing?.output_dir) ||
+    "results/preprocessed_data/preprocessed_bridgeprs_output"
 
   const buildModePayload = (key: keyof BridgeprsProcessingState) => {
     const state = processingState[key]
@@ -547,23 +734,26 @@ export const buildBridgeprsProcessingPayload = (
     const nTarget = (state.sumstats_size_AFR || "").trim()
 
     const preprocessedInputs = `${preOutDir}`
-    const ldrefBridgeprs = "C:\\Users\\CABLE\\Downloads\\Cable\\Code\\PRS-backend\\reference\\h3gwas_data"
+    const ldrefBridgeprs =
+      "C:\\Users\\CABLE\\Downloads\\Cable\\Code\\PRS-backend\\reference\\h3gwas_data"
 
     const sumstatsPrefixBase = `${preOutDir}/sumstats/${pop2}/`
     const sumstatsPrefixTarget = `${preOutDir}/sumstats/${pop1}/`
 
     // Genotype: merged uses user-provided BASENAME; multi-chromosome uses the population folder (no basename)
-    const genotypeFileType = preProcessing?.genotype_config?.file_type || "merged"
+    const genotypeFileType =
+      preProcessing?.genotype_config?.file_type || "merged"
     const isMergedGenotype = genotypeFileType === "merged"
     const mergedPrefixRaw = (state as any).bridgeprs_genotype_file
       ? String((state as any).bridgeprs_genotype_file)
       : ""
-    const mergedPrefixBasename = mergedPrefixRaw
-      .trim()
-      .replace(/\\+/g, "/")
-      .split("/")
-      .filter(Boolean)
-      .pop() || ""
+    const mergedPrefixBasename =
+      mergedPrefixRaw
+        .trim()
+        .replace(/\\+/g, "/")
+        .split("/")
+        .filter(Boolean)
+        .pop() || ""
 
     // For merged runs, if basename is missing, leave geno prefixes empty so required-check returns null
     const genoPrefixBase = isMergedGenotype
@@ -584,9 +774,13 @@ export const buildBridgeprsProcessingPayload = (
       ? `${preOutDir}/phenotypes/pheno_bin_${pop1}.txt`
       : `${preOutDir}/phenotypes/pheno_quant_${pop1}.txt`
 
-    const outDir = isBinary ? "results/prs_results_binary/bridgeprs" : "results/prs_results/bridgeprs"
+    const outDir = isBinary
+      ? "results/prs_results_binary/bridgeprs"
+      : "results/prs_results/bridgeprs"
     const inputBridgeprsData = `${outDir}/config_files`
-    const logDir = isBinary ? "results/log_files_binary/bridgeprs_log" : "results/log_files/bridgeprs_log"
+    const logDir = isBinary
+      ? "results/log_files_binary/bridgeprs_log"
+      : "results/log_files/bridgeprs_log"
 
     const required = [
       pop1,
@@ -653,7 +847,8 @@ export const buildPrsiceProcessingPayload = (
 
   const target = (preProcessing?.target_population?.name || "").trim()
   const base = (preProcessing?.source_population?.name || "").trim()
-  const preOutDir = normalize(preProcessing?.output_dir) ||
+  const preOutDir =
+    normalize(preProcessing?.output_dir) ||
     "results/preprocessed_data/preprocessed_prsice_output"
   const sumstatsFileType = preProcessing?.sumstats_file_type || "merged"
 
@@ -664,7 +859,7 @@ export const buildPrsiceProcessingPayload = (
       sumstatsFileType === "multi_chromosome"
         ? `${preOutDir}/sumstats/${target}/`
         : `${preOutDir}/sumstats/${target}/${target}_sumstats.txt`
-    const targetData = `${preOutDir}/genotypes/${target}`
+    const targetData = `${preOutDir}/genotypes/${target}/`
     const pheno = `${preOutDir}/phenotypes/pheno_quant_${target}.txt`
     const required = [target, base, sumstats, targetData, pheno]
     if (required.some((v) => !v)) return null
@@ -686,7 +881,7 @@ export const buildPrsiceProcessingPayload = (
       sumstatsFileType === "multi_chromosome"
         ? `${preOutDir}/sumstats/${target}/`
         : `${preOutDir}/sumstats/${target}/${target}_sumstats.txt`
-    const targetData = `${preOutDir}/genotypes/${target}`
+    const targetData = `${preOutDir}/genotypes/${target}/`
     const pheno = `${preOutDir}/phenotypes/pheno_bin_${base}.txt`
     const required = [target, base, sumstats, targetData, pheno]
     if (required.some((v) => !v)) return null
@@ -715,13 +910,71 @@ export const buildPrsiceProcessingPayload = (
   return result
 }
 
+export const buildXpassProcessingPayload = (
+  preProcessing: XpassPreProcessingConfig,
+  processingState: XpassProcessingState,
+  _mode: EvaluationType
+): XpassProcessingPayload => {
+  // Identify populations by role
+  const target = preProcessing.populations.find((p) => p.type === "target")
+  const aux = preProcessing.populations.find((p) => p.type === "auxiliary")
+  const validation = preProcessing.populations.find(
+    (p) => p.type === "validation"
+  )
+
+  const outDir = (
+    processingState.output_dir || "results/prs_results/xpass"
+  ).trim()
+  const logDir = (
+    processingState.log_dir || "results/log_files/xpass_log"
+  ).trim()
+  const outputName = (processingState.outputName || "xpass_result").trim()
+  const compPRS = processingState.compPRS || "F"
+  const compPosMean = processingState.compPosMean || "F"
+  const sdMethod = (processingState.sd_method || "").trim()
+  const xpassPop1 = (processingState.xpass_pop1 || target?.name || "").trim()
+
+  const targetData = target
+    ? `${preProcessing.output_dir}/genotypes/${target.name}/`
+    : ""
+  const auxData = aux
+    ? `${preProcessing.output_dir}/genotypes/${aux.name}/`
+    : ""
+  const testData = validation
+    ? `${preProcessing.output_dir}/genotypes/${validation.name}/`
+    : targetData
+  const refPop1 = target?.name || ""
+  const refPop2 = aux?.name || ""
+
+  return {
+    target_data: targetData,
+    auxillary_data: auxData,
+    ref_pop1: refPop1,
+    ref_pop2: refPop2,
+    test_data: testData,
+    compPRS,
+    sd_method: sdMethod,
+    compPosMean,
+    outputName: outputName,
+    xpass_pop1: xpassPop1,
+    output_dir: outDir,
+    log_dir: logDir,
+  }
+}
+
 // Convenience: given tool id and sanitized configs, build processing payload
 export function buildProcessingForTool(
   toolId: string,
   sanitizedConfig: ToolPreProcessingConfig | undefined,
   processingState: any,
   evaluationType: EvaluationType
-): PrscsxProcessingPayload | BridgeprsProcessingPayload | SdprxProcessingPayload | PrsiceProcessingPayload | undefined {
+):
+  | PrscsxProcessingPayload
+  | BridgeprsProcessingPayload
+  | SdprxProcessingPayload
+  | PrsiceProcessingPayload
+  | XpassProcessingPayload
+  | undefined {
   if (!sanitizedConfig) return undefined
   if (toolId === "prscsx") {
     return buildPrscsxProcessingPayload(
@@ -741,6 +994,13 @@ export function buildProcessingForTool(
     return buildSdprxProcessingPayload(
       sanitizedConfig as SdprxPreProcessingConfig,
       processingState as SdprxProcessingState,
+      evaluationType
+    )
+  }
+  if (toolId === "xpass") {
+    return buildXpassProcessingPayload(
+      sanitizedConfig as XpassPreProcessingConfig,
+      processingState as XpassProcessingState,
       evaluationType
     )
   }

@@ -14,6 +14,7 @@ import { PrsiceToolConfiguration } from "@/components/benchmarking/tool-configur
 import { PrscsxToolConfiguration } from "@/components/benchmarking/tool-configuration/PrscsxToolConfiguration"
 import { BridgeprsToolConfiguration } from "@/components/benchmarking/tool-configuration/BridgeprsToolConfiguration"
 import { SdprxToolConfiguration } from "@/components/benchmarking/tool-configuration/SdprxToolConfiguration"
+import { XpassToolConfiguration } from "@/components/benchmarking/tool-configuration/XpassToolConfiguration"
 import type {
   PrsicePreProcessingConfig,
   PrscsxPreProcessingConfig,
@@ -35,6 +36,10 @@ import type {
   SdprxProcessingPayload,
   SdprxColumnKey,
   PrsiceProcessingPayload,
+  XpassPreProcessingConfig,
+  XpassProcessingState,
+  XpassProcessingPayload,
+  XpassColumnKey,
 } from "@/components/benchmarking/tool-configuration/types"
 import {
   sanitizeBridgeprsConfig,
@@ -45,6 +50,8 @@ import {
   buildBridgeprsProcessingPayload,
   buildSdprxProcessingPayload,
   buildPrsiceProcessingPayload,
+  sanitizeXpassConfig,
+  buildXpassProcessingPayload,
 } from "@/components/benchmarking/payload-builders"
 
 interface ToolConfigurationProps {
@@ -72,6 +79,7 @@ const TOOL_LABELS: Record<string, string> = {
   prscsx: "PRScsx",
   bridgeprs: "BridgePRS",
   sdprx: "SDPRX",
+  xpass: "XPASS",
 }
 
 const PRSICE_REQUIRED_COLUMNS = ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"]
@@ -117,6 +125,7 @@ const isPrsice = (toolId: string) => toolId.toLowerCase() === "prsice"
 const isPrscsx = (toolId: string) => toolId.toLowerCase() === "prscsx"
 const isBridgeprs = (toolId: string) => toolId.toLowerCase() === "bridgeprs"
 const isSdprx = (toolId: string) => toolId.toLowerCase() === "sdprx"
+const isXpass = (toolId: string) => toolId.toLowerCase() === "xpass"
 
 type ProcessingModeKey = keyof PrscsxProcessingState
 
@@ -209,9 +218,11 @@ export function ToolConfiguration({
 
       if (isPrsice(key)) {
         if (!mappingConfig) {
-          return (fromData as PrsicePreProcessingConfig) ||
+          return (
+            (fromData as PrsicePreProcessingConfig) ||
             (fromStore as PrsicePreProcessingConfig) ||
             null
+          )
         }
         const source = mappingConfig.source_population || {}
         const target = mappingConfig.target_population || {}
@@ -232,10 +243,12 @@ export function ToolConfiguration({
           output_dir: `results/preprocessed_data/preprocessed_${key}_output`,
           column_mappings: mappingConfig.column_mappings || {},
           phenotype_config: {
-            target_population: mappingConfig.phenotype_config?.target_population || {
+            target_population: mappingConfig.phenotype_config
+              ?.target_population || {
               ...DEFAULT_PRSICE_PHENOTYPE,
             },
-            source_population: mappingConfig.phenotype_config?.source_population || {
+            source_population: mappingConfig.phenotype_config
+              ?.source_population || {
               ...DEFAULT_PRSICE_PHENOTYPE,
             },
           },
@@ -266,14 +279,20 @@ export function ToolConfiguration({
             ...existing,
             target_population: {
               ...existing.target_population,
-              name: mappingBase.target_population.name || existing.target_population?.name || "",
+              name:
+                mappingBase.target_population.name ||
+                existing.target_population?.name ||
+                "",
               sumstats_path: mappingBase.target_population.sumstats_path,
               genotype_path: mappingBase.target_population.genotype_path,
               phenotype_path: mappingBase.target_population.phenotype_path,
             },
             source_population: {
               ...existing.source_population,
-              name: mappingBase.source_population.name || existing.source_population?.name || "",
+              name:
+                mappingBase.source_population.name ||
+                existing.source_population?.name ||
+                "",
               sumstats_path: mappingBase.source_population.sumstats_path,
               genotype_path: mappingBase.source_population.genotype_path,
               phenotype_path: mappingBase.source_population.phenotype_path,
@@ -287,9 +306,11 @@ export function ToolConfiguration({
       if (isBridgeprs(key)) {
         const preProcessing = mappingConfig?.pre_processing
         if (!preProcessing) {
-          return (fromData as BridgeprsPreProcessingConfig) ||
+          return (
+            (fromData as BridgeprsPreProcessingConfig) ||
             (fromStore as BridgeprsPreProcessingConfig) ||
             null
+          )
         }
 
         const buildPopulation = (
@@ -407,9 +428,11 @@ export function ToolConfiguration({
       if (isPrscsx(key)) {
         const preProcessing = mappingConfig?.pre_processing
         if (!preProcessing) {
-          return (fromData as PrscsxPreProcessingConfig) ||
+          return (
+            (fromData as PrscsxPreProcessingConfig) ||
             (fromStore as PrscsxPreProcessingConfig) ||
             null
+          )
         }
 
         const populations = Array.isArray(preProcessing.populations)
@@ -457,7 +480,8 @@ export function ToolConfiguration({
             by_population:
               preProcessing.phenotype_config?.by_population ||
               defaultPhenotypeConfig,
-            covariate_id_mapping: preProcessing.phenotype_config?.covariate_id_mapping || {
+            covariate_id_mapping: preProcessing.phenotype_config
+              ?.covariate_id_mapping || {
               fid: "",
               iid: "",
             },
@@ -508,9 +532,11 @@ export function ToolConfiguration({
       if (isSdprx(key)) {
         const preProcessing = mappingConfig?.pre_processing
         if (!preProcessing) {
-          return (fromData as SdprxPreProcessingConfig) ||
+          return (
+            (fromData as SdprxPreProcessingConfig) ||
             (fromStore as SdprxPreProcessingConfig) ||
             null
+          )
         }
 
         const buildPopulation = (pop: any) => ({
@@ -621,9 +647,11 @@ export function ToolConfiguration({
       }
 
       // No specific builder matched; fall back to input or store
-      return (fromData as ToolPreProcessingConfig) ||
+      return (
+        (fromData as ToolPreProcessingConfig) ||
         (fromStore as ToolPreProcessingConfig) ||
         null
+      )
     },
     [data, storedConfigs, mappingData]
   )
@@ -1691,12 +1719,12 @@ export function ToolConfiguration({
       }
       if (!hasPop1Paths) {
         errors.push(
-          `SDPRX: ${(pop1Name || "Population 1")} is missing sumstats, genotype, or phenotype paths`
+          `SDPRX: ${pop1Name || "Population 1"} is missing sumstats, genotype, or phenotype paths`
         )
       }
       if (!hasPop2Paths) {
         errors.push(
-          `SDPRX: ${(pop2Name || "Population 2")} is missing sumstats, genotype, or phenotype paths`
+          `SDPRX: ${pop2Name || "Population 2"} is missing sumstats, genotype, or phenotype paths`
         )
       }
 
@@ -1865,10 +1893,14 @@ export function ToolConfiguration({
         if (!nBase) {
           errors.push(`BridgePRS ${label}: Provide sumstats size (${baseName})`)
         } else if (isNaN(Number(nBase))) {
-          errors.push(`BridgePRS ${label}: Sumstats size (${baseName}) must be numeric`)
+          errors.push(
+            `BridgePRS ${label}: Sumstats size (${baseName}) must be numeric`
+          )
         }
         if (!nTarget) {
-          errors.push(`BridgePRS ${label}: Provide sumstats size (${targetName})`)
+          errors.push(
+            `BridgePRS ${label}: Provide sumstats size (${targetName})`
+          )
         } else if (isNaN(Number(nTarget))) {
           errors.push(
             `BridgePRS ${label}: Sumstats size (${targetName}) must be numeric`
@@ -1876,7 +1908,8 @@ export function ToolConfiguration({
         }
 
         // If genotype type is merged, require a non-empty genotype prefix (basename)
-        const genotypeType = preProcessing?.genotype_config?.file_type || "merged"
+        const genotypeType =
+          preProcessing?.genotype_config?.file_type || "merged"
         if (genotypeType === "merged") {
           const basename = (state as any)?.bridgeprs_genotype_file
             ? String((state as any).bridgeprs_genotype_file).trim()
@@ -2366,7 +2399,9 @@ export function ToolConfiguration({
       const populationReference =
         bridgeConfig.genotype_config?.population_reference
       if (populationReference !== "pop1" && populationReference !== "pop2") {
-        errors.push("BridgePRS: Population reference must be one of the configured populations")
+        errors.push(
+          "BridgePRS: Population reference must be one of the configured populations"
+        )
       }
 
       if (!bridgeConfig.options?.evaluation_type) {
@@ -2383,10 +2418,14 @@ export function ToolConfiguration({
         const p1 = Array.isArray(pop1?.binary_traits) ? pop1!.binary_traits : []
         const p2 = Array.isArray(pop2?.binary_traits) ? pop2!.binary_traits : []
         if (p1.length === 0) {
-          errors.push(`BridgePRS: Select at least one binary trait for ${pop1Name}`)
+          errors.push(
+            `BridgePRS: Select at least one binary trait for ${pop1Name}`
+          )
         }
         if (p2.length === 0) {
-          errors.push(`BridgePRS: Select at least one binary trait for ${pop2Name}`)
+          errors.push(
+            `BridgePRS: Select at least one binary trait for ${pop2Name}`
+          )
         }
       } else if (et === "quantitative") {
         const p1 = Array.isArray(pop1?.quantitative_traits)
@@ -2419,7 +2458,9 @@ export function ToolConfiguration({
           ? pop2!.quantitative_traits.length > 0
           : false
         if (!p1HasBinary) {
-          errors.push(`BridgePRS: Select at least one binary trait for ${pop1Name}`)
+          errors.push(
+            `BridgePRS: Select at least one binary trait for ${pop1Name}`
+          )
         }
         if (!p1HasQuant) {
           errors.push(
@@ -2427,7 +2468,9 @@ export function ToolConfiguration({
           )
         }
         if (!p2HasBinary) {
-          errors.push(`BridgePRS: Select at least one binary trait for ${pop2Name}`)
+          errors.push(
+            `BridgePRS: Select at least one binary trait for ${pop2Name}`
+          )
         }
         if (!p2HasQuant) {
           errors.push(
@@ -2497,18 +2540,42 @@ export function ToolConfiguration({
         prsiceConfig.source_population.phenotype_path
       )
 
-      if (requiresBinary && targetHasPhenotype && targetTraits.binary_traits.length === 0) {
-        errors.push(`PRSice: Select at least one binary trait for ${targetName}`)
+      if (
+        requiresBinary &&
+        targetHasPhenotype &&
+        targetTraits.binary_traits.length === 0
+      ) {
+        errors.push(
+          `PRSice: Select at least one binary trait for ${targetName}`
+        )
       }
-      if (requiresBinary && sourceHasPhenotype && sourceTraits.binary_traits.length === 0) {
-        errors.push(`PRSice: Select at least one binary trait for ${sourceName}`)
+      if (
+        requiresBinary &&
+        sourceHasPhenotype &&
+        sourceTraits.binary_traits.length === 0
+      ) {
+        errors.push(
+          `PRSice: Select at least one binary trait for ${sourceName}`
+        )
       }
 
-      if (requiresQuant && targetHasPhenotype && targetTraits.quantitative_traits.length === 0) {
-        errors.push(`PRSice: Select at least one quantitative trait for ${targetName}`)
+      if (
+        requiresQuant &&
+        targetHasPhenotype &&
+        targetTraits.quantitative_traits.length === 0
+      ) {
+        errors.push(
+          `PRSice: Select at least one quantitative trait for ${targetName}`
+        )
       }
-      if (requiresQuant && sourceHasPhenotype && sourceTraits.quantitative_traits.length === 0) {
-        errors.push(`PRSice: Select at least one quantitative trait for ${sourceName}`)
+      if (
+        requiresQuant &&
+        sourceHasPhenotype &&
+        sourceTraits.quantitative_traits.length === 0
+      ) {
+        errors.push(
+          `PRSice: Select at least one quantitative trait for ${sourceName}`
+        )
       }
 
       const { bed, bim, fam } = prsiceConfig.genotype_config.file_patterns
