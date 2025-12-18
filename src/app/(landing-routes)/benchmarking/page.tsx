@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Home as HomeIcon,
 } from "lucide-react"
 import { Tooltip } from "@/components/ui/tooltip"
 import { Toaster } from "react-hot-toast"
@@ -46,8 +47,17 @@ import { useHydration } from "@/hooks/use-hydration"
 import { Configure } from "@/components/benchmarking/configure"
 import { ToolConfiguration } from "@/components/benchmarking/tool-configuration"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
+import { AuthControls } from "@/components/benchmarking/auth-controls"
+import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
 
 const steps = [
+  {
+    id: "home",
+    title: "Home",
+    icon: HomeIcon,
+    description: "Project overview",
+    shortDesc: "Home",
+  },
   {
     id: "tools",
     title: "Select Tools",
@@ -318,6 +328,8 @@ const BenchmarkingPage = () => {
 
   const renderStepContent = () => {
     switch (activeStep) {
+      case "home":
+        return <BenchmarkingHome />
       case "tools":
         return (
           <ToolSelection
@@ -370,17 +382,11 @@ const BenchmarkingPage = () => {
 
   return (
     <div className="container mx-auto overflow-x-hidden px-4 py-8">
-      {/* Header section */}
-      <div className="mx-auto mb-10 max-w-4xl text-center">
-        <h1 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">
-          Polygenic Risk Score (PRS) Benchmarking
-        </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-300">
-          Comprehensive benchmarking tools and analysis for polygenic risk
-          scores
-        </p>
+      {/* Top-right auth controls (UI-only) */}
+      <div className="mx-auto mb-4 flex max-w-7xl justify-end">
+        <AuthControls isAuthenticated={false} />
       </div>
-      <div className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden">
+      <div className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden" id="workflow">
         <Sidebar
           steps={steps}
           isCollapsed={isSidebarCollapsed}

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Loader2,
   CheckCircle,
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from "lucide-react"
 import axios from "axios"
 import { BENCHMARK_CONFIG, getBenchmarkJobStatusUrl } from "@/lib/config"
@@ -71,6 +73,8 @@ interface PRSSummaryResponse {
   summary?: { tool?: string; r2?: string | number; auc?: string | number }
   links?: Record<string, Record<string, string>>
   table?: { columns: string[]; rows: Array<Record<string, string | number>> }
+  // Newly augmented by backend: optional per-tool execution summary
+  tool_summary?: Record<string, ToolStageSummary>
 }
 
 interface EvalR2Response {
@@ -79,6 +83,20 @@ interface EvalR2Response {
     string,
     { columns: string[]; rows: Array<Record<string, string | number>> }
   >
+}
+
+// Per-tool execution summary types
+interface ToolStageSummary {
+  preprocessing?: "succeeded" | "failed" | "skipped" | "unknown"
+  processing?: "succeeded" | "failed" | "skipped" | "unknown"
+  evaluation_r2?: "succeeded" | "missing" | "unknown"
+  evaluation_auc?: "succeeded" | "missing" | "unknown"
+  messages?: string | null
+}
+
+interface ToolSummaryResponse {
+  job_id: string
+  tool_summary: Record<string, ToolStageSummary>
 }
 
 type SummaryTableRow = Record<string, string | number>
@@ -99,6 +117,9 @@ export function BenchmarkingResults({
   const [evalR2, setEvalR2] = useState<EvalR2Response | null>(null)
   const [evalAUC, setEvalAUC] = useState<EvalR2Response | null>(null)
   const [plots, setPlots] = useState<ManifestPlot[] | null>(null)
+  const [toolSummary, setToolSummary] = useState<ToolSummaryResponse | null>(
+    null
+  )
   const [loading, setLoading] = useState({
     manifest: true,
     summary: true,
@@ -123,6 +144,9 @@ export function BenchmarkingResults({
     url: string
     contentType?: string
   } | null>(null)
+
+  // Files tab search query
+  const [filesQuery, setFilesQuery] = useState("")
 
   // Ref for raw files slider
   // Guard to ensure we auto-refresh results only once when job completes
@@ -153,9 +177,9 @@ export function BenchmarkingResults({
       manifest: `${base}/${jobId}/results/manifest`,
       plots: `${base}/${jobId}/results/plots`,
       prsSummary: `${base}/${jobId}/results/prs-summary`,
+      toolSummary: `${base}/${jobId}/results/tool-summary`,
       evalR2: `${base}/${jobId}/results/eval-r2`,
       evalAUC: `${base}/${jobId}/results/eval-auc`,
-      evaluations: `${base}/${jobId}/results/evaluations`,
       archive: `${base}/${jobId}/results/archive.zip`,
     }
   }, [jobId])
@@ -287,6 +311,22 @@ export function BenchmarkingResults({
         setLoading((prev) => ({ ...prev, summary: false }))
       }
 
+      // Fetch per-tool execution summary from dedicated endpoint
+      try {
+        const res = await axios.get<ToolSummaryResponse>(
+          endpoints.toolSummary
+        )
+        if (log) console.log("[Benchmark] Tool summary response:", res.data)
+        setToolSummary(res.data)
+      } catch (e: any) {
+        if (log)
+          console.error(
+            "[Benchmark] Tool summary error:",
+            e?.response?.data || e?.message || e
+          )
+        // No error surfaced; we can fall back to prsSummary.tool_summary if present
+      }
+
       try {
         const res = await axios.get<EvalR2Response>(endpoints.evalR2)
         if (log) console.log("[Benchmark] R2 tables response:", res.data)
@@ -335,7 +375,7 @@ export function BenchmarkingResults({
   // Light polling to keep status fresh until a terminal state
   useEffect(() => {
     if (!jobId) return
-    const terminal = new Set(["completed", "failed"]) // backend status values
+    const terminal = new Set(["completed", "failed", "cancelled"]) // backend terminal statuses
     const current = (backendStatus || "").toLowerCase()
     if (terminal.has(current)) return
     const id = setInterval(() => {
@@ -416,6 +456,8 @@ export function BenchmarkingResults({
     const normalized = toolId.toLowerCase()
     if (normalized === "prsice") return "PRSice"
     if (normalized === "prscsx") return "PRS-CSx"
+    if (normalized === "xpass") return "XPASS"
+    if (normalized === "xpass+") return "XPASS+"
     return formatLabel(toolId)
   }, [])
 
@@ -522,6 +564,46 @@ export function BenchmarkingResults({
     return map
   }, [evalAUC, evalR2, matchToolId])
 
+  // Combine tool summary from dedicated endpoint with any augmented responses
+  const combinedToolSummary = useMemo<Record<string, ToolStageSummary>>(() => {
+    const fromDedicated = toolSummary?.tool_summary
+    const fromPrs = prsSummary?.tool_summary
+    return fromDedicated ?? fromPrs ?? {}
+  }, [toolSummary, prsSummary])
+
+  const renderStageBadge = useCallback((value?: string) => {
+    const v = (value || "unknown").toLowerCase()
+    let cls = "bg-muted text-muted-foreground border-border"
+    let label = v
+    switch (v) {
+      case "succeeded":
+        cls = "bg-green-100 text-green-800 border-green-200"
+        label = "Succeeded"
+        break
+      case "failed":
+        cls = "bg-red-100 text-red-800 border-red-200"
+        label = "Failed"
+        break
+      case "skipped":
+        cls = "bg-amber-100 text-amber-800 border-amber-200"
+        label = "Skipped"
+        break
+      case "missing":
+        cls = "bg-gray-100 text-gray-800 border-gray-200"
+        label = "Missing"
+        break
+      default:
+        cls = "bg-muted text-muted-foreground border-border"
+        label = "Unknown"
+        break
+    }
+    return (
+      <Badge variant="outline" className={`text-xs ${cls}`}>
+        {label}
+      </Badge>
+    )
+  }, [])
+
   const plotsByTool = useMemo(() => {
     const perTool: Record<string, ManifestPlot[]> = {}
     const shared: ManifestPlot[] = []
@@ -552,6 +634,36 @@ export function BenchmarkingResults({
     })
     return { perTool, shared }
   }, [manifest, matchToolId])
+
+  // Apply client-side filtering for Files tab based on search query
+  const filteredArtifactsByTool = useMemo(() => {
+    const q = filesQuery.trim().toLowerCase()
+    if (!q) return artifactsByTool
+    const match = (a: ManifestArtifact) => {
+      const fields = [
+        a.name,
+        a.path,
+        a.content_type,
+        a.last_modified,
+        typeof a.size === "number" ? String(a.size) : (a.size as any),
+      ]
+      return fields.some((v) => v && String(v).toLowerCase().includes(q))
+    }
+    const perTool: Record<string, ManifestArtifact[]> = {}
+    Object.keys(artifactsByTool.perTool).forEach((tool) => {
+      perTool[tool] = (artifactsByTool.perTool[tool] ?? []).filter(match)
+    })
+    const shared = (artifactsByTool.shared ?? []).filter(match)
+    return { perTool, shared }
+  }, [artifactsByTool, filesQuery])
+
+  const hasFilteredPerToolArtifacts = useMemo(
+    () =>
+      orderedTools.some(
+        (toolId) => (filteredArtifactsByTool.perTool[toolId] ?? []).length > 0
+      ),
+    [filteredArtifactsByTool, orderedTools]
+  )
 
   const linksByTool = useMemo(() => {
     const perTool: Record<
@@ -834,9 +946,13 @@ export function BenchmarkingResults({
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div>
-              {statusDetails?.error || statusDetails?.message ? (
+              {statusDetails?.error_message || statusDetails?.error || statusDetails?.message ? (
                 <span className="break-words">
-                  {String(statusDetails?.error || statusDetails?.message)}
+                  {String(
+                    statusDetails?.error_message ||
+                      statusDetails?.error ||
+                      statusDetails?.message
+                  )}
                 </span>
               ) : (
                 <span>
@@ -1001,6 +1117,64 @@ export function BenchmarkingResults({
                       )
                     })}
                   </ol>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {Object.keys(combinedToolSummary).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Tool Execution Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="w-full overflow-x-auto">
+                  <table className="min-w-full border text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="border px-3 py-2 text-left">Tool</th>
+                        <th className="border px-3 py-2 text-left">Preprocessing</th>
+                        <th className="border px-3 py-2 text-left">Processing</th>
+                        <th className="border px-3 py-2 text-left">R2 Evaluation</th>
+                        <th className="border px-3 py-2 text-left">AUC Evaluation</th>
+                        <th className="border px-3 py-2 text-left">Messages</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(orderedTools.length > 0
+                        ? orderedTools
+                        : Object.keys(combinedToolSummary)
+                      ).map((toolId) => {
+                        const summary = combinedToolSummary[toolId] || {}
+                        return (
+                          <tr key={toolId} className="odd:bg-muted/10">
+                            <td className="border px-3 py-2">
+                              {formatToolDisplay(toolId)}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {renderStageBadge(summary.preprocessing)}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {renderStageBadge(summary.processing)}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {renderStageBadge(summary.evaluation_r2)}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {renderStageBadge(summary.evaluation_auc)}
+                            </td>
+                            <td className="border px-3 py-2">
+                              {summary.messages ? (
+                                <span className="break-words">{summary.messages}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
@@ -1360,8 +1534,17 @@ export function BenchmarkingResults({
 
         <TabsContent value="files">
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-2">
               <CardTitle>Artifacts</CardTitle>
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={filesQuery}
+                  onChange={(e) => setFilesQuery(e.target.value)}
+                  placeholder="Search files by name, type, or path"
+                  className="max-w-md"
+                />
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {loading.manifest ? (
@@ -1372,7 +1555,7 @@ export function BenchmarkingResults({
               ) : hasPerToolArtifacts || artifactsByTool.shared.length > 0 ? (
                 <>
                   {orderedTools.map((toolId) => {
-                    const toolArtifacts = artifactsByTool.perTool[toolId] ?? []
+                    const toolArtifacts = filteredArtifactsByTool.perTool[toolId] ?? []
                     if (toolArtifacts.length === 0) return null
                     return (
                       <div key={toolId} className="space-y-2">
@@ -1502,7 +1685,7 @@ export function BenchmarkingResults({
                     )
                   })}
 
-                  {artifactsByTool.shared.length > 0 && (
+                  {filteredArtifactsByTool.shared.length > 0 && (
                     <div className="space-y-2">
                       <div className="text-sm font-semibold">Shared</div>
                       <div className="max-h-64 w-full overflow-x-auto overflow-y-auto">
@@ -1527,7 +1710,7 @@ export function BenchmarkingResults({
                             </tr>
                           </thead>
                           <tbody>
-                            {artifactsByTool.shared.map((artifact) => (
+                            {filteredArtifactsByTool.shared.map((artifact) => (
                               <tr
                                 key={artifact.path}
                                 className="odd:bg-muted/10"
@@ -1618,6 +1801,12 @@ export function BenchmarkingResults({
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+
+                  {filesQuery && !hasFilteredPerToolArtifacts && filteredArtifactsByTool.shared.length === 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      No files match “{filesQuery}”.
                     </div>
                   )}
                 </>

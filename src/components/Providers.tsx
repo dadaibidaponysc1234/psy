@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, useEffect } from "react";
 import { Toaster } from "./misc/toaster";
+import { installAxiosInterceptors } from "@/services/axios-global";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +18,11 @@ const queryClient = new QueryClient({
 });
 
 const Providers = ({ children }: PropsWithChildren) => {
+  // Ensure global Axios interceptors are installed once on client
+  useEffect(() => {
+    installAxiosInterceptors();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}

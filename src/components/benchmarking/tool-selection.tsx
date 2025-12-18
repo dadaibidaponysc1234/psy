@@ -53,6 +53,13 @@ const toolOptions = [
     category: "PRS Tools",
     supported: true,
   },
+  {
+    id: "xpass+",
+    name: "XPASS+",
+    description: "XPASS plus variant for cross-population PRS",
+    category: "PRS Tools",
+    supported: true,
+  },
 ]
 
 interface ToolSelectionProps {

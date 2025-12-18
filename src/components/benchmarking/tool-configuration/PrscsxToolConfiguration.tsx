@@ -113,8 +113,23 @@ export function PrscsxToolConfiguration({
     evaluationType === "binary" || evaluationType === "both"
   const allowQuantitativeTraits =
     evaluationType === "quantitative" || evaluationType === "both"
+  const isMultiChromGenotype =
+    config.genotype_config.file_type === "multi_chromosome"
 
   type ProcessingModeKey = keyof PrscsxProcessingState
+  const initialProcessingTab: ProcessingModeKey = allowBinaryTraits
+    ? "binary"
+    : "quantitative"
+  const [processingActiveTab, setProcessingActiveTab] =
+    useState<ProcessingModeKey>(initialProcessingTab)
+  useEffect(() => {
+    const tabs: ProcessingModeKey[] = []
+    if (allowBinaryTraits) tabs.push("binary")
+    if (allowQuantitativeTraits) tabs.push("quantitative")
+    if (!tabs.includes(processingActiveTab)) {
+      setProcessingActiveTab(tabs[0] ?? "binary")
+    }
+  }, [allowBinaryTraits, allowQuantitativeTraits, processingActiveTab])
 
   const eligiblePopulations = useMemo(
     () =>
@@ -215,6 +230,32 @@ export function PrscsxToolConfiguration({
     processingConfig,
     config.phenotype_config.by_population,
     updateProcessingMode,
+  ])
+
+  // Keep processing chrom in sync with genotype_config.chrom (multi-chromosome)
+  useEffect(() => {
+    const isMultiChrom = config?.genotype_config?.file_type === "multi_chromosome"
+    const chromStr = isMultiChrom && Array.isArray(config?.genotype_config?.chrom)
+      ? ((config.genotype_config.chrom as number[]) || []).join(",")
+      : ""
+
+    const needsUpdate =
+      processingConfig.binary.chrom !== chromStr ||
+      processingConfig.quantitative.chrom !== chromStr
+
+    if (needsUpdate) {
+      onProcessingChange((current) => ({
+        ...current,
+        binary: { ...current.binary, chrom: chromStr },
+        quantitative: { ...current.quantitative, chrom: chromStr },
+      }))
+    }
+  }, [
+    config?.genotype_config?.chrom,
+    config?.genotype_config?.file_type,
+    onProcessingChange,
+    processingConfig.binary.chrom,
+    processingConfig.quantitative.chrom,
   ])
 
   const toggleSection = (section: string) => {
@@ -592,6 +633,13 @@ export function PrscsxToolConfiguration({
       }))
     }
 
+    const handleGenotypeBasenameChange = (value: string) => {
+      updateProcessingMode(mode, (prev) => ({
+        ...prev,
+        genotypeBasename: value,
+      }))
+    }
+
     const handleNgwasChange = (populationName: string, value: string) => {
       updateProcessingMode(mode, (prev) => ({
         ...prev,
@@ -642,11 +690,30 @@ export function PrscsxToolConfiguration({
 
             <div className="space-y-2">
               <Label className="text-xs uppercase">Chromosome</Label>
-              <Input
-                value={modeState.chrom}
-                onChange={(event) => handleChromChange(event.target.value)}
-                placeholder="22"
-              />
+              {isMultiChromGenotype ? (
+                <Input
+                  value={
+                    Array.isArray(config?.genotype_config?.chrom)
+                      ? ((config?.genotype_config?.chrom as number[]) || []).join(",")
+                      : ""
+                  }
+                  readOnly
+                  disabled
+                  className="cursor-not-allowed bg-muted text-muted-foreground"
+                  placeholder="Chromosomes controlled via Genotype Configuration"
+                />
+              ) : (
+                <Input
+                  value={modeState.chrom}
+                  onChange={(event) => handleChromChange(event.target.value)}
+                  placeholder="e.g. 1,2,22"
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {isMultiChromGenotype
+                  ? "Controlled via Genotype Configuration; updates in real time."
+                  : "Editable for merged genotypes; enter chromosome(s)."}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -657,6 +724,26 @@ export function PrscsxToolConfiguration({
                 placeholder="1e-2"
               />
             </div>
+
+            {!isMultiChromGenotype && (
+              <div className="space-y-2">
+                <Label className="text-xs uppercase">
+                  Genotype prefix (merged)
+                </Label>
+                <Input
+                  value={modeState.genotypeBasename}
+                  onChange={(event) =>
+                    handleGenotypeBasenameChange(event.target.value)
+                  }
+                  placeholder="geno"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sets the PLINK basename used when merged genotype files are
+                  preprocessed. Leave blank to keep the default
+                  <code className="ml-1">geno</code>.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1360,8 +1447,60 @@ export function PrscsxToolConfiguration({
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4">
               <div className="space-y-4">
-                {renderProcessingMode("binary")}
-                {renderProcessingMode("quantitative")}
+                <div className="rounded-lg border border-dashed p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Evaluation type is currently set to
+                    <span className="ml-1 font-medium capitalize">
+                      {evaluationType}
+                    </span>
+                    .
+                  </p>
+                  {!allowBinaryTraits && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Enable binary evaluation to configure binary processing.
+                    </p>
+                  )}
+                  {!allowQuantitativeTraits && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Enable quantitative evaluation to configure quantitative
+                      processing.
+                    </p>
+                  )}
+                </div>
+
+                <Tabs
+                  value={processingActiveTab}
+                  onValueChange={(v) =>
+                    setProcessingActiveTab(v as ProcessingModeKey)
+                  }
+                  className="w-full"
+                >
+                  <TabsList>
+                    {allowBinaryTraits && (
+                      <TabsTrigger value="binary" disabled={!allowBinaryTraits}>
+                        Binary
+                      </TabsTrigger>
+                    )}
+                    {allowQuantitativeTraits && (
+                      <TabsTrigger
+                        value="quantitative"
+                        disabled={!allowQuantitativeTraits}
+                      >
+                        Quantitative
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                  {allowBinaryTraits && (
+                    <TabsContent value="binary">
+                      {renderProcessingMode("binary")}
+                    </TabsContent>
+                  )}
+                  {allowQuantitativeTraits && (
+                    <TabsContent value="quantitative">
+                      {renderProcessingMode("quantitative")}
+                    </TabsContent>
+                  )}
+                </Tabs>
               </div>
             </CollapsibleContent>
           </Collapsible>

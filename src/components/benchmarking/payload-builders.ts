@@ -56,8 +56,14 @@ const PRSCsx_REQUIRED_COLUMNS: PrscsxColumnKey[] = [
   "P",
 ]
 
-// XPASS required/recognized column keys (aligned to updated schema)
-const XPASS_REQUIRED_COLUMNS: XpassColumnKey[] = ["SNP", "A1", "A2", "N", "Z"]
+// XPASS required/recognized column keys
+// Z is optional; keep it recognized but not required
+const XPASS_REQUIRED_COLUMNS: XpassColumnKey[] = ["SNP", "A1", "A2", "N"]
+const XPASS_OPTIONAL_COLUMNS: XpassColumnKey[] = ["Z"]
+const XPASS_ALL_COLUMNS: XpassColumnKey[] = [
+  ...XPASS_REQUIRED_COLUMNS,
+  ...XPASS_OPTIONAL_COLUMNS,
+]
 
 export const sanitizeChromArray = (input: unknown): number[] => {
   const toNums = (vals: (string | number)[]) =>
@@ -364,11 +370,6 @@ export const sanitizeSdprxConfig = (
       },
       chrom: sanitizeChromArray(config.genotype_config.chrom),
     },
-    // Ensure optional Z column is present (blank) for server payload compatibility
-    column_mappings: {
-      ...(config.column_mappings || {}),
-      Z: (config.column_mappings as any)?.Z ?? "",
-    },
   }
 }
 
@@ -422,9 +423,16 @@ export const sanitizeXpassConfig = (
   Object.keys(byPopulationRaw || {}).forEach((popName) => {
     const raw = byPopulationRaw[popName] || {}
     const mapped: Partial<Record<XpassColumnKey, string>> = {}
-    XPASS_REQUIRED_COLUMNS.forEach((key) => {
-      const v = (raw[key] || "").trim()
-      if (v) mapped[key] = v
+    XPASS_ALL_COLUMNS.forEach((key) => {
+      const candidate =
+        raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()]
+      const value =
+        typeof candidate === "string"
+          ? candidate.trim()
+          : candidate != null
+            ? String(candidate).trim()
+            : ""
+      if (value) mapped[key] = value
     })
     if (Object.keys(mapped).length > 0) {
       byPopulationSanitized[popName] = mapped
@@ -490,19 +498,30 @@ export const buildPrscsxProcessingPayload = (
   processingState: PrscsxProcessingState,
   mode: EvaluationType
 ): PrscsxProcessingPayload => {
+  const normalize = (value?: string) => (value || "").replace(/\\/g, "/")
   const populations = preProcessing.populations || []
   const populationNames = populations.map((population) => population.name)
-  const baseOutputDir = preProcessing.output_dir
+  const baseOutputDir =
+    normalize(preProcessing.output_dir) ||
+    "results/preprocessed_data/preprocessed_prscsx_output"
+  const sumstatsFileType = preProcessing.sumstats_file_type || "merged"
+  const genotypeFileType = preProcessing.genotype_config?.file_type || "merged"
+  const isMultiChromSumstats = sumstatsFileType === "multi_chromosome"
+  const isMultiChromGenotype = genotypeFileType === "multi_chromosome"
 
   const basePlaceholder = "{base_pop}"
   const targetPlaceholder = "{target_pop}"
   const targetPopulationName =
     populations.find((population) => population.type === "target")?.name || ""
 
-  const sstFiles = [
-    `${baseOutputDir}/sumstats/${basePlaceholder}/${basePlaceholder}_sumstats.txt`,
-    `${baseOutputDir}/sumstats/${targetPlaceholder}/${targetPlaceholder}_sumstats.txt`,
-  ]
+  const sumstatsBasePath = isMultiChromSumstats
+    ? `${baseOutputDir}/sumstats/${basePlaceholder}/`
+    : `${baseOutputDir}/sumstats/${basePlaceholder}/${basePlaceholder}_sumstats.txt`
+  const sumstatsTargetPath = isMultiChromSumstats
+    ? `${baseOutputDir}/sumstats/${targetPlaceholder}/`
+    : `${baseOutputDir}/sumstats/${targetPlaceholder}/${targetPlaceholder}_sumstats.txt`
+
+  const sstFiles = [sumstatsBasePath, sumstatsTargetPath]
   const populationsString = `${basePlaceholder},${targetPlaceholder}`
 
   const result: PrscsxProcessingPayload = {}
@@ -533,10 +552,23 @@ export const buildPrscsxProcessingPayload = (
     const scoringPlaceholder =
       selectedType === "target" ? targetPlaceholder : basePlaceholder
     const evaluationLabel = key === "binary" ? "bin" : "quant"
-    const genotypePrefix = `${baseOutputDir}/genotypes/${scoringPlaceholder}/geno`
+    const genotypeRoot = `${baseOutputDir}/genotypes/${scoringPlaceholder}`
+    const multiChromGenotype = `${genotypeRoot}/`
+    const resolvedBasename = (state.genotypeBasename || "").trim() || "geno"
+    const mergedGenotype = `${genotypeRoot}/${resolvedBasename}`
+    const genotypePrefix = isMultiChromGenotype
+      ? multiChromGenotype
+      : mergedGenotype
     const phenoFile = `${baseOutputDir}/phenotypes/pheno_${evaluationLabel}_${scoringPlaceholder}.txt`
-    const plinkOutputPrefix = `results/prs_results/prscsx_plink/${scoringPlaceholder}_test_${scoringPlaceholder}_result`
+    const plinkOutputPrefix =
+      key === "binary"
+        ? `results/prs_results_binary/prscsx/${basePlaceholder}_test_${targetPlaceholder}_result`
+        : `results/prs_results/prscsx_plink/${scoringPlaceholder}_test_${scoringPlaceholder}_result`
     const outName = `${basePlaceholder}_${targetPlaceholder}`
+    const logDir =
+      key === "binary"
+        ? "results/log_files_binary/prscsx_log"
+        : "results/log_files/prscsx_log"
 
     const payload = {
       ldref_folder: "ld_ref",
@@ -553,7 +585,7 @@ export const buildPrscsxProcessingPayload = (
       pheno: phenoFile,
       pheno_column_name: phenoColumn,
       plink_output_prefix: plinkOutputPrefix,
-      log_dir: "results/log_files/prscsx_log",
+      log_dir: logDir,
       scoring_population: runPopulation,
       scoring_population_type: selectedType as any,
       population_order: populationNames,
@@ -735,7 +767,7 @@ export const buildBridgeprsProcessingPayload = (
 
     const preprocessedInputs = `${preOutDir}`
     const ldrefBridgeprs =
-      "C:\\Users\\CABLE\\Downloads\\Cable\\Code\\PRS-backend\\reference\\h3gwas_data"
+      "C:\\Users\\CABLE\\Downloads\\Cable\\Code\\PRS-backend\\reference\\h3gwas_data\\1000G_5P"
 
     const sumstatsPrefixBase = `${preOutDir}/sumstats/${pop2}/`
     const sumstatsPrefixTarget = `${preOutDir}/sumstats/${pop1}/`
@@ -882,7 +914,7 @@ export const buildPrsiceProcessingPayload = (
         ? `${preOutDir}/sumstats/${target}/`
         : `${preOutDir}/sumstats/${target}/${target}_sumstats.txt`
     const targetData = `${preOutDir}/genotypes/${target}/`
-    const pheno = `${preOutDir}/phenotypes/pheno_bin_${base}.txt`
+    const pheno = `${preOutDir}/phenotypes/pheno_bin_${target}.txt`
     const required = [target, base, sumstats, targetData, pheno]
     if (required.some((v) => !v)) return null
     return {
@@ -912,54 +944,115 @@ export const buildPrsiceProcessingPayload = (
 
 export const buildXpassProcessingPayload = (
   preProcessing: XpassPreProcessingConfig,
-  processingState: XpassProcessingState,
-  _mode: EvaluationType
+  processingState?: XpassProcessingState,
+  _mode?: EvaluationType
 ): XpassProcessingPayload => {
-  // Identify populations by role
+  const normalize = (value?: string) => (value || "").replace(/\\/g, "/").trim()
+
   const target = preProcessing.populations.find((p) => p.type === "target")
-  const aux = preProcessing.populations.find((p) => p.type === "auxiliary")
+  const auxiliary = preProcessing.populations.find(
+    (p) => p.type === "auxiliary"
+  )
   const validation = preProcessing.populations.find(
     (p) => p.type === "validation"
   )
 
-  const outDir = (
-    processingState.output_dir || "results/prs_results/xpass"
-  ).trim()
-  const logDir = (
-    processingState.log_dir || "results/log_files/xpass_log"
-  ).trim()
-  const outputName = (processingState.outputName || "xpass_result").trim()
-  const compPRS = processingState.compPRS || "F"
-  const compPosMean = processingState.compPosMean || "F"
-  const sdMethod = (processingState.sd_method || "").trim()
-  const xpassPop1 = (processingState.xpass_pop1 || target?.name || "").trim()
+  const preOutDir =
+    normalize(preProcessing.output_dir) ||
+    "results/preprocessed_data/preprocessed_xpass_output"
+  const sumstatsType = preProcessing.sumstats_file_type || "merged"
+  const genotypeType = preProcessing.genotype_config?.file_type || "merged"
 
-  const targetData = target
-    ? `${preProcessing.output_dir}/genotypes/${target.name}/`
-    : ""
-  const auxData = aux
-    ? `${preProcessing.output_dir}/genotypes/${aux.name}/`
-    : ""
-  const testData = validation
-    ? `${preProcessing.output_dir}/genotypes/${validation.name}/`
-    : targetData
-  const refPop1 = target?.name || ""
-  const refPop2 = aux?.name || ""
+  const sumstatsPathFor = (populationName: string) =>
+    sumstatsType === "multi_chromosome"
+      ? `${preOutDir}/sumstats/${populationName}/`
+      : `${preOutDir}/sumstats/${populationName}/${populationName}_sumstats.txt`
+
+  const genotypePathFor = (populationName: string) =>
+    genotypeType === "multi_chromosome"
+      ? `${preOutDir}/genotypes/${populationName}/`
+      : `${preOutDir}/genotypes/${populationName}/geno`
+
+  const targetData = target ? sumstatsPathFor(target.name) : ""
+  const auxiliaryData = auxiliary ? sumstatsPathFor(auxiliary.name) : ""
+  const refPop1Path = target ? genotypePathFor(target.name) : ""
+  const refPop2Path = auxiliary ? genotypePathFor(auxiliary.name) : ""
+  // For XPASS, test data should use Pop1 (target) genotype directory for now, you can check back to validation later
+  const testDataPath = refPop1Path
+
+  const compPRS = processingState?.compPRS ?? "T"
+  const compPosMean = processingState?.compPosMean ?? "T"
+  const sdMethod = normalize(processingState?.sd_method) || "LD_block"
+  const outputName = normalize(processingState?.outputName) || "xpass"
+  const outputDir =
+    normalize(processingState?.output_dir) || "results/prs_results/xpass"
+  const logDir =
+    normalize(processingState?.log_dir) || "results/log_files/xpass"
+  const xpassPop1 = normalize(processingState?.xpass_pop1) || target?.name || ""
+  const clumpParams = processingState?.clump_params
+  const usePop1Snps = processingState?.use_pop1_snps
+  const usePop2Snps = processingState?.use_pop2_snps
 
   return {
     target_data: targetData,
-    auxillary_data: auxData,
-    ref_pop1: refPop1,
-    ref_pop2: refPop2,
-    test_data: testData,
+    auxillary_data: auxiliaryData,
+    ref_pop1: refPop1Path,
+    ref_pop2: refPop2Path,
+    test_data: testDataPath,
     compPRS,
     sd_method: sdMethod,
     compPosMean,
-    outputName: outputName,
+    outputName,
     xpass_pop1: xpassPop1,
-    output_dir: outDir,
+    output_dir: outputDir,
     log_dir: logDir,
+    ...(clumpParams
+      ? {
+          clump_params: {
+            pop1: {
+              kb: Number(clumpParams.pop1?.kb ?? 1000),
+              r2: Number(clumpParams.pop1?.r2 ?? 0.1),
+              p: Number(clumpParams.pop1?.p ?? 0.05),
+            },
+            pop2: {
+              kb: Number(clumpParams.pop2?.kb ?? 1000),
+              r2: Number(clumpParams.pop2?.r2 ?? 0.1),
+              p: Number(clumpParams.pop2?.p ?? 0.05),
+            },
+          },
+        }
+      : {}),
+    ...(usePop1Snps != null ? { use_pop1_snps: Boolean(usePop1Snps) } : {}),
+    ...(usePop2Snps != null ? { use_pop2_snps: Boolean(usePop2Snps) } : {}),
   }
+}
+
+// XPASS+ processing payload builder: mirrors XPASS but with distinct defaults
+export const buildXpassPlusProcessingPayload = (
+  preProcessing: XpassPreProcessingConfig,
+  processingState?: XpassProcessingState,
+  _mode?: EvaluationType
+): XpassProcessingPayload => {
+  // Reuse XPASS builder with XPASS+ flavored defaults
+  const mergedState: XpassProcessingState = {
+    // compPRS is always true for XPASS+
+    compPRS: "T",
+    // sd_method and output naming/dirs are fixed for XPASS+
+    sd_method: "LD_block",
+    compPosMean: processingState?.compPosMean ?? "T",
+    outputName: "xpass_plus",
+    chrom: processingState?.chrom,
+    output_dir: "results/prs_results/xpass+",
+    log_dir: "results/log_files/xpass+",
+    // editable fields remain driven by state
+    clump_params: processingState?.clump_params,
+    use_pop1_snps: processingState?.use_pop1_snps,
+    use_pop2_snps: processingState?.use_pop2_snps,
+  }
+  // Delegate to XPASS builder; it will set xpass_pop1 to target population automatically
+  // For XPASS+, test_data must use Pop1 (target) genotype directory, not validation
+  const payload = buildXpassProcessingPayload(preProcessing, mergedState, _mode)
+  return { ...payload, test_data: payload.ref_pop1 }
 }
 
 // Convenience: given tool id and sanitized configs, build processing payload
@@ -997,7 +1090,14 @@ export function buildProcessingForTool(
       evaluationType
     )
   }
-  if (toolId === "xpass") {
+  if (toolId === "xpass" || toolId === "xpass+") {
+    if (toolId === "xpass+") {
+      return buildXpassPlusProcessingPayload(
+        sanitizedConfig as XpassPreProcessingConfig,
+        processingState as XpassProcessingState,
+        evaluationType
+      )
+    }
     return buildXpassProcessingPayload(
       sanitizedConfig as XpassPreProcessingConfig,
       processingState as XpassProcessingState,

@@ -15,6 +15,7 @@ import { PrscsxToolConfiguration } from "@/components/benchmarking/tool-configur
 import { BridgeprsToolConfiguration } from "@/components/benchmarking/tool-configuration/BridgeprsToolConfiguration"
 import { SdprxToolConfiguration } from "@/components/benchmarking/tool-configuration/SdprxToolConfiguration"
 import { XpassToolConfiguration } from "@/components/benchmarking/tool-configuration/XpassToolConfiguration"
+import { XpassPlusToolConfiguration } from "@/components/benchmarking/tool-configuration/XpassPlusToolConfiguration"
 import type {
   PrsicePreProcessingConfig,
   PrscsxPreProcessingConfig,
@@ -52,6 +53,7 @@ import {
   buildPrsiceProcessingPayload,
   sanitizeXpassConfig,
   buildXpassProcessingPayload,
+  buildXpassPlusProcessingPayload,
 } from "@/components/benchmarking/payload-builders"
 
 interface ToolConfigurationProps {
@@ -80,6 +82,7 @@ const TOOL_LABELS: Record<string, string> = {
   bridgeprs: "BridgePRS",
   sdprx: "SDPRX",
   xpass: "XPASS",
+  "xpass+": "XPASS+",
 }
 
 const PRSICE_REQUIRED_COLUMNS = ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"]
@@ -107,6 +110,15 @@ const BRIDGEPRS_REQUIRED_COLUMNS: BridgeprsColumnKey[] = [
 // SDPRX required columns per new schema
 const SDPRX_REQUIRED_COLUMNS: SdprxColumnKey[] = ["SNP", "A1", "A2", "N"]
 
+// XPASS required vs optional columns
+// Z is optional in XPASS mapping, but recognized if provided
+const XPASS_REQUIRED_COLUMNS: XpassColumnKey[] = ["SNP", "A1", "A2", "N"]
+const XPASS_OPTIONAL_COLUMNS: XpassColumnKey[] = ["Z"]
+const XPASS_ALL_COLUMNS: XpassColumnKey[] = [
+  ...XPASS_REQUIRED_COLUMNS,
+  ...XPASS_OPTIONAL_COLUMNS,
+]
+
 const DEFAULT_PROCESSING_OPTIONS: ProcessingOptions = {
   evaluation_type: "both",
   process_binary_phenotypes: true,
@@ -121,11 +133,21 @@ const DEFAULT_PRSICE_PHENOTYPE: PrsicePhenotypePopulationConfig = {
   quantitative_traits: [],
 }
 
+const DEFAULT_XPASS_GENOTYPE_PATTERNS = {
+  bed: "*.bed",
+  bim: "*.bim",
+  fam: "*.fam",
+}
+
 const isPrsice = (toolId: string) => toolId.toLowerCase() === "prsice"
 const isPrscsx = (toolId: string) => toolId.toLowerCase() === "prscsx"
 const isBridgeprs = (toolId: string) => toolId.toLowerCase() === "bridgeprs"
 const isSdprx = (toolId: string) => toolId.toLowerCase() === "sdprx"
-const isXpass = (toolId: string) => toolId.toLowerCase() === "xpass"
+const isXpass = (toolId: string) => {
+  const id = toolId.toLowerCase()
+  return id === "xpass" || id === "xpass+"
+}
+const isXpassPlus = (toolId: string) => toolId.toLowerCase() === "xpass+"
 
 type ProcessingModeKey = keyof PrscsxProcessingState
 
@@ -169,6 +191,9 @@ export function ToolConfiguration({
   >({})
   const [sdprxProcessingConfigs, setSdprxProcessingConfigs] = useState<
     Record<string, SdprxProcessingState>
+  >({})
+  const [xpassPlusProcessingConfigs, setXpassPlusProcessingConfigs] = useState<
+    Record<string, XpassProcessingState>
   >({})
   const [evaluationType, setEvaluationType] = useState<EvaluationType>(
     DEFAULT_PROCESSING_OPTIONS.evaluation_type
@@ -528,6 +553,251 @@ export function ToolConfiguration({
         return mappingBase
       }
 
+      if (isXpass(key)) {
+        const toolMappings = mappingData?.toolMappings?.[key] || {}
+        const populationConfigs = mappingData?.populationConfigs?.[key] || {}
+
+        const preProcessing = mappingConfig?.pre_processing
+        const legacyConfig = preProcessing || mappingConfig || {}
+
+        const deriveName = (primary?: string, fallback?: string) =>
+          (primary && primary.trim()) || (fallback && fallback.trim()) || ""
+
+        const targetName = deriveName(
+          legacyConfig.target_population?.name,
+          populationConfigs.targetPopulation
+        )
+        const auxiliaryName = deriveName(
+          legacyConfig.source_population?.name,
+          populationConfigs.sourcePopulation
+        )
+        const validationName = deriveName(
+          legacyConfig.validation_population?.name,
+          toolMappings["validation_population.name"] as string | undefined
+        )
+
+        const normalizePath = (value?: unknown) =>
+          typeof value === "string" ? value.trim() : ""
+
+        // Tool mappings can store FileInfo/DirectoryItem objects; extract their path.
+        const resolveMappingPath = (value?: unknown) => {
+          if (typeof value === "string") return value.trim()
+          if (value && typeof value === "object" && "path" in (value as any)) {
+            return String((value as any).path).trim()
+          }
+          return ""
+        }
+
+        const locateByName = (
+          name: string,
+          field: "sumstats_path" | "genotype_path"
+        ) =>
+          normalizePath(
+            preProcessing?.populations?.find(
+              (pop: any) => pop?.name === name
+            )?.[field]
+          )
+
+        const buildPopulationEntry = (
+          idPrefix: "pop1" | "pop2" | "pop3",
+          name: string,
+          type: "target" | "auxiliary" | "validation"
+        ) => {
+          if (!name) return null
+          const mappingSumstats = resolveMappingPath(
+            toolMappings[`${idPrefix}.sumstats_path`]
+          )
+          const mappingGenotype = resolveMappingPath(
+            toolMappings[`${idPrefix}.genotype_path`]
+          )
+
+          return {
+            name,
+            type,
+            sumstats_path:
+              mappingSumstats ||
+              locateByName(name, "sumstats_path") ||
+              normalizePath(legacyConfig?.[idPrefix]?.sumstats_path),
+            genotype_path:
+              mappingGenotype ||
+              locateByName(name, "genotype_path") ||
+              normalizePath(legacyConfig?.[idPrefix]?.genotype_path),
+          }
+        }
+
+        const mappedPopulations = Array.isArray(preProcessing?.populations)
+          ? preProcessing!.populations.map((population: any) => ({
+              name: population?.name || "",
+              type: population?.type,
+              sumstats_path: normalizePath(population?.sumstats_path),
+              genotype_path: normalizePath(population?.genotype_path),
+            }))
+          : []
+
+        const derivedPopulations = [
+          buildPopulationEntry("pop1", targetName, "target"),
+          buildPopulationEntry("pop2", auxiliaryName, "auxiliary"),
+          buildPopulationEntry("pop3", validationName, "validation"),
+        ].filter(Boolean) as Array<{
+          name: string
+          type: string
+          sumstats_path: string
+          genotype_path: string
+        }>
+
+        const populations = (
+          mappedPopulations.length > 0 ? mappedPopulations : derivedPopulations
+        ).filter((population) => population.name.length > 0)
+
+        const rawColumnMappings =
+          legacyConfig?.pre_processing?.column_mappings?.by_population ||
+          legacyConfig?.column_mappings?.by_population ||
+          {}
+        const columnMappings: Record<
+          string,
+          Partial<Record<XpassColumnKey, string>>
+        > = {}
+
+        populations.forEach((population) => {
+          const rawMappings = rawColumnMappings[population.name] || {}
+          const normalized: Partial<Record<XpassColumnKey, string>> = {}
+
+          Object.entries(rawMappings).forEach(([key, rawValue]) => {
+            const candidateKey = key.toUpperCase() as XpassColumnKey
+            if (!XPASS_ALL_COLUMNS.includes(candidateKey)) return
+            const value =
+              typeof rawValue === "string"
+                ? rawValue.trim()
+                : rawValue != null
+                  ? String(rawValue).trim()
+                  : ""
+            if (value) {
+              normalized[candidateKey] = value
+            }
+          })
+
+          columnMappings[population.name] = normalized
+        })
+
+        const mappedFileType =
+          (toolMappings["genotype_config.file_type"] as string | undefined) ||
+          legacyConfig?.genotype_config?.file_type ||
+          preProcessing?.genotype_config?.file_type ||
+          "merged"
+
+        const mappedSumstatsType =
+          (toolMappings["pre_processing.sumstats_file_type"] as
+            | string
+            | null
+            | undefined) ||
+          legacyConfig?.sumstats_file_type ||
+          preProcessing?.sumstats_file_type ||
+          "merged"
+
+        const genotypeConfig =
+          preProcessing?.genotype_config || legacyConfig?.genotype_config || {}
+
+        const mappingBase: XpassPreProcessingConfig = {
+          populations,
+          column_mappings: { by_population: columnMappings },
+          fixed_N1:
+            typeof legacyConfig?.fixed_N1 === "string"
+              ? legacyConfig.fixed_N1.trim()
+              : undefined,
+          fixed_N2:
+            typeof legacyConfig?.fixed_N2 === "string"
+              ? legacyConfig.fixed_N2.trim()
+              : undefined,
+          fixed_N3:
+            typeof legacyConfig?.fixed_N3 === "string"
+              ? legacyConfig.fixed_N3.trim()
+              : undefined,
+          genotype_config: {
+            file_type:
+              mappedFileType === "multi_chromosome"
+                ? "multi_chromosome"
+                : "merged",
+            chrom:
+              Array.isArray(genotypeConfig.chrom) &&
+              genotypeConfig.chrom.length > 0
+                ? genotypeConfig.chrom
+                : [],
+            file_patterns: {
+              ...DEFAULT_XPASS_GENOTYPE_PATTERNS,
+              ...(genotypeConfig.file_patterns || {}),
+            },
+          },
+          sumstats_file_type:
+            mappedSumstatsType === "multi_chromosome"
+              ? "multi_chromosome"
+              : "merged",
+          covariate_config: {
+            target_population: targetName,
+            auxiliary_population: auxiliaryName,
+            validation_population: validationName,
+          },
+          options: {
+            ...DEFAULT_PROCESSING_OPTIONS,
+            ...((legacyConfig?.options as Partial<ProcessingOptions>) || {}),
+          },
+          output_dir:
+            legacyConfig?.output_dir ||
+            `results/preprocessed_data/preprocessed_${key}_output`,
+        }
+
+        const existing =
+          (fromData as XpassPreProcessingConfig) ||
+          (fromStore as XpassPreProcessingConfig)
+
+        if (existing) {
+          const mergedPopulations =
+            populations.length > 0
+              ? populations.map((population, index) => {
+                  const fallback =
+                    existing.populations?.find(
+                      (pop) => pop.name === population.name
+                    ) || existing.populations?.[index]
+                  return {
+                    ...(fallback || {}),
+                    ...population,
+                  }
+                })
+              : existing.populations || []
+
+          return {
+            ...existing,
+            populations: mergedPopulations,
+            column_mappings: {
+              by_population: {
+                // Preserve previously saved mappings; use mapping defaults only as fallback
+                ...mappingBase.column_mappings.by_population,
+                ...(existing.column_mappings?.by_population || {}),
+              },
+            },
+            // Preserve user-selected chromosomes and pattern edits; honor mapping-selected file_type
+            genotype_config: {
+              ...mappingBase.genotype_config,
+              chrom: Array.isArray(existing.genotype_config?.chrom)
+                ? existing.genotype_config!.chrom
+                : mappingBase.genotype_config.chrom,
+              file_patterns: {
+                ...(mappingBase.genotype_config.file_patterns || {}),
+                ...(existing.genotype_config?.file_patterns || {}),
+              },
+            },
+            sumstats_file_type: mappingBase.sumstats_file_type,
+            covariate_config: mappingBase.covariate_config,
+            options: {
+              ...(existing.options || {}),
+              ...mappingBase.options,
+            },
+            output_dir: mappingBase.output_dir,
+          }
+        }
+
+        return mappingBase
+      }
+
       // SDPRX: build initial config from mapping
       if (isSdprx(key)) {
         const preProcessing = mappingConfig?.pre_processing
@@ -675,6 +945,7 @@ export function ToolConfiguration({
       phi: "1e-2",
       phenoColumn: "",
       nGwas: emptyMap,
+      genotypeBasename: "geno",
     }
 
     return {
@@ -699,6 +970,7 @@ export function ToolConfiguration({
         phi: modeState?.phi || "1e-2",
         phenoColumn: modeState?.phenoColumn || "",
         nGwas: {} as Record<string, string>,
+        genotypeBasename: modeState?.genotypeBasename || "geno",
       }
 
       populationNames.forEach((name) => {
@@ -873,6 +1145,77 @@ export function ToolConfiguration({
     }
   }
 
+  const buildDefaultXpassProcessingState = (
+    preProcessing: XpassPreProcessingConfig
+  ): XpassProcessingState => ({
+    compPRS: "T",
+    sd_method: "LD_block",
+    compPosMean: "T",
+    outputName: "xpass",
+    xpass_pop1:
+      preProcessing.populations.find((pop) => pop.type === "target")?.name ||
+      "",
+    output_dir: "results/prs_results/xpass",
+    log_dir: "results/log_files/xpass",
+  })
+
+  const buildDefaultXpassPlusProcessingState = (
+    preProcessing: XpassPreProcessingConfig
+  ): XpassProcessingState => ({
+    compPRS: "T",
+    sd_method: "LD_block",
+    compPosMean: "T",
+    outputName: "xpass_plus",
+    xpass_pop1:
+      preProcessing.populations.find((pop) => pop.type === "target")?.name ||
+      "",
+    output_dir: "results/prs_results/xpass+",
+    log_dir: "results/log_files/xpass+",
+    clump_params: {
+      pop1: { kb: 1000, r2: 0.1, p: 0.05 },
+      pop2: { kb: 1000, r2: 0.1, p: 0.05 },
+    },
+    use_pop1_snps: true,
+    use_pop2_snps: true,
+  })
+
+  const buildInitialXpassPlusProcessingConfig = (
+    toolId: string,
+    preProcessing?: XpassPreProcessingConfig
+  ): XpassProcessingState => {
+    const base = buildDefaultXpassPlusProcessingState(
+      (preProcessing as XpassPreProcessingConfig) || {
+        populations: [],
+        column_mappings: { by_population: {} },
+        genotype_config: {
+          file_type: "merged",
+          chrom: [],
+          file_patterns: { ...DEFAULT_XPASS_GENOTYPE_PATTERNS },
+        },
+        options: { ...DEFAULT_PROCESSING_OPTIONS },
+        output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
+      }
+    )
+    const fromStore = storedProcessingConfigs?.[toolId] as
+      | Partial<XpassProcessingState>
+      | undefined
+    if (!fromStore) return base
+
+    return {
+      compPRS: (fromStore.compPRS as "T" | "F") ?? base.compPRS,
+      sd_method: fromStore.sd_method ?? base.sd_method,
+      compPosMean: (fromStore.compPosMean as "T" | "F") ?? base.compPosMean,
+      outputName: fromStore.outputName ?? base.outputName,
+      xpass_pop1: fromStore.xpass_pop1 ?? base.xpass_pop1,
+      chrom: fromStore.chrom ?? base.chrom,
+      output_dir: fromStore.output_dir ?? base.output_dir,
+      log_dir: fromStore.log_dir ?? base.log_dir,
+      clump_params: fromStore.clump_params ?? base.clump_params,
+      use_pop1_snps: fromStore.use_pop1_snps ?? base.use_pop1_snps,
+      use_pop2_snps: fromStore.use_pop2_snps ?? base.use_pop2_snps,
+    }
+  }
+
   useEffect(() => {
     const signature = initializationSignature
 
@@ -890,6 +1233,7 @@ export function ToolConfiguration({
     const initialProcessing: Record<string, PrscsxProcessingState> = {}
     const initialBridgeProcessing: Record<string, BridgeprsProcessingState> = {}
     const initialSdprxProcessing: Record<string, SdprxProcessingState> = {}
+    const initialXpassPlusProcessing: Record<string, XpassProcessingState> = {}
 
     normalizedTools.forEach((toolId) => {
       if (isBridgeprs(toolId)) {
@@ -914,6 +1258,8 @@ export function ToolConfiguration({
         initialConfigs[toolId] = buildDefaultPrscsxConfig(toolId)
       } else if (isSdprx(toolId)) {
         initialConfigs[toolId] = buildDefaultSdprxConfig(toolId)
+      } else if (isXpass(toolId)) {
+        initialConfigs[toolId] = buildDefaultXpassConfig(toolId)
       }
 
       if (isPrscsx(toolId)) {
@@ -929,12 +1275,21 @@ export function ToolConfiguration({
           initialConfigs[toolId] as SdprxPreProcessingConfig
         )
       }
+
+      if (isXpassPlus(toolId)) {
+        initialXpassPlusProcessing[toolId] =
+          buildInitialXpassPlusProcessingConfig(
+            toolId,
+            initialConfigs[toolId] as XpassPreProcessingConfig
+          )
+      }
     })
 
     setConfigs(initialConfigs)
     setProcessingConfigs(initialProcessing)
     setBridgeprsProcessingConfigs(initialBridgeProcessing)
     setSdprxProcessingConfigs(initialSdprxProcessing)
+    setXpassPlusProcessingConfigs(initialXpassPlusProcessing)
     initializedSignatureRef.current = signature
 
     let detectedType: EvaluationType | null = null
@@ -983,6 +1338,7 @@ export function ToolConfiguration({
       ...processingConfigs,
       ...bridgeprsProcessingConfigs,
       ...sdprxProcessingConfigs,
+      ...xpassPlusProcessingConfigs,
     }
     if (Object.keys(merged).length === 0) return
     setStepData(processingStorageKey, merged)
@@ -990,6 +1346,7 @@ export function ToolConfiguration({
     processingConfigs,
     bridgeprsProcessingConfigs,
     sdprxProcessingConfigs,
+    xpassPlusProcessingConfigs,
     processingStorageKey,
     jobId,
     setStepData,
@@ -1114,6 +1471,29 @@ export function ToolConfiguration({
     options: { ...DEFAULT_PROCESSING_OPTIONS },
   })
 
+  const buildDefaultXpassConfig = (
+    toolId: string
+  ): XpassPreProcessingConfig => ({
+    populations: [],
+    column_mappings: { by_population: {} },
+    fixed_N1: "",
+    fixed_N2: "",
+    fixed_N3: "",
+    genotype_config: {
+      file_type: "merged",
+      chrom: [],
+      file_patterns: { ...DEFAULT_XPASS_GENOTYPE_PATTERNS },
+    },
+    sumstats_file_type: "merged",
+    covariate_config: {
+      target_population: "",
+      auxiliary_population: "",
+      validation_population: "",
+    },
+    options: { ...DEFAULT_PROCESSING_OPTIONS },
+    output_dir: `results/preprocessed_data/preprocessed_${toolId}_output`,
+  })
+
   const setConfigForTool = (
     toolId: string,
     nextConfig: ToolPreProcessingConfig
@@ -1184,6 +1564,28 @@ export function ToolConfiguration({
     })
   }
 
+  const setXpassPlusProcessingConfigForTool = (
+    toolId: string,
+    updater: (state: XpassProcessingState) => XpassProcessingState
+  ) => {
+    if (!isXpassPlus(toolId)) return
+
+    setXpassPlusProcessingConfigs((prev) => {
+      const current = prev[toolId]
+      const preProcessing = configs[toolId] as XpassPreProcessingConfig | undefined
+      const base = preProcessing
+        ? buildDefaultXpassPlusProcessingState(preProcessing)
+        : buildDefaultXpassPlusProcessingState(
+            buildDefaultXpassConfig(toolId)
+          )
+      const next = updater(current || base)
+      return {
+        ...prev,
+        [toolId]: next,
+      }
+    })
+  }
+
   // Build a debug snapshot mirroring the submit flow without sending
   const buildDebugSnapshot = (): {
     sanitized: Record<string, ToolPreProcessingConfig>
@@ -1193,6 +1595,7 @@ export function ToolConfiguration({
       | BridgeprsProcessingPayload
       | SdprxProcessingPayload
       | PrsiceProcessingPayload
+      | XpassProcessingPayload
     >
     requestBody: any
     validationErrors: string[]
@@ -1221,6 +1624,8 @@ export function ToolConfiguration({
           )
         } else if (isSdprx(toolId)) {
           acc[toolId] = sanitizeSdprxConfig(config as SdprxPreProcessingConfig)
+        } else if (isXpass(toolId)) {
+          acc[toolId] = sanitizeXpassConfig(config as XpassPreProcessingConfig)
         }
         return acc
       },
@@ -1287,6 +1692,31 @@ export function ToolConfiguration({
               acc[toolId] = payload
             }
           }
+        } else if (isXpass(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | XpassPreProcessingConfig
+            | undefined
+          if (preProcessing) {
+            if (isXpassPlus(toolId)) {
+              const plusState =
+                xpassPlusProcessingConfigs[toolId] ||
+                buildDefaultXpassPlusProcessingState(preProcessing)
+              acc[toolId] = buildXpassPlusProcessingPayload(
+                preProcessing,
+                plusState,
+                preProcessing.options.evaluation_type || evaluationType
+              )
+            } else {
+              const processingState = buildDefaultXpassProcessingState(
+                preProcessing
+              )
+              acc[toolId] = buildXpassProcessingPayload(
+                preProcessing,
+                processingState,
+                preProcessing.options.evaluation_type || evaluationType
+              )
+            }
+          }
         }
         return acc
       },
@@ -1295,6 +1725,7 @@ export function ToolConfiguration({
         | PrscsxProcessingPayload
         | BridgeprsProcessingPayload
         | SdprxProcessingPayload
+        | XpassProcessingPayload
       >
     )
 
@@ -1478,6 +1909,7 @@ export function ToolConfiguration({
             phi: "1e-2",
             phenoColumn: "case",
             nGwas: nMap,
+            genotypeBasename: "geno",
           },
           quantitative: {
             runPopulation: "TargetPop",
@@ -1485,6 +1917,7 @@ export function ToolConfiguration({
             phi: "1e-2",
             phenoColumn: "height",
             nGwas: nMap,
+            genotypeBasename: "geno",
           },
         }
       })
@@ -1575,6 +2008,7 @@ export function ToolConfiguration({
             phi: "",
             phenoColumn: "",
             nGwas: {},
+            genotypeBasename: "",
           },
           quantitative: {
             runPopulation: "",
@@ -1582,6 +2016,7 @@ export function ToolConfiguration({
             phi: "",
             phenoColumn: "",
             nGwas: {},
+            genotypeBasename: "",
           },
         }
       })
@@ -1927,6 +2362,70 @@ export function ToolConfiguration({
     []
   )
 
+  // XPASS+: processing validation helper (clump params)
+  const getXpassPlusProcessingErrors = React.useCallback(
+    (
+      preProcessing: XpassPreProcessingConfig,
+      processingState: XpassProcessingState | undefined,
+      _mode: EvaluationType
+    ): string[] => {
+      const errors: string[] = []
+      const label = TOOL_LABELS["xpass+"] || "XPASS+"
+
+      if (!processingState) {
+        errors.push(`${label}: Configure processing options`)
+        return errors
+      }
+
+      const params = processingState.clump_params
+      if (!params) {
+        errors.push(`${label}: Configure clump parameters for Pop1 and Pop2`)
+        return errors
+      }
+
+      const checkPop = (
+        popLabel: "Pop1" | "Pop2",
+        kb?: number,
+        r2?: number,
+        p?: number
+      ) => {
+        if (kb == null || Number.isNaN(Number(kb))) {
+          errors.push(`${label}: ${popLabel} kb must be numeric`)
+        } else if (!Number.isInteger(Number(kb)) || Number(kb) <= 0) {
+          errors.push(`${label}: ${popLabel} kb must be a positive integer`)
+        }
+
+        if (r2 == null || Number.isNaN(Number(r2))) {
+          errors.push(`${label}: ${popLabel} r2 must be numeric`)
+        } else if (Number(r2) <= 0 || Number(r2) > 1) {
+          errors.push(`${label}: ${popLabel} r2 must be between 0 and 1`)
+        }
+
+        if (p == null || Number.isNaN(Number(p))) {
+          errors.push(`${label}: ${popLabel} p must be numeric`)
+        } else if (Number(p) <= 0 || Number(p) > 1) {
+          errors.push(`${label}: ${popLabel} p must be between 0 and 1`)
+        }
+      }
+
+      checkPop(
+        "Pop1",
+        params.pop1?.kb,
+        params.pop1?.r2,
+        params.pop1?.p
+      )
+      checkPop(
+        "Pop2",
+        params.pop2?.kb,
+        params.pop2?.r2,
+        params.pop2?.p
+      )
+
+      return errors
+    },
+    []
+  )
+
   useEffect(() => {
     setConfigs((prev) => {
       if (Object.keys(prev).length === 0) {
@@ -2119,6 +2618,32 @@ export function ToolConfiguration({
           return [toolId, nextConfig] as const
         }
 
+        if (isXpass(toolId)) {
+          const xpassConfig = cfg as XpassPreProcessingConfig
+          const options = xpassConfig.options || DEFAULT_PROCESSING_OPTIONS
+          const optionsNeedUpdate =
+            options.evaluation_type !== evaluationType ||
+            options.process_binary_phenotypes !== allowBinary ||
+            options.process_quantitative_phenotypes !== allowQuant
+
+          if (!optionsNeedUpdate) {
+            return [toolId, cfg] as const
+          }
+
+          changed = true
+          const nextConfig: XpassPreProcessingConfig = {
+            ...xpassConfig,
+            options: {
+              ...options,
+              evaluation_type: evaluationType,
+              process_binary_phenotypes: allowBinary,
+              process_quantitative_phenotypes: allowQuant,
+            },
+          }
+
+          return [toolId, nextConfig] as const
+        }
+
         return [toolId, cfg] as const
       })
 
@@ -2129,6 +2654,57 @@ export function ToolConfiguration({
   const isToolComplete = (toolId: string) => {
     const config = configs[toolId]
     if (!config) return false
+
+    if (isXpass(toolId)) {
+      const xpassConfig = config as XpassPreProcessingConfig
+      const populations = xpassConfig.populations || []
+      if (populations.length === 0) return false
+
+      const target =
+        populations.find((population) => population.type === "target") ||
+        populations[0]
+      const auxiliary = populations.find(
+        (population) => population.type === "auxiliary"
+      )
+
+      const hasRequiredPopulations = Boolean(
+        target?.sumstats_path &&
+          target?.genotype_path &&
+          auxiliary?.sumstats_path &&
+          auxiliary?.genotype_path
+      )
+
+      if (!hasRequiredPopulations) return false
+
+      const columnsComplete = populations.every((population) =>
+        XPASS_REQUIRED_COLUMNS.every((column) =>
+          Boolean(
+            xpassConfig.column_mappings?.by_population?.[population.name]?.[
+              column
+            ]
+          )
+        )
+      )
+      if (!columnsComplete) return false
+
+      const patterns = xpassConfig.genotype_config?.file_patterns || {}
+      const patternsComplete = [patterns.bed, patterns.bim, patterns.fam].every(
+        (value) => Boolean(value && value.trim())
+      )
+      if (!patternsComplete) return false
+
+      // XPASS+ requires valid clump parameters in processing state
+      if (isXpassPlus(toolId)) {
+        const plusErrors = getXpassPlusProcessingErrors(
+          xpassConfig,
+          xpassPlusProcessingConfigs[toolId] as XpassProcessingState | undefined,
+          xpassConfig.options?.evaluation_type || evaluationType
+        )
+        if (plusErrors.length > 0) return false
+      }
+
+      return Boolean(xpassConfig.output_dir?.trim())
+    }
 
     if (isPrsice(toolId)) {
       const prsiceConfig = config as PrsicePreProcessingConfig
@@ -2492,6 +3068,115 @@ export function ToolConfiguration({
       return { isValid: errors.length === 0, errors }
     }
 
+    if (isXpass(toolId)) {
+      const label = TOOL_LABELS[toolId.toLowerCase()] || "XPASS"
+      const xpassConfig = config as XpassPreProcessingConfig
+      const populations = xpassConfig.populations || []
+
+      if (populations.length === 0) {
+        errors.push(`${label}: Configure at least one population`)
+        return { isValid: false, errors }
+      }
+
+      const target =
+        populations.find((population) => population.type === "target") ||
+        populations[0]
+      const auxiliary = populations.find(
+        (population) => population.type === "auxiliary"
+      )
+      const validation = populations.find(
+        (population) => population.type === "validation"
+      )
+
+      if (!target) {
+        errors.push(`${label}: Identify a target population`)
+      } else {
+        if (!target.sumstats_path) {
+          errors.push(
+            `${label}: Missing sumstats path for target population ${target.name || "(unnamed)"}`
+          )
+        }
+        if (!target.genotype_path) {
+          errors.push(
+            `${label}: Missing genotype path for target population ${target.name || "(unnamed)"}`
+          )
+        }
+      }
+
+      if (!auxiliary) {
+        errors.push(`${label}: Add an auxiliary population (type "auxiliary")`)
+      } else {
+        if (!auxiliary.sumstats_path) {
+          errors.push(
+            `${label}: Missing sumstats path for auxiliary population ${auxiliary.name || "(unnamed)"}`
+          )
+        }
+        if (!auxiliary.genotype_path) {
+          errors.push(
+            `${label}: Missing genotype path for auxiliary population ${auxiliary.name || "(unnamed)"}`
+          )
+        }
+      }
+
+      if (validation) {
+        if (!validation.genotype_path) {
+          errors.push(
+            `${label}: Provide genotype path for validation population ${validation.name || "(unnamed)"}`
+          )
+        }
+      }
+
+      populations.forEach((population) => {
+        if (!population.sumstats_path) {
+          errors.push(
+            `${label}: Missing sumstats path for population ${population.name || "(unnamed)"}`
+          )
+        }
+      })
+
+      const byPopulation = xpassConfig.column_mappings?.by_population || {}
+      populations.forEach((population) => {
+        const mappings = byPopulation[population.name] || {}
+        const missingColumns = XPASS_REQUIRED_COLUMNS.filter(
+          (column) => !mappings[column]
+        )
+        if (missingColumns.length > 0) {
+          errors.push(
+            `${label}: Missing column mappings (${missingColumns.join(", ")}) for ${population.name || "population"}`
+          )
+        }
+      })
+
+      const patterns = xpassConfig.genotype_config?.file_patterns || {}
+      if (
+        !patterns.bed?.trim() ||
+        !patterns.bim?.trim() ||
+        !patterns.fam?.trim()
+      ) {
+        errors.push(`${label}: Provide genotype file patterns for BED/BIM/FAM`)
+      }
+
+      if (!xpassConfig.output_dir?.trim()) {
+        errors.push(`${label}: Specify an output directory`)
+      }
+
+    if (!xpassConfig.sumstats_file_type) {
+      errors.push(`${label}: Choose a sumstats file type`)
+    }
+
+    // XPASS+ specific processing validation: clump params
+    if (isXpassPlus(toolId)) {
+      const plusErrors = getXpassPlusProcessingErrors(
+        xpassConfig,
+        xpassPlusProcessingConfigs[toolId] ?? undefined,
+        xpassConfig.options?.evaluation_type || evaluationType
+      )
+      errors.push(...plusErrors)
+    }
+
+    return { isValid: errors.length === 0, errors }
+  }
+
     if (isPrsice(toolId)) {
       const prsiceConfig = config as PrsicePreProcessingConfig
       const targetName = prsiceConfig.target_population.name || "Population 1"
@@ -2843,6 +3528,8 @@ export function ToolConfiguration({
           )
         } else if (isSdprx(toolId)) {
           acc[toolId] = sanitizeSdprxConfig(config as SdprxPreProcessingConfig)
+        } else if (isXpass(toolId)) {
+          acc[toolId] = sanitizeXpassConfig(config as XpassPreProcessingConfig)
         }
         return acc
       },
@@ -2911,6 +3598,30 @@ export function ToolConfiguration({
               acc[toolId] = payload
             }
           }
+        } else if (isXpass(toolId)) {
+          const preProcessing = sanitized[toolId] as
+            | XpassPreProcessingConfig
+            | undefined
+          if (preProcessing) {
+            if (isXpassPlus(toolId)) {
+              const plusState =
+                xpassPlusProcessingConfigs[toolId] ||
+                buildDefaultXpassPlusProcessingState(preProcessing)
+              acc[toolId] = buildXpassPlusProcessingPayload(
+                preProcessing,
+                plusState,
+                evaluationType
+              )
+            } else {
+              const processingState =
+                buildDefaultXpassProcessingState(preProcessing)
+              acc[toolId] = buildXpassProcessingPayload(
+                preProcessing,
+                processingState,
+                evaluationType
+              )
+            }
+          }
         }
 
         return acc
@@ -2920,6 +3631,7 @@ export function ToolConfiguration({
         | PrscsxProcessingPayload
         | BridgeprsProcessingPayload
         | SdprxProcessingPayload
+        | XpassProcessingPayload
       >
     )
 
@@ -2963,8 +3675,29 @@ export function ToolConfiguration({
         jobId,
         timestamp: new Date().toISOString(),
       })
-    } catch (error) {
-      console.error("Failed to submit configuration", error)
+    } catch (error: any) {
+      // Log detailed Axios error information for easier debugging
+      if (axios && typeof axios.isAxiosError === "function" && axios.isAxiosError(error)) {
+        const status = error?.response?.status
+        const statusText = error?.response?.statusText
+        const data = error?.response?.data
+        const url = error?.config?.url || (jobId ? getBenchmarkConfigUrl(jobId) : undefined)
+        const method = error?.config?.method
+        const headers = error?.response?.headers
+        const networkError = !error?.response && !!error?.request
+        console.error("[ToolConfiguration] Submit error", {
+          message: error?.message,
+          status,
+          statusText,
+          url,
+          method,
+          networkError,
+          responseData: data,
+          responseHeaders: headers,
+        })
+      } else {
+        console.error("[ToolConfiguration] Submit error (non-Axios)", error)
+      }
       toast.error("Failed to submit configuration. Please try again.")
     }
   }
@@ -3083,6 +3816,43 @@ export function ToolConfiguration({
           onProcessingChange={(updater) =>
             setProcessingConfigForTool(toolId, updater)
           }
+        />
+      )
+    }
+
+    if (isXpassPlus(toolId)) {
+      const processingState =
+        xpassPlusProcessingConfigs[toolId] ??
+        buildDefaultXpassPlusProcessingState(
+          config as XpassPreProcessingConfig
+        )
+      return (
+        <XpassPlusToolConfiguration
+          key={toolId}
+          toolId={toolId}
+          config={config as XpassPreProcessingConfig}
+          jobId={jobId}
+          onConfigChange={(nextConfig) => setConfigForTool(toolId, nextConfig)}
+          stepBadge={stepBadge}
+          evaluationType={evaluationType}
+          processingConfig={processingState}
+          onProcessingChange={(updater) =>
+            setXpassPlusProcessingConfigForTool(toolId, updater)
+          }
+        />
+      )
+    }
+
+    if (isXpass(toolId)) {
+      return (
+        <XpassToolConfiguration
+          key={toolId}
+          toolId={toolId}
+          config={config as XpassPreProcessingConfig}
+          jobId={jobId}
+          onConfigChange={(nextConfig) => setConfigForTool(toolId, nextConfig)}
+          stepBadge={stepBadge}
+          evaluationType={evaluationType}
         />
       )
     }

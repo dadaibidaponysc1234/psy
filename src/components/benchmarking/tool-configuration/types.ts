@@ -97,6 +97,7 @@ export interface PrscsxProcessingModeState {
   phi: string
   phenoColumn: string
   nGwas: Record<string, string>
+  genotypeBasename: string
 }
 
 export interface PrscsxProcessingState {
@@ -395,6 +396,13 @@ export interface XpassProcessingState {
   chrom?: number // single chromosome for per-chrom runs
   output_dir?: string
   log_dir?: string
+  // XPASS+ specific processing controls
+  clump_params?: {
+    pop1: { kb: number; r2: number; p: number }
+    pop2: { kb: number; r2: number; p: number }
+  }
+  use_pop1_snps?: boolean
+  use_pop2_snps?: boolean
 }
 
 export interface XpassProcessingPayload {
@@ -410,4 +418,11 @@ export interface XpassProcessingPayload {
   xpass_pop1: string
   output_dir: string
   log_dir: string
+  // XPASS+ specific options (optional for classic XPASS)
+  clump_params?: {
+    pop1: { kb: number; r2: number; p: number }
+    pop2: { kb: number; r2: number; p: number }
+  }
+  use_pop1_snps?: boolean
+  use_pop2_snps?: boolean
 }

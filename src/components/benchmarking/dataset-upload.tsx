@@ -234,11 +234,27 @@ export function DatasetUpload({
       console.log("🆔 Job ID:", jobId)
 
       const formData = new FormData()
+      // Append only valid Blob/File entries; warn and skip invalid ones
+      let skippedInvalid = 0
       uploadedFiles.forEach((fileInfo) => {
-        if (fileInfo.file) {
-          formData.append("files", fileInfo.file, fileInfo.name)
+        const f: any = fileInfo.file
+        if (f instanceof Blob) {
+          formData.append("files", f, fileInfo.name)
+        } else if (f) {
+          skippedInvalid++
+          console.warn("[Upload] Skipping non-Blob entry", {
+            name: fileInfo.name,
+            type: typeof f,
+            value: f,
+          })
         }
       })
+      if (skippedInvalid > 0) {
+        toast.error(
+          `Skipped ${skippedInvalid} invalid file(s): not Blob/File. Please re-add from disk.`,
+          { duration: 5000 }
+        )
+      }
 
       const uploadUrl = getBenchmarkUploadUrl(jobId)
       console.log("📤 Request details:")

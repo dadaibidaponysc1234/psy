@@ -57,6 +57,7 @@ import { PrsicePopulationConfiguration } from "./mapping/tools/prsice-population
 import { PrscsxPopulationConfiguration } from "./mapping/tools/prscsx-population-configuration"
 import { BridgeprsPopulationConfiguration } from "./mapping/tools/bridgeprs-population-configuration"
 import { SdprxPopulationConfiguration } from "./mapping/tools/sdprx-population-configuration"
+import { XpassPopulationConfiguration } from "./mapping/tools/xpass-population-configuration"
 
 interface DirectoryItem {
   name: string
@@ -170,6 +171,13 @@ const toolDisplayNames: Record<string, string> = {
   prscsx: "PRScsx",
   bridgeprs: "BridgePRS",
   sdprx: "SDPRX",
+  xpass: "XPASS",
+  "xpass+": "XPASS+",
+}
+
+const isXpassFamily = (toolId: string) => {
+  const k = toolId.toLowerCase()
+  return k === "xpass" || k === "xpass+"
 }
 
 // Get mapping fields based on the config structure
@@ -412,6 +420,70 @@ const getToolMappingFields = (
     })
 
     return mappingFields
+  }
+
+  if (isXpassFamily(toolKey)) {
+    // XPASS uses pop1 (target), pop2 (auxiliary), pop3 (validation)
+    const fields: MappingField[] = [
+      {
+        id: "pop1.sumstats_path",
+        label: "Target Population - Summary Statistics",
+        description: "Summary statistics file for target population",
+        acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
+        required: true,
+        population: "target",
+        fieldType: "sumstats_path",
+      },
+      {
+        id: "pop1.genotype_path",
+        label: "Target Population - Genotype Directory",
+        description:
+          "Directory containing PLINK format genotype files (.bed, .bim, .fam) for target population",
+        acceptedTypes: ["Directory"],
+        required: true,
+        population: "target",
+        fieldType: "genotype_directory",
+      },
+      {
+        id: "pop2.sumstats_path",
+        label: "Auxiliary Population - Summary Statistics",
+        description: "Summary statistics file for auxiliary population",
+        acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
+        required: true,
+        population: "source",
+        fieldType: "sumstats_path",
+      },
+      {
+        id: "pop2.genotype_path",
+        label: "Auxiliary Population - Genotype Directory",
+        description:
+          "Directory containing PLINK format genotype files (.bed, .bim, .fam) for auxiliary population",
+        acceptedTypes: ["Directory"],
+        required: true,
+        population: "source",
+        fieldType: "genotype_directory",
+      },
+      {
+        id: "pop3.sumstats_path",
+        label: "Validation Population - Summary Statistics",
+        description: "Summary statistics file for validation population",
+        acceptedTypes: [".txt", ".csv", ".sumstats", ".tsv", ".gz"],
+        required: true,
+        population: "source",
+        fieldType: "sumstats_path",
+      },
+      {
+        id: "pop3.genotype_path",
+        label: "Validation Population - Genotype Directory",
+        description:
+          "Directory containing PLINK format genotype files (.bed, .bim, .fam) for validation population",
+        acceptedTypes: ["Directory"],
+        required: true,
+        population: "source",
+        fieldType: "genotype_directory",
+      },
+    ]
+    return fields
   }
 
   return baseFields
@@ -942,6 +1014,21 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       return false
     }
 
+    if (isXpassFamily(toolKey)) {
+      if (!populations.targetPopulation || !populations.sourcePopulation) {
+        return false
+      }
+      if (!savedPopulations[toolKey]) {
+        return false
+      }
+      const validationName = ((getMappingsForTool(toolId)[
+        "validation_population.name"
+      ] as string) || "").trim()
+      if (!validationName) {
+        return false
+      }
+    }
+
     if (toolKey === "prscsx") {
       if (!prscsxConfig) {
         return false
@@ -958,6 +1045,21 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       if (prscsxConfig.bases.some((base) => !base.name.trim())) {
         return false
       }
+    }
+
+    if (isXpassFamily(toolKey)) {
+      const tSumstats = getMappingPath(toolId, "pop1.sumstats_path")
+      const tGenotype = getMappingPath(toolId, "pop1.genotype_path")
+      const aSumstats = getMappingPath(toolId, "pop2.sumstats_path")
+      const aGenotype = getMappingPath(toolId, "pop2.genotype_path")
+      const vSumstats = getMappingPath(toolId, "pop3.sumstats_path")
+      const vGenotype = getMappingPath(toolId, "pop3.genotype_path")
+
+      const manualPathsOk = Boolean(
+        tSumstats && tGenotype && aSumstats && aGenotype && vSumstats && vGenotype
+      )
+      const missing = getMissingMappingsForTool(toolId)
+      return manualPathsOk && missing.length === 0
     }
 
     const missing = getMissingMappingsForTool(toolId)
@@ -987,6 +1089,19 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       if (prscsxConfig.bases.length === 0) return false
       if (prscsxConfig.bases.some((base) => !base.name.trim())) return false
       return true
+    }
+
+    if (isXpassFamily(toolKey)) {
+      const populations = getPopulationForTool(toolId)
+      const validationName = (getMappingsForTool(toolId)[
+        "validation_population.name"
+      ] as string) || ""
+      return Boolean(
+        savedPopulations[toolKey] &&
+          populations.targetPopulation &&
+          populations.sourcePopulation &&
+          validationName.trim()
+      )
     }
 
     return false
@@ -1089,6 +1204,63 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
               genotype_config: { file_type: fileType },
             sumstats_file_type: sumstatsType,
             options: {},
+            },
+          }
+
+          return
+        }
+
+        if (isXpassFamily(toolKey)) {
+          const mappingPath = (fieldId: string) => getMappingPath(tool, fieldId)
+          const validationName = ((toolMapping["validation_population.name"] as string) || "").trim()
+
+          const populationsPayload: Array<Record<string, string>> = []
+
+          if (populations.targetPopulation?.trim()) {
+            populationsPayload.push({
+              name: populations.targetPopulation.trim(),
+              type: "target",
+              sumstats_path: mappingPath("pop1.sumstats_path"),
+              genotype_path: mappingPath("pop1.genotype_path"),
+            })
+          }
+
+          if (populations.sourcePopulation?.trim()) {
+            populationsPayload.push({
+              name: populations.sourcePopulation.trim(),
+              type: "auxiliary",
+              sumstats_path: mappingPath("pop2.sumstats_path"),
+              genotype_path: mappingPath("pop2.genotype_path"),
+            })
+          }
+
+          if (validationName) {
+            populationsPayload.push({
+              name: validationName,
+              type: "validation",
+              sumstats_path: mappingPath("pop3.sumstats_path"),
+              genotype_path: mappingPath("pop3.genotype_path"),
+            })
+          }
+
+          const columnMappingsByPopulation: Record<string, Record<string, string>> = {}
+          populationsPayload.forEach((p) => {
+            if (p.name) columnMappingsByPopulation[p.name] = {}
+          })
+
+          configData[tool] = {
+            pre_processing: {
+              populations: populationsPayload,
+              column_mappings: { by_population: columnMappingsByPopulation },
+              genotype_config: { file_type: fileType },
+              sumstats_file_type: sumstatsType,
+              covariate_config: {
+                target_population: populations.targetPopulation || "",
+                auxiliary_population: populations.sourcePopulation || "",
+                validation_population: validationName || "",
+              },
+              options: {},
+              output_dir: "results/preprocessed_data/preprocessed_xpass_output",
             },
           }
 
@@ -1500,6 +1672,54 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           isCompleted={isSaved}
         />
       ),
+      xpass: () => {
+        const validationName =
+          ((getMappingsForTool(storeToolId)[
+            "validation_population.name"
+          ] as string) || "")
+
+        return (
+          <XpassPopulationConfiguration
+            toolId={tool}
+            populations={populations}
+            validationName={validationName}
+            isOpen={isOpen}
+            onOpenChange={handleOpenChange}
+            onPopulationChange={(field, value) =>
+              updatePopulationValue(tool, field, value)
+            }
+            onValidationChange={(value) =>
+              setToolFieldValue(storeToolId, "validation_population.name", value)
+            }
+            onSave={() => handlePopulationFormSubmit(tool)}
+            isCompleted={isSaved}
+          />
+        )
+      },
+      "xpass+": () => {
+        const validationName =
+          ((getMappingsForTool(storeToolId)[
+            "validation_population.name"
+          ] as string) || "")
+
+        return (
+          <XpassPopulationConfiguration
+            toolId={tool}
+            populations={populations}
+            validationName={validationName}
+            isOpen={isOpen}
+            onOpenChange={handleOpenChange}
+            onPopulationChange={(field, value) =>
+              updatePopulationValue(tool, field, value)
+            }
+            onValidationChange={(value) =>
+              setToolFieldValue(storeToolId, "validation_population.name", value)
+            }
+            onSave={() => handlePopulationFormSubmit(tool)}
+            isCompleted={isSaved}
+          />
+        )
+      },
       prscsx: () => {
         const mappingPath = (fieldId: string) =>
           getMappingPath("prscsx", fieldId)
@@ -1614,6 +1834,27 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       const canMapSelectedDirectory = isDirectoryCompatible
       const canMapSelection = canMapSelectedFile || canMapSelectedDirectory
 
+      // Build display label with population names inline for XPASS
+      const toolKey = tool.toLowerCase()
+      let displayLabel = field.label
+      if (isXpassFamily(toolKey)) {
+        const populations = getPopulationForTool(tool)
+        const validationName = ((getMappingsForTool(tool)[
+          "validation_population.name"
+        ] as string) || "").trim()
+        let nameForField = ""
+        if (field.id.startsWith("pop1.")) {
+          nameForField = populations.targetPopulation || ""
+        } else if (field.id.startsWith("pop2.")) {
+          nameForField = populations.sourcePopulation || ""
+        } else if (field.id.startsWith("pop3.")) {
+          nameForField = validationName || ""
+        }
+        if (nameForField) {
+          displayLabel = `${field.label} (${nameForField})`
+        }
+      }
+
       return (
         <Card
           key={`${tool}-${field.id}`}
@@ -1628,7 +1869,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
               <CardTitle className="text-base font-semibold">
-                {field.label}
+                {displayLabel}
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
                 {field.description}
@@ -2033,6 +2274,19 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     if (!populations.targetPopulation || !populations.sourcePopulation) {
       toast.error("Please provide both target and source population names")
       return
+    }
+
+    if (isXpassFamily(storeToolId)) {
+      const validationName = ((getMappingsForTool(storeToolId)[
+        "validation_population.name"
+      ] as string) || "").trim()
+      if (!validationName) {
+        const label = toolDisplayNames[storeToolId.toLowerCase()] || "XPASS"
+        toast.error(
+          `Please provide a validation population name for ${label}`
+        )
+        return
+      }
     }
 
     const toolKey = storeToolId.toLowerCase()

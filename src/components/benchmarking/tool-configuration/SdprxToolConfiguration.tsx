@@ -389,7 +389,7 @@ export function SdprxToolConfiguration({
                 </span>
               </span>
             </label>
-            {isMerged && (
+            {isMerged ? (
               <div className="space-y-2">
                 <Label htmlFor={`${toolId}-${mode}-chrom`}>Chromosome</Label>
                 <Input
@@ -403,6 +403,25 @@ export function SdprxToolConfiguration({
                     }))
                   }
                 />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor={`${toolId}-${mode}-chrom`}>Chromosome</Label>
+                <Input
+                  id={`${toolId}-${mode}-chrom`}
+                  value={
+                    Array.isArray(config?.genotype_config?.chrom)
+                      ? ((config?.genotype_config?.chrom as number[]) || []).join(",")
+                      : ""
+                  }
+                  readOnly
+                  disabled
+                  className="cursor-not-allowed bg-muted text-muted-foreground"
+                  placeholder="Chromosomes controlled via Genotype Configuration"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Controlled via Genotype Configuration; updates in real time.
+                </p>
               </div>
             )}
             {isMerged && (

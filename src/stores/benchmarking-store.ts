@@ -195,8 +195,8 @@ export interface BenchmarkingState {
 const initialState = {
   jobId: null,
   jobStatus: null,
-  activeStep: "tools",
-  completedSteps: [],
+  activeStep: "home",
+  completedSteps: ["home"],
   stepData: {},
   uploadedFiles: [],
   uploadedFileIds: [],
