@@ -405,7 +405,7 @@ export interface XpassProcessingState {
   use_pop2_snps?: boolean
 }
 
-export interface XpassProcessingPayload {
+export interface XpassProcessingModePayload {
   target_data: string
   auxillary_data: string
   ref_pop1: string
@@ -425,4 +425,9 @@ export interface XpassProcessingPayload {
   }
   use_pop1_snps?: boolean
   use_pop2_snps?: boolean
+}
+
+export interface XpassProcessingPayload {
+  binary?: XpassProcessingModePayload
+  quantitative?: XpassProcessingModePayload
 }

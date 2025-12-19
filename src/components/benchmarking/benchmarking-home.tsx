@@ -5,8 +5,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 
 export const BenchmarkingHome: React.FC = () => {
+  const { setActiveStep } = useBenchmarkingStore()
+
+  const handleStartBenchmarking = () => {
+    setActiveStep("tools")
+  }
+
   return (
     <div className="mx-auto mb-10 max-w-6xl">
       <Tabs defaultValue="home" className="space-y-6">
@@ -35,8 +42,8 @@ export const BenchmarkingHome: React.FC = () => {
                   Streamline dataset mapping, tool configuration, and evaluation in one place. Visual summaries and results help you interpret performance quickly.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Button asChild>
-                    <a href="#workflow">Start Benchmarking</a>
+                  <Button onClick={handleStartBenchmarking}>
+                    Start Benchmarking
                   </Button>
                   <Button variant="outline" asChild>
                     <a href="#about">Learn more</a>

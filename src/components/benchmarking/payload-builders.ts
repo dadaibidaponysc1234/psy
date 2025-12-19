@@ -562,13 +562,17 @@ export const buildPrscsxProcessingPayload = (
     const phenoFile = `${baseOutputDir}/phenotypes/pheno_${evaluationLabel}_${scoringPlaceholder}.txt`
     const plinkOutputPrefix =
       key === "binary"
-        ? `results/prs_results_binary/prscsx/${basePlaceholder}_test_${targetPlaceholder}_result`
+        ? `results/prs_results_binary/prscsx_plink/${basePlaceholder}_test_${targetPlaceholder}_result`
         : `results/prs_results/prscsx_plink/${scoringPlaceholder}_test_${scoringPlaceholder}_result`
     const outName = `${basePlaceholder}_${targetPlaceholder}`
     const logDir =
       key === "binary"
         ? "results/log_files_binary/prscsx_log"
         : "results/log_files/prscsx_log"
+    const output_dir =
+      key === "binary"
+        ? "results/prs_results_binary/prscsx"
+        : "results/prs_results/prscsx"
 
     const payload = {
       ldref_folder: "ld_ref",
@@ -579,7 +583,7 @@ export const buildPrscsxProcessingPayload = (
       chrom: chromValue,
       phi: phiValue,
       out_name: outName,
-      output_dir: "results/prs_results/prscsx",
+      output_dir: output_dir,
       plink_genotype_prefix: genotypePrefix,
       score_choice: "base",
       pheno: phenoFile,
@@ -945,7 +949,7 @@ export const buildPrsiceProcessingPayload = (
 export const buildXpassProcessingPayload = (
   preProcessing: XpassPreProcessingConfig,
   processingState?: XpassProcessingState,
-  _mode?: EvaluationType
+  mode?: EvaluationType
 ): XpassProcessingPayload => {
   const normalize = (value?: string) => (value || "").replace(/\\/g, "/").trim()
 
@@ -984,28 +988,103 @@ export const buildXpassProcessingPayload = (
   const compPosMean = processingState?.compPosMean ?? "T"
   const sdMethod = normalize(processingState?.sd_method) || "LD_block"
   const outputName = normalize(processingState?.outputName) || "xpass"
-  const outputDir =
-    normalize(processingState?.output_dir) || "results/prs_results/xpass"
-  const logDir =
-    normalize(processingState?.log_dir) || "results/log_files/xpass"
   const xpassPop1 = normalize(processingState?.xpass_pop1) || target?.name || ""
+
+  // Build base payload (shared between binary and quantitative)
+  // Note: clump_params and use_pop_snps are XPASS+ only features (added in buildXpassPlusProcessingPayload)
+  const buildModePayload = (isBinary: boolean) => {
+    const outputDir = isBinary
+      ? "results/prs_results_binary/xpass"
+      : normalize(processingState?.output_dir) || "results/prs_results/xpass"
+    const logDir = isBinary
+      ? "results/log_files_binary/xpass"
+      : normalize(processingState?.log_dir) || "results/log_files/xpass"
+
+    return {
+      target_data: targetData,
+      auxillary_data: auxiliaryData,
+      ref_pop1: refPop1Path,
+      ref_pop2: refPop2Path,
+      test_data: testDataPath,
+      compPRS,
+      sd_method: sdMethod,
+      compPosMean,
+      outputName,
+      xpass_pop1: xpassPop1,
+      output_dir: outputDir,
+      log_dir: logDir,
+    }
+  }
+
+  const result: XpassProcessingPayload = {}
+  const evalMode = mode || "both"
+
+  if (evalMode === "quantitative" || evalMode === "both") {
+    result.quantitative = buildModePayload(false) as any
+  }
+  if (evalMode === "binary" || evalMode === "both") {
+    result.binary = buildModePayload(true) as any
+  }
+
+  return result
+}
+
+// XPASS+ processing payload builder: mirrors XPASS but with distinct defaults
+// XPASS+ includes clump_params and use_pop_snps options that XPASS doesn't have
+export const buildXpassPlusProcessingPayload = (
+  preProcessing: XpassPreProcessingConfig,
+  processingState?: XpassProcessingState,
+  mode?: EvaluationType
+): XpassProcessingPayload => {
+  // Reuse XPASS builder with XPASS+ flavored defaults
+  // Note: output_dir and log_dir in mergedState are for quantitative mode
+  // The buildXpassProcessingPayload will handle binary dirs automatically
+  const mergedState: XpassProcessingState = {
+    // compPRS is always true for XPASS+
+    compPRS: "T",
+    // sd_method and output naming/dirs are fixed for XPASS+
+    sd_method: "LD_block",
+    compPosMean: processingState?.compPosMean ?? "T",
+    outputName: "xpass_plus",
+    chrom: processingState?.chrom,
+    output_dir: "results/prs_results/xpass+", // quantitative default
+    log_dir: "results/log_files/xpass+", // quantitative default
+    // XPASS+ specific options (these are NOT passed to base XPASS builder)
+    clump_params: processingState?.clump_params,
+    use_pop1_snps: processingState?.use_pop1_snps,
+    use_pop2_snps: processingState?.use_pop2_snps,
+  }
+
+  // Get target population for ref_pop1
+  const target = preProcessing.populations.find((p) => p.type === "target")
+  const normalize = (value?: string) => (value || "").replace(/\\/g, "/").trim()
+  const preOutDir =
+    normalize(preProcessing.output_dir) ||
+    "results/preprocessed_data/preprocessed_xpass_output"
+  const genotypeType = preProcessing.genotype_config?.file_type || "merged"
+  const genotypePathFor = (populationName: string) =>
+    genotypeType === "multi_chromosome"
+      ? `${preOutDir}/genotypes/${populationName}/`
+      : `${preOutDir}/genotypes/${populationName}/geno`
+  const refPop1Path = target ? genotypePathFor(target.name) : ""
+
+  // Build the result with XPASS+ specific paths
+  const result: XpassProcessingPayload = {}
+  const evalMode = mode || "both"
+
+  // Delegate to XPASS builder for base payload generation
+  const basePayload = buildXpassProcessingPayload(
+    preProcessing,
+    mergedState,
+    mode
+  )
+
+  // XPASS+ specific additions: clump_params and use_pop_snps
   const clumpParams = processingState?.clump_params
   const usePop1Snps = processingState?.use_pop1_snps
   const usePop2Snps = processingState?.use_pop2_snps
 
-  return {
-    target_data: targetData,
-    auxillary_data: auxiliaryData,
-    ref_pop1: refPop1Path,
-    ref_pop2: refPop2Path,
-    test_data: testDataPath,
-    compPRS,
-    sd_method: sdMethod,
-    compPosMean,
-    outputName,
-    xpass_pop1: xpassPop1,
-    output_dir: outputDir,
-    log_dir: logDir,
+  const xpassPlusExtras = {
     ...(clumpParams
       ? {
           clump_params: {
@@ -1025,34 +1104,34 @@ export const buildXpassProcessingPayload = (
     ...(usePop1Snps != null ? { use_pop1_snps: Boolean(usePop1Snps) } : {}),
     ...(usePop2Snps != null ? { use_pop2_snps: Boolean(usePop2Snps) } : {}),
   }
-}
 
-// XPASS+ processing payload builder: mirrors XPASS but with distinct defaults
-export const buildXpassPlusProcessingPayload = (
-  preProcessing: XpassPreProcessingConfig,
-  processingState?: XpassProcessingState,
-  _mode?: EvaluationType
-): XpassProcessingPayload => {
-  // Reuse XPASS builder with XPASS+ flavored defaults
-  const mergedState: XpassProcessingState = {
-    // compPRS is always true for XPASS+
-    compPRS: "T",
-    // sd_method and output naming/dirs are fixed for XPASS+
-    sd_method: "LD_block",
-    compPosMean: processingState?.compPosMean ?? "T",
-    outputName: "xpass_plus",
-    chrom: processingState?.chrom,
-    output_dir: "results/prs_results/xpass+",
-    log_dir: "results/log_files/xpass+",
-    // editable fields remain driven by state
-    clump_params: processingState?.clump_params,
-    use_pop1_snps: processingState?.use_pop1_snps,
-    use_pop2_snps: processingState?.use_pop2_snps,
+  // Apply XPASS+ specific modifications
+  if (evalMode === "quantitative" || evalMode === "both") {
+    if (basePayload.quantitative) {
+      result.quantitative = {
+        ...basePayload.quantitative,
+        test_data: refPop1Path, // XPASS+ uses ref_pop1 for test_data
+        outputName: "xpass_plus",
+        output_dir: "results/prs_results/xpass+",
+        log_dir: "results/log_files/xpass+",
+        ...xpassPlusExtras,
+      }
+    }
   }
-  // Delegate to XPASS builder; it will set xpass_pop1 to target population automatically
-  // For XPASS+, test_data must use Pop1 (target) genotype directory, not validation
-  const payload = buildXpassProcessingPayload(preProcessing, mergedState, _mode)
-  return { ...payload, test_data: payload.ref_pop1 }
+  if (evalMode === "binary" || evalMode === "both") {
+    if (basePayload.binary) {
+      result.binary = {
+        ...basePayload.binary,
+        test_data: refPop1Path, // XPASS+ uses ref_pop1 for test_data
+        outputName: "xpass_plus",
+        output_dir: "results/prs_results_binary/xpass+",
+        log_dir: "results/log_files_binary/xpass+",
+        ...xpassPlusExtras,
+      }
+    }
+  }
+
+  return result
 }
 
 // Convenience: given tool id and sanitized configs, build processing payload

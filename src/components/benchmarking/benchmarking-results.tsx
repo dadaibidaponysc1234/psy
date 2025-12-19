@@ -466,10 +466,14 @@ export function BenchmarkingResults({
       if (!identifier) return null
       const normalized = identifier.trim().toLowerCase()
       if (!normalized) return null
+      // Exact match first
       for (const id of orderedTools) {
         if (normalized === id) return id
       }
-      for (const id of orderedTools) {
+      // Sort by length descending so longer/more specific tools match first
+      // e.g., "xpass+" should match before "xpass" in "prs_results/xpass+/..."
+      const sortedByLength = [...orderedTools].sort((a, b) => b.length - a.length)
+      for (const id of sortedByLength) {
         if (normalized.includes(id)) return id
       }
       if (orderedTools.length === 0) {
@@ -707,23 +711,49 @@ export function BenchmarkingResults({
 
   const timelineEntries = useMemo(() => {
     if (!statusDetails) return []
+    
+    // Helper to infer missing timestamps if a later step is completed
+    const inferTimestamp = (current: string | null | undefined, later: (string | null | undefined)[]) => {
+      if (current) return current
+      // If any later step has a timestamp, assume this step is completed (use the earliest later timestamp)
+      const firstLater = later.find(t => t)
+      return firstLater ? firstLater : null
+    }
+
+    const { created_at, uploaded_at, configured_at, started_at, completed_at } = statusDetails
+
     const entries = [
-      { label: "Created", value: statusDetails.created_at },
-      { label: "Uploaded", value: statusDetails.uploaded_at },
-      { label: "Configured", value: statusDetails.configured_at },
-      { label: "Started", value: statusDetails.started_at },
-      { label: "Completed", value: statusDetails.completed_at },
+      { 
+        label: "Created", 
+        value: created_at 
+      },
+      { 
+        label: "Uploaded", 
+        value: inferTimestamp(uploaded_at, [configured_at, started_at, completed_at])
+      },
+      { 
+        label: "Configured", 
+        value: inferTimestamp(configured_at, [started_at, completed_at]) 
+      },
+      { 
+        label: "Started", 
+        value: inferTimestamp(started_at, [completed_at]) 
+      },
+      { 
+        label: "Completed", 
+        value: completed_at 
+      },
     ]
 
     return entries
   }, [statusDetails])
 
-  const formatTimelineValue = useCallback((value?: string) => {
+  const formatTimelineValue = useCallback((value?: string | null) => {
     if (!value) return "Pending"
     try {
       return new Date(value).toLocaleString()
     } catch {
-      return value
+      return "Completed"
     }
   }, [])
 
@@ -1063,56 +1093,64 @@ export function BenchmarkingResults({
           )}
 
           {timelineEntries.length > 0 && (
-            <Card className="bg-gradient-to-br from-background via-background to-primary/10">
+            <Card className="bg-gradient-to-br from-background via-background to-primary/5">
               <CardHeader>
                 <CardTitle>Run Timeline</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                  <ol className="flex min-w-max items-start gap-6">
+                <div className="w-full overflow-x-auto pb-4">
+                  <ol className="flex min-w-[600px] w-full items-start justify-between">
                     {timelineEntries.map((entry, index) => {
                       const isCompleted = Boolean(entry.value)
                       const isCurrent = index === currentTimelineIndex
                       const isLast = index === timelineEntries.length - 1
+
+                      const labelClass = isCompleted || isCurrent ? "text-primary font-bold" : "text-muted-foreground"
+                      
                       const circleClass = (() => {
                         if (isCompleted)
-                          return "border-transparent bg-primary text-white shadow-md"
+                          return "border-primary bg-primary text-white shadow-md ring-2 ring-primary/20"
                         if (isCurrent)
-                          return "border-2 border-primary bg-primary/15 text-primary shadow"
-                        return "border-2 border-dashed border-border bg-muted text-muted-foreground"
+                          return "border-primary bg-background text-primary shadow ring-4 ring-primary/10"
+                        return "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
                       })()
 
-                      const labelClass = isCompleted || isCurrent ? "text-primary" : "text-muted-foreground"
                       const connectorClass = isCompleted
                         ? "bg-primary"
-                        : isCurrent
-                        ? "bg-primary/70"
-                        : "bg-border"
+                        : "bg-muted-foreground/20"
 
                       return (
-                        <li key={entry.label} className="relative flex flex-col items-center gap-3">
-                          <div className={`text-xs font-semibold uppercase tracking-[0.2em] ${labelClass}`}>
-                            {entry.label}
-                          </div>
-                          <div className="flex items-center gap-0">
-                            <span
-                              className={`relative grid h-12 w-12 place-items-center rounded-full text-sm font-semibold transition ${circleClass}`}
-                            >
-                              {index + 1}
-                              {isCurrent && (
-                                <span className="absolute inset-[-8px] -z-10 rounded-full bg-primary/20 blur-lg" />
+                        <li key={entry.label} className="flex flex-1 flex-col items-center gap-2">
+                           {/* Label */}
+                           <div className={`text-xs uppercase tracking-wider transition-colors duration-300 ${labelClass}`}>
+                              {entry.label}
+                           </div>
+
+                           {/* Circle & Connector Wrapper */}
+                           <div className="relative flex w-full justify-center">
+                              {/* Connector Line */}
+                              {!isLast && (
+                                <div 
+                                   className="absolute left-[50%] top-1/2 -z-0 w-full -translate-y-1/2 px-0" 
+                                   aria-hidden="true"
+                                >
+                                  <div className={`h-1 w-full rounded-full transition-colors duration-500 ${connectorClass}`} />
+                                </div>
                               )}
-                            </span>
-                            {!isLast && (
-                              <span
-                                className={`ml-4 h-1 w-24 rounded-full ${connectorClass}`}
-                                aria-hidden
-                              />
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatTimelineValue(entry.value)}
-                          </div>
+                              
+                              {/* Circle */}
+                              <div className={`relative z-10 grid h-10 w-10 place-items-center rounded-full border-2 text-sm font-bold transition-all duration-500 ${circleClass}`}>
+                                {index + 1}
+                                {isCurrent && (
+                                   <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-primary/20 opacity-75" />
+                                )}
+                              </div>
+                           </div>
+
+                           {/* Date */}
+                           <div className="text-[10px] text-muted-foreground/80 whitespace-nowrap">
+                              {formatTimelineValue(entry.value)}
+                           </div>
                         </li>
                       )
                     })}

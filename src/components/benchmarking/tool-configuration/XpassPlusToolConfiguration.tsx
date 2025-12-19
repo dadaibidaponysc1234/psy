@@ -111,6 +111,13 @@ export function XpassPlusToolConfiguration({
     populations[0]?.name || ""
   )
 
+  // Binary/Quantitative processing tabs state
+  const allowBinaryTraits = evaluationType !== "quantitative"
+  const allowQuantitativeTraits = evaluationType !== "binary"
+  const [processingActiveTab, setProcessingActiveTab] = useState<"binary" | "quantitative">(
+    allowBinaryTraits ? "binary" : "quantitative"
+  )
+
   const [{ previews, loading, errors }, setPreviewState] =
     useState<PreviewState>(EMPTY_PREVIEW_STATE)
 
@@ -898,7 +905,7 @@ export function XpassPlusToolConfiguration({
       </CollapsibleContent>
     </Collapsible>
 
-    {/* XPASS+ Processing Controls */}
+    {/* XPASS+ Processing Configuration */}
     <Collapsible
       open={expandedSections.processing}
       onOpenChange={() => toggleSection("processing")}
@@ -906,9 +913,9 @@ export function XpassPlusToolConfiguration({
       <CollapsibleTrigger asChild>
         <div className="flex cursor-pointer items-center justify-between rounded-md border px-4 py-3 transition-colors hover:bg-muted/50">
           <div>
-            <h4 className="font-medium">Processing Options (XPASS+)</h4>
+            <h4 className="font-medium">Processing Configuration</h4>
             <p className="text-sm text-muted-foreground">
-              Configure scoring behavior and clumping parameters.
+              Configure XPASS+ scoring inputs for the selected evaluation type.
             </p>
           </div>
           {expandedSections.processing ? (
@@ -919,253 +926,274 @@ export function XpassPlusToolConfiguration({
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 px-4 pb-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label>Target population for scoring</Label>
-              <Badge variant="outline" className="text-xs">Coming soon</Badge>
-            </div>
-            {(() => {
-              const targetPop = populations.find((p) => p.type === "target")?.name || ""
-              return (
-                <Select value={targetPop}>
-                  <SelectTrigger disabled aria-disabled className="cursor-not-allowed opacity-80">
-                    <SelectValue placeholder="Select target population" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {populations.map((p) => (
-                      <SelectItem key={p.name} value={p.name}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )
-            })()}
-          </div>
-
-          {/* Output name and SD method are fixed for XPASS+ and not shown */}
-
-          {/* Compute PRS is always true for XPASS+ and not shown */}
-
-          <label className="mt-6 flex items-start gap-2 text-sm">
-            <Checkbox
-              checked={(processingConfig?.compPosMean || "T") === "T"}
-              onCheckedChange={(checked) =>
-                updateProcessing((curr) => ({
-                  ...curr,
-                  compPosMean: Boolean(checked) ? "T" : "F",
-                }))
-              }
-            />
-            <span>
-              Compute position mean
-              <span className="block text-xs text-muted-foreground">
-                Use positional mean across clumps where applicable.
-              </span>
+        <div className="rounded-lg border border-dashed p-3">
+          <p className="text-xs text-muted-foreground">
+            Evaluation type is currently set to
+            <span className="ml-1 font-medium capitalize">
+              {evaluationType}
             </span>
-          </label>
+            .
+          </p>
+          {!allowBinaryTraits && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enable binary evaluation to configure binary processing.
+            </p>
+          )}
+          {!allowQuantitativeTraits && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enable quantitative evaluation to configure quantitative processing.
+            </p>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Clump params – Pop1</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">Window (kb)</span>
-                <Input
-                  type="number"
-                  step="1"
-                  value={String(processingConfig?.clump_params?.pop1.kb ?? 1000)}
-                  onChange={(e) =>
-                    updateProcessing((curr) => ({
-                      ...curr,
-                      clump_params: {
-                        pop1: {
-                          kb: Number(e.target.value) || 0,
-                          r2: curr.clump_params?.pop1.r2 ?? 0.1,
-                          p: curr.clump_params?.pop1.p ?? 0.05,
-                        },
-                        pop2: curr.clump_params?.pop2 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                      },
-                    }))
-                  }
-                  placeholder="kb"
-                />
+        <Tabs
+          value={processingActiveTab}
+          onValueChange={(v) => setProcessingActiveTab(v as "binary" | "quantitative")}
+          className="w-full"
+        >
+          <TabsList>
+            {allowBinaryTraits && (
+              <TabsTrigger value="binary" disabled={!allowBinaryTraits}>
+                Binary
+              </TabsTrigger>
+            )}
+            {allowQuantitativeTraits && (
+              <TabsTrigger value="quantitative" disabled={!allowQuantitativeTraits}>
+                Quantitative
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          {/* Binary Processing Tab */}
+          {allowBinaryTraits && (
+            <TabsContent value="binary" />
+          )}
+
+          {/* Quantitative Processing Tab */}
+          {allowQuantitativeTraits && (
+            <TabsContent value="quantitative" />
+          )}
+        </Tabs>
+
+        {/* Shared XPASS+ Processing Options */}
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>Target population for scoring</Label>
+                <Badge variant="outline" className="text-xs">Auto-detected</Badge>
               </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">LD r2</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={String(processingConfig?.clump_params?.pop1.r2 ?? 0.1)}
-                  onChange={(e) =>
-                    updateProcessing((curr) => ({
-                      ...curr,
-                      clump_params: {
-                        pop1: {
-                          kb: curr.clump_params?.pop1.kb ?? 1000,
-                          r2: Number(e.target.value) || 0,
-                          p: curr.clump_params?.pop1.p ?? 0.05,
-                        },
-                        pop2: curr.clump_params?.pop2 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                      },
-                    }))
-                  }
-                  placeholder="r2"
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">P-value</span>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={String(processingConfig?.clump_params?.pop1.p ?? 0.05)}
-                  onChange={(e) =>
-                    updateProcessing((curr) => ({
-                      ...curr,
-                      clump_params: {
-                        pop1: {
-                          kb: curr.clump_params?.pop1.kb ?? 1000,
-                          r2: curr.clump_params?.pop1.r2 ?? 0.1,
-                          p: Number(e.target.value) || 0,
-                        },
-                        pop2: curr.clump_params?.pop2 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                      },
-                    }))
-                  }
-                  placeholder="p"
-                />
-              </div>
+              {(() => {
+                const targetPop = populations.find((p) => p.type === "target")?.name || ""
+                return (
+                  <Select value={targetPop}>
+                    <SelectTrigger disabled aria-disabled className="cursor-not-allowed opacity-80">
+                      <SelectValue placeholder="Select target population" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {populations.map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              })()}
             </div>
-            <label className="mt-2 flex items-center gap-2 text-xs">
+
+            <label className="mt-6 flex items-start gap-2 text-sm">
               <Checkbox
-                checked={Boolean(processingConfig?.use_pop1_snps ?? true)}
+                checked={(processingConfig?.compPosMean || "T") === "T"}
                 onCheckedChange={(checked) =>
                   updateProcessing((curr) => ({
                     ...curr,
-                    use_pop1_snps: Boolean(checked),
+                    compPosMean: Boolean(checked) ? "T" : "F",
                   }))
                 }
               />
-              Use Pop1 SNPs
+              <span>
+                Compute position mean
+                <span className="block text-xs text-muted-foreground">
+                  Use positional mean across clumps where applicable.
+                </span>
+              </span>
             </label>
           </div>
 
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Clump params – Pop2</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">Window (kb)</span>
-                <Input
-                  type="number"
-                  step="1"
-                  value={String(processingConfig?.clump_params?.pop2.kb ?? 1000)}
-                  onChange={(e) =>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-sm font-medium">Clump params – Pop1</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">Window (kb)</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={String(processingConfig?.clump_params?.pop1?.kb ?? 1000)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: {
+                            kb: Number(e.target.value) || 0,
+                            r2: curr.clump_params?.pop1?.r2 ?? 0.1,
+                            p: curr.clump_params?.pop1?.p ?? 0.05,
+                          },
+                          pop2: curr.clump_params?.pop2 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                        },
+                      }))
+                    }
+                    placeholder="kb"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">LD r2</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={String(processingConfig?.clump_params?.pop1?.r2 ?? 0.1)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: {
+                            kb: curr.clump_params?.pop1?.kb ?? 1000,
+                            r2: Number(e.target.value) || 0,
+                            p: curr.clump_params?.pop1?.p ?? 0.05,
+                          },
+                          pop2: curr.clump_params?.pop2 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                        },
+                      }))
+                    }
+                    placeholder="r2"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">P-value</span>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={String(processingConfig?.clump_params?.pop1?.p ?? 0.05)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: {
+                            kb: curr.clump_params?.pop1?.kb ?? 1000,
+                            r2: curr.clump_params?.pop1?.r2 ?? 0.1,
+                            p: Number(e.target.value) || 0,
+                          },
+                          pop2: curr.clump_params?.pop2 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                        },
+                      }))
+                    }
+                    placeholder="p"
+                  />
+                </div>
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-xs">
+                <Checkbox
+                  checked={Boolean(processingConfig?.use_pop1_snps ?? true)}
+                  onCheckedChange={(checked) =>
                     updateProcessing((curr) => ({
                       ...curr,
-                      clump_params: {
-                        pop1: curr.clump_params?.pop1 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                        pop2: {
-                          kb: Number(e.target.value) || 0,
-                          r2: curr.clump_params?.pop2.r2 ?? 0.1,
-                          p: curr.clump_params?.pop2.p ?? 0.05,
-                        },
-                      },
+                      use_pop1_snps: Boolean(checked),
                     }))
                   }
-                  placeholder="kb"
                 />
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">LD r2</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={String(processingConfig?.clump_params?.pop2.r2 ?? 0.1)}
-                  onChange={(e) =>
-                    updateProcessing((curr) => ({
-                      ...curr,
-                      clump_params: {
-                        pop1: curr.clump_params?.pop1 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                        pop2: {
-                          kb: curr.clump_params?.pop2.kb ?? 1000,
-                          r2: Number(e.target.value) || 0,
-                          p: curr.clump_params?.pop2.p ?? 0.05,
-                        },
-                      },
-                    }))
-                  }
-                  placeholder="r2"
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">P-value</span>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={String(processingConfig?.clump_params?.pop2.p ?? 0.05)}
-                  onChange={(e) =>
-                    updateProcessing((curr) => ({
-                      ...curr,
-                      clump_params: {
-                        pop1: curr.clump_params?.pop1 ?? {
-                          kb: 1000,
-                          r2: 0.1,
-                          p: 0.05,
-                        },
-                        pop2: {
-                          kb: curr.clump_params?.pop2.kb ?? 1000,
-                          r2: curr.clump_params?.pop2.r2 ?? 0.1,
-                          p: Number(e.target.value) || 0,
-                        },
-                      },
-                    }))
-                  }
-                  placeholder="p"
-                />
-              </div>
+                Use Pop1 SNPs
+              </label>
             </div>
-            <label className="mt-2 flex items-center gap-2 text-xs">
-              <Checkbox
-                checked={Boolean(processingConfig?.use_pop2_snps ?? true)}
-                onCheckedChange={(checked) =>
-                  updateProcessing((curr) => ({
-                    ...curr,
-                    use_pop2_snps: Boolean(checked),
-                  }))
-                }
-              />
-              Use Pop2 SNPs
-            </label>
+
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-sm font-medium">Clump params – Pop2</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">Window (kb)</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={String(processingConfig?.clump_params?.pop2?.kb ?? 1000)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: curr.clump_params?.pop1 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                          pop2: {
+                            kb: Number(e.target.value) || 0,
+                            r2: curr.clump_params?.pop2?.r2 ?? 0.1,
+                            p: curr.clump_params?.pop2?.p ?? 0.05,
+                          },
+                        },
+                      }))
+                    }
+                    placeholder="kb"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">LD r2</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={String(processingConfig?.clump_params?.pop2?.r2 ?? 0.1)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: curr.clump_params?.pop1 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                          pop2: {
+                            kb: curr.clump_params?.pop2?.kb ?? 1000,
+                            r2: Number(e.target.value) || 0,
+                            p: curr.clump_params?.pop2?.p ?? 0.05,
+                          },
+                        },
+                      }))
+                    }
+                    placeholder="r2"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="block text-xs text-muted-foreground">P-value</span>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={String(processingConfig?.clump_params?.pop2?.p ?? 0.05)}
+                    onChange={(e) =>
+                      updateProcessing((curr) => ({
+                        ...curr,
+                        clump_params: {
+                          pop1: curr.clump_params?.pop1 ?? { kb: 1000, r2: 0.1, p: 0.05 },
+                          pop2: {
+                            kb: curr.clump_params?.pop2?.kb ?? 1000,
+                            r2: curr.clump_params?.pop2?.r2 ?? 0.1,
+                            p: Number(e.target.value) || 0,
+                          },
+                        },
+                      }))
+                    }
+                    placeholder="p"
+                  />
+                </div>
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-xs">
+                <Checkbox
+                  checked={Boolean(processingConfig?.use_pop2_snps ?? true)}
+                  onCheckedChange={(checked) =>
+                    updateProcessing((curr) => ({
+                      ...curr,
+                      use_pop2_snps: Boolean(checked),
+                    }))
+                  }
+                />
+                Use Pop2 SNPs
+              </label>
+            </div>
           </div>
         </div>
-
-        {/* Output and log directories are fixed for XPASS+ and intentionally not shown */}
       </CollapsibleContent>
     </Collapsible>
 
-    {/* Info note intentionally minimal for XPASS+ */}
       </CardContent>
     </Card>
   )

@@ -52,13 +52,6 @@ import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
 
 const steps = [
   {
-    id: "home",
-    title: "Home",
-    icon: HomeIcon,
-    description: "Project overview",
-    shortDesc: "Home",
-  },
-  {
     id: "tools",
     title: "Select Tools",
     icon: Settings,
@@ -140,9 +133,46 @@ const Sidebar = ({
 
       <nav className="flex-1">
         <ul className="space-y-2">
+          {/* Home link - always accessible, no "Done" badge */}
+          {isCollapsed ? (
+            <li>
+              <Tooltip content="Home">
+                <button
+                  className={`flex h-10 w-10 items-center justify-center rounded transition-colors ${
+                    activeStep === "home"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => handleStepClick("home")}
+                >
+                  <HomeIcon className="h-5 w-5" />
+                </button>
+              </Tooltip>
+            </li>
+          ) : (
+            <li>
+              <button
+                className={`flex w-full items-center gap-3 rounded px-3 py-2 transition-colors ${
+                  activeStep === "home"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
+                }`}
+                onClick={() => handleStepClick("home")}
+              >
+                <HomeIcon className="h-5 w-5" />
+                <span className="font-medium">Home</span>
+              </button>
+            </li>
+          )}
+          
+          {/* Separator */}
+          <li className="my-2 border-t border-border" />
+          
+          {/* Workflow steps */}
           {steps.map((step, idx) => {
             const isActive = activeStep === step.id
             const isCompleted = completedSteps.includes(step.id)
+            // First step (tools) is always enabled, others require previous step completion
             const isDisabled =
               idx > 0 && !completedSteps.includes(steps[idx - 1].id)
 
