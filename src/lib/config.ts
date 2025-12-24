@@ -45,4 +45,5 @@ export const REFERENCE_PATHS = {
   SDPRX_LD_REF: "/Users/cable/Downloads/Work/prs-backend/dataset/chr_22.gz",
   BRIDGEPRS_LD_REF:
     "/Users/cable/Downloads/Work/prs-backend/dataset/h3gwas_data/1000G_5P",
+  PRSCSX_LD_REF: "ld_ref",
 } as const

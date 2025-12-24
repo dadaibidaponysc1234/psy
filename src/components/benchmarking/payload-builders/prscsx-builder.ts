@@ -11,6 +11,7 @@ import type {
   PrscsxPreProcessingConfig,
   PrscsxProcessingState,
 } from "@/components/benchmarking/tool-configuration/types"
+import { REFERENCE_PATHS } from "@/lib/config"
 
 type ProcessingModeKey = "binary" | "quantitative"
 
@@ -102,7 +103,7 @@ export function buildPrscsxProcessingPayload(
         : "results/prs_results/prscsx"
 
     const payload = {
-      ldref_folder: "ld_ref",
+      ldref_folder: REFERENCE_PATHS.PRSCSX_LD_REF,
       bim_prefix: genotypePrefix,
       sst_files: sstFiles,
       n_gwas: nGwasList.join(","),
