@@ -55,6 +55,7 @@ import {
   buildXpassProcessingPayload,
   buildXpassPlusProcessingPayload,
 } from "@/components/benchmarking/payload-builders"
+import { REFERENCE_PATHS } from "@/lib/config"
 
 interface ToolConfigurationProps {
   onNext: (data: {
@@ -1088,8 +1089,7 @@ export function ToolConfiguration({
       n1: "",
       n2: "",
       force_shared: false,
-      load_ld:
-        "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+      load_ld: REFERENCE_PATHS.SDPRX_LD_REF,
       valid: "",
       chrom: "",
       rho: "",

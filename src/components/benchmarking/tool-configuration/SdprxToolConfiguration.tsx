@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Eye, Loader2, ChevronDown, ChevronRight, Info } from "lucide-react"
 import { toast } from "react-hot-toast"
-import { getBenchmarkPreviewUrl } from "@/lib/config"
+import { getBenchmarkPreviewUrl, REFERENCE_PATHS } from "@/lib/config"
 import type {
   EvaluationType,
   SdprxPreProcessingConfig,
@@ -207,8 +207,7 @@ export function SdprxToolConfiguration({
         n1: "",
         n2: "",
         force_shared: false,
-        load_ld:
-          "C:/Users/CABLE/Downloads/Cable/Code/PRS-sandbox/python_version/chr_22.gz",
+        load_ld: REFERENCE_PATHS.SDPRX_LD_REF,
         valid: "",
         chrom: chromStr,
         rho: "",
