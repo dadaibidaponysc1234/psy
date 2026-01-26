@@ -320,7 +320,7 @@ export function GlobalDebugDrawer() {
           </div>
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">Job ID</div>
-            <Badge variant="secondary">{jobId || "none"}</Badge>
+            <Badge variant="outline">{jobId || "none"}</Badge>
           </div>
 
           <div className="grid grid-cols-3 gap-2">

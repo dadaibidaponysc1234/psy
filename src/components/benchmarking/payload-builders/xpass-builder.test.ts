@@ -85,7 +85,7 @@ describe("buildXpassProcessingPayload", () => {
       undefined,
       "binary"
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     expect((result.binary as any)?.clump_params).toBeUndefined()
   })
 })
@@ -115,7 +115,7 @@ describe("buildXpassPlusProcessingPayload", () => {
   it("should build binary payload with XPASS+ output directories", () => {
     const result = buildXpassPlusProcessingPayload(
       mockPreProcessing,
-      mockProcessingState,
+      mockProcessingState as any,
       "binary"
     )
 
@@ -128,7 +128,7 @@ describe("buildXpassPlusProcessingPayload", () => {
   it("should build quantitative payload with XPASS+ output directories", () => {
     const result = buildXpassPlusProcessingPayload(
       mockPreProcessing,
-      mockProcessingState,
+      mockProcessingState as any,
       "quantitative"
     )
 
@@ -141,10 +141,10 @@ describe("buildXpassPlusProcessingPayload", () => {
   it("should include clump_params when provided", () => {
     const result = buildXpassPlusProcessingPayload(
       mockPreProcessing,
-      mockProcessingState,
+      mockProcessingState as any,
       "binary"
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     const payload = result.binary as any
 
     expect(payload?.clump_params).toBeDefined()
@@ -157,10 +157,10 @@ describe("buildXpassPlusProcessingPayload", () => {
   it("should include use_pop_snps when provided", () => {
     const result = buildXpassPlusProcessingPayload(
       mockPreProcessing,
-      mockProcessingState,
+      mockProcessingState as any,
       "binary"
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     const payload = result.binary as any
 
     expect(payload?.use_pop1_snps).toBe(true)

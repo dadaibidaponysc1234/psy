@@ -19,10 +19,12 @@ import { XpassPlusToolConfiguration } from "@/components/benchmarking/tool-confi
 import type {
   PrsicePreProcessingConfig,
   PrscsxPreProcessingConfig,
+  PrscsxPopulationConfig,
   ToolPreProcessingConfig,
   PrsicePhenotypePopulationConfig,
   ProcessingOptions,
   PrscsxColumnKey,
+  PrscsxPhenotypePopulationConfig,
   EvaluationType,
   PrscsxProcessingState,
   PrscsxProcessingPayload,
@@ -41,6 +43,7 @@ import type {
   XpassProcessingState,
   XpassProcessingPayload,
   XpassColumnKey,
+  XpassPopulationEntry,
 } from "@/components/benchmarking/tool-configuration/types"
 import {
   sanitizeBridgeprsConfig,
@@ -66,6 +69,7 @@ interface ToolConfigurationProps {
       | BridgeprsProcessingPayload
       | SdprxProcessingPayload
       | PrsiceProcessingPayload
+      | XpassProcessingPayload
     >
     submitted: boolean
     jobId: string
@@ -474,8 +478,8 @@ export function ToolConfiguration({
 
         const defaultPhenotypeConfig = populations.reduce(
           (
-            acc: Record<string, PrsicePhenotypePopulationConfig>,
-            population
+            acc: Record<string, PrscsxPhenotypePopulationConfig>,
+            population: PrscsxPopulationConfig
           ) => {
             acc[population.name] = {
               binary_traits: [],
@@ -483,7 +487,7 @@ export function ToolConfiguration({
             }
             return acc
           },
-          {} as Record<string, PrsicePhenotypePopulationConfig>
+          {} as Record<string, PrscsxPhenotypePopulationConfig>
         )
 
         const mappingBase: PrscsxPreProcessingConfig = {
@@ -493,13 +497,19 @@ export function ToolConfiguration({
               preProcessing.column_mappings?.by_population ||
               populations.reduce(
                 (
-                  acc: Record<string, Record<PrscsxColumnKey, string>>,
-                  population
+                  acc: Record<
+                    string,
+                    Partial<Record<PrscsxColumnKey, string>>
+                  >,
+                  population: PrscsxPopulationConfig
                 ) => {
                   acc[population.name] = {}
                   return acc
                 },
-                {} as Record<string, Record<PrscsxColumnKey, string>>
+                {} as Record<
+                  string,
+                  Partial<Record<PrscsxColumnKey, string>>
+                >
               ),
           },
           phenotype_config: {
@@ -530,7 +540,7 @@ export function ToolConfiguration({
           (fromStore as PrscsxPreProcessingConfig)
 
         if (existing?.populations?.length) {
-          const mergedPopulations = populations.map((pop, idx) => {
+          const mergedPopulations = populations.map((pop: PrscsxPopulationConfig, idx: number) => {
             const byName = existing.populations.find((p) => p.name === pop.name)
             const fallback = existing.populations[idx]
             const base = byName || fallback
@@ -648,7 +658,7 @@ export function ToolConfiguration({
 
         const populations = (
           mappedPopulations.length > 0 ? mappedPopulations : derivedPopulations
-        ).filter((population) => population.name.length > 0)
+        ).filter((population: { name: string }) => population.name.length > 0)
 
         const rawColumnMappings =
           legacyConfig?.pre_processing?.column_mappings?.by_population ||
@@ -659,7 +669,7 @@ export function ToolConfiguration({
           Partial<Record<XpassColumnKey, string>>
         > = {}
 
-        populations.forEach((population) => {
+        populations.forEach((population: { name: string }) => {
           const rawMappings = rawColumnMappings[population.name] || {}
           const normalized: Partial<Record<XpassColumnKey, string>> = {}
 
@@ -753,7 +763,7 @@ export function ToolConfiguration({
         if (existing) {
           const mergedPopulations =
             populations.length > 0
-              ? populations.map((population, index) => {
+              ? populations.map((population: XpassPopulationEntry, index: number) => {
                   const fallback =
                     existing.populations?.find(
                       (pop) => pop.name === population.name
@@ -1646,7 +1656,13 @@ export function ToolConfiguration({
               preProcessing.options.evaluation_type || evaluationType
             )
             if (payload.binary || payload.quantitative) {
-              acc[toolId] = payload
+              acc[toolId] =
+                (payload as
+                  | PrscsxProcessingPayload
+                  | BridgeprsProcessingPayload
+                  | SdprxProcessingPayload
+                  | PrsiceProcessingPayload
+                  | XpassProcessingPayload)
             }
           }
         } else if (isPrsice(toolId)) {
@@ -1659,7 +1675,13 @@ export function ToolConfiguration({
               preProcessing.options.evaluation_type || evaluationType
             )
             if (payload.binary || payload.quantitative) {
-              acc[toolId] = payload
+              acc[toolId] =
+                (payload as
+                  | PrscsxProcessingPayload
+                  | BridgeprsProcessingPayload
+                  | SdprxProcessingPayload
+                  | PrsiceProcessingPayload
+                  | XpassProcessingPayload)
             }
           }
         } else if (isBridgeprs(toolId)) {
@@ -1725,6 +1747,7 @@ export function ToolConfiguration({
         | PrscsxProcessingPayload
         | BridgeprsProcessingPayload
         | SdprxProcessingPayload
+        | PrsiceProcessingPayload
         | XpassProcessingPayload
       >
     )
@@ -2560,7 +2583,7 @@ export function ToolConfiguration({
           let traitsChanged = false
           const sanitizedByPopulation: Record<
             string,
-            PrsicePhenotypePopulationConfig
+            PrscsxPhenotypePopulationConfig
           > = {}
 
           const currentByPopulation =
@@ -3631,6 +3654,7 @@ export function ToolConfiguration({
         | PrscsxProcessingPayload
         | BridgeprsProcessingPayload
         | SdprxProcessingPayload
+        | PrsiceProcessingPayload
         | XpassProcessingPayload
       >
     )

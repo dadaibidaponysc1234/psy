@@ -304,9 +304,10 @@ export const PREFILLS_MINIMAL: Prefill = {
   ...LIVE_DUMMY_PREFILLS,
   tools: { selectedTools: ["prsice"] },
   populations: {
-    toolMappings: pick(LIVE_DUMMY_PREFILLS.populations.toolMappings, [
+    // eslint-disable-next-line
+    toolMappings: pick(LIVE_DUMMY_PREFILLS.populations.toolMappings as any, [
       "prsice",
-    ]),
+    ]) as any,
   },
   datasetStructure: trimDatasetStructure(LIVE_DUMMY_PREFILLS.datasetStructure),
 }
@@ -315,10 +316,11 @@ export const PREFILLS_TRANSITIONAL: Prefill = {
   ...LIVE_DUMMY_PREFILLS,
   tools: { selectedTools: ["prsice", "bridgeprs"] },
   populations: {
-    toolMappings: pick(LIVE_DUMMY_PREFILLS.populations.toolMappings, [
+    // eslint-disable-next-line
+    toolMappings: pick(LIVE_DUMMY_PREFILLS.populations.toolMappings as any, [
       "prsice",
       "bridgeprs",
-    ]),
+    ]) as any,
   },
   datasetStructure: trimDatasetStructure(LIVE_DUMMY_PREFILLS.datasetStructure),
 }

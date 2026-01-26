@@ -56,7 +56,7 @@ export function buildBridgeprsProcessingPayload(
     const genotypeFileType =
       preProcessing?.genotype_config?.file_type || "merged"
     const isMergedGenotype = genotypeFileType === "merged"
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     const mergedPrefixRaw = (state as any).bridgeprs_genotype_file
       ? String((state as any).bridgeprs_genotype_file)
       : ""
@@ -138,7 +138,7 @@ export function buildBridgeprsProcessingPayload(
   if (mode === "binary" || mode === "both") {
     const payload = buildModePayload("binary")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.binary = payload as any
     }
   }
@@ -146,7 +146,7 @@ export function buildBridgeprsProcessingPayload(
   if (mode === "quantitative" || mode === "both") {
     const payload = buildModePayload("quantitative")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.quantitative = payload as any
     }
   }

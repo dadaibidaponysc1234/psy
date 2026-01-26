@@ -384,8 +384,8 @@ export function PrscsxToolConfiguration({
       const headers =
         first.length > 0
           ? first.includes("\t")
-            ? first.split("\t").map((h) => h.trim())
-            : first.split(/\s+/).map((h) => h.trim())
+            ? first.split("\t").map((h: string) => h.trim())
+            : first.split(/\s+/).map((h: string) => h.trim())
           : []
       const autoMappings: Partial<Record<PrscsxColumnKey, string>> = {}
       const used = new Set<string>()
@@ -460,8 +460,8 @@ export function PrscsxToolConfiguration({
       const headers =
         first.length > 0
           ? first.includes("\t")
-            ? first.split("\t").map((h) => h.trim())
-            : first.split(/\s+/).map((h) => h.trim())
+            ? first.split("\t").map((h: string) => h.trim())
+            : first.split(/\s+/).map((h: string) => h.trim())
           : []
       setPhenotypeHeaders((prev) => ({ ...prev, [key]: headers }))
       ensurePhenotypeEntry(population.name)

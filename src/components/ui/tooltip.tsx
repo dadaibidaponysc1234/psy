@@ -94,7 +94,8 @@ export function Tooltip({
       updateAnchorRect()
       const rect = anchorRef.current?.getBoundingClientRect()
       if (rect) {
-        setPosition(choosePlacement(rect, position))
+        const defaultPos = position === "bottom" ? "bottom" : "top"
+        setPosition(choosePlacement(rect, defaultPos))
       }
     }
 

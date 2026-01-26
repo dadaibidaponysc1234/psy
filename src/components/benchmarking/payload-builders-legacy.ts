@@ -343,14 +343,12 @@ export const sanitizeSdprxConfig = (
     ...config,
     phenotype_config: {
       pop1: sanitizePopulation(
-        // @ts-expect-error migrating schema
         (config.phenotype_config as any).pop1 ||
-          config.phenotype_config.target_population
+          (config.phenotype_config as any).target_population
       ),
       pop2: sanitizePopulation(
-        // @ts-expect-error migrating schema
         (config.phenotype_config as any).pop2 ||
-          config.phenotype_config.base_population
+          (config.phenotype_config as any).base_population
       ),
     },
     options: {

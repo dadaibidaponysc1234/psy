@@ -99,7 +99,11 @@ const shallowEqual = <T extends object>(a: T, b: T) => {
   }
 
   for (const key of aKeys) {
-    if (a[key] !== b[key]) {
+    // eslint-disable-next-line
+    const aRec = a as any
+    // eslint-disable-next-line
+    const bRec = b as any
+    if (aRec[key] !== bRec[key]) {
       return false
     }
   }

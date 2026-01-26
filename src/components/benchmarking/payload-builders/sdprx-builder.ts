@@ -103,7 +103,7 @@ export function buildSdprxProcessingPayload(
     ]
     if (required.some((v) => !v)) return null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     const payload: any = {
       ss1,
       ss2,
@@ -133,7 +133,7 @@ export function buildSdprxProcessingPayload(
   if (mode === "binary" || mode === "both") {
     const payload = buildModePayload("binary")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.binary = payload as any
     }
   }
@@ -141,7 +141,7 @@ export function buildSdprxProcessingPayload(
   if (mode === "quantitative" || mode === "both") {
     const payload = buildModePayload("quantitative")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.quantitative = payload as any
     }
   }

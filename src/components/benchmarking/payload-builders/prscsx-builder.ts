@@ -129,7 +129,7 @@ export function buildPrscsxProcessingPayload(
   if (mode === "binary" || mode === "both") {
     const payload = buildModePayload("binary")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.binary = payload as any
     }
   }
@@ -137,7 +137,7 @@ export function buildPrscsxProcessingPayload(
   if (mode === "quantitative" || mode === "both") {
     const payload = buildModePayload("quantitative")
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       result.quantitative = payload as any
     }
   }

@@ -522,7 +522,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
   const rawTools = Array.isArray(toolsData?.selectedTools)
     ? toolsData.selectedTools.filter(
-        (tool): tool is string => typeof tool === "string"
+        (tool: unknown): tool is string => typeof tool === "string"
       )
     : []
   const selectedToolsKey = rawTools.join("|")
@@ -686,7 +686,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
 
     const desired = selectedTools.includes(activeTabFromStore ?? "")
-      ? (activeTabFromStore as string)
+      ? String(activeTabFromStore)
       : (selectedTools[0] ?? null)
 
     if (desired !== (activeTabFromStore ?? null)) {
@@ -1021,9 +1021,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       if (!savedPopulations[toolKey]) {
         return false
       }
-      const validationName = ((getMappingsForTool(toolId)[
-        "validation_population.name"
-      ] as string) || "").trim()
+      const validationName = String(
+        getMappingsForTool(toolId)["validation_population.name"] || ""
+      ).trim()
       if (!validationName) {
         return false
       }
@@ -1093,9 +1093,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     if (isXpassFamily(toolKey)) {
       const populations = getPopulationForTool(toolId)
-      const validationName = (getMappingsForTool(toolId)[
-        "validation_population.name"
-      ] as string) || ""
+      const validationName = String(
+        getMappingsForTool(toolId)["validation_population.name"] || ""
+      )
       return Boolean(
         savedPopulations[toolKey] &&
           populations.targetPopulation &&
@@ -1134,8 +1134,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
         populationConfigs[tool] = populations
         toolMappingsPayload[tool] = toolMapping as any
-        const fileType = (toolMapping["genotype_config.file_type"] as string) || "merged"
-        const sumstatsType = (toolMapping["pre_processing.sumstats_file_type"] as string) || fileType
+        const fileType = String(toolMapping["genotype_config.file_type"] || "merged")
+        const sumstatsType = String(toolMapping["pre_processing.sumstats_file_type"] || fileType)
 
         if (toolKey === "prscsx" && prscsxConfig) {
           const targetEntry: Record<string, string> = {
@@ -1212,7 +1212,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
         if (isXpassFamily(toolKey)) {
           const mappingPath = (fieldId: string) => getMappingPath(tool, fieldId)
-          const validationName = ((toolMapping["validation_population.name"] as string) || "").trim()
+          const validationName = String(toolMapping["validation_population.name"] || "").trim()
 
           const populationsPayload: Array<Record<string, string>> = []
 
@@ -1673,10 +1673,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
         />
       ),
       xpass: () => {
-        const validationName =
-          ((getMappingsForTool(storeToolId)[
-            "validation_population.name"
-          ] as string) || "")
+        const validationName = String(
+          getMappingsForTool(storeToolId)["validation_population.name"] || ""
+        )
 
         return (
           <XpassPopulationConfiguration
@@ -1697,10 +1696,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
         )
       },
       "xpass+": () => {
-        const validationName =
-          ((getMappingsForTool(storeToolId)[
-            "validation_population.name"
-          ] as string) || "")
+        const validationName = String(
+          getMappingsForTool(storeToolId)["validation_population.name"] || ""
+        )
 
         return (
           <XpassPopulationConfiguration
@@ -1839,9 +1837,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       let displayLabel = field.label
       if (isXpassFamily(toolKey)) {
         const populations = getPopulationForTool(tool)
-        const validationName = ((getMappingsForTool(tool)[
-          "validation_population.name"
-        ] as string) || "").trim()
+        const validationName = String(
+          getMappingsForTool(tool)["validation_population.name"] || ""
+        ).trim()
         let nameForField = ""
         if (field.id.startsWith("pop1.")) {
           nameForField = populations.targetPopulation || ""
@@ -1899,7 +1897,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                   </Badge>
                 )
               ) : (
-                <Badge variant="secondary">Optional</Badge>
+                <Badge variant="outline">Optional</Badge>
               )}
 
               {((isCompatible && !isMapped) || canMapSelection) && (
@@ -2137,7 +2135,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                       </Tooltip>
                     </div>
                     <Select
-                      value={(getMappingsForTool(tool)["genotype_config.file_type"] as string) || "merged"}
+                      value={String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged")}
                       onValueChange={(value) =>
                         setToolFieldValue(
                           tool,
@@ -2192,7 +2190,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                       </Tooltip>
                     </div>
                     <Select
-                      value={(getMappingsForTool(tool)["pre_processing.sumstats_file_type"] as string) || ((getMappingsForTool(tool)["genotype_config.file_type"] as string) || "merged")}
+                      value={String(getMappingsForTool(tool)["pre_processing.sumstats_file_type"] || String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged"))}
                       onValueChange={(value) =>
                         setToolFieldValue(
                           tool,
@@ -2245,9 +2243,10 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
     if (field.fieldType === "sumstats_path") {
       const toolMapping = getMappingsForTool(toolId)
-      const sumstatsType =
-        (toolMapping["pre_processing.sumstats_file_type"] as string) ||
-        ((toolMapping["genotype_config.file_type"] as string) || "merged")
+      const sumstatsType = String(
+        toolMapping["pre_processing.sumstats_file_type"] ||
+          String(toolMapping["genotype_config.file_type"] || "merged")
+      )
       return sumstatsType === "multi_chromosome"
     }
     return false
@@ -2277,9 +2276,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
 
     if (isXpassFamily(storeToolId)) {
-      const validationName = ((getMappingsForTool(storeToolId)[
-        "validation_population.name"
-      ] as string) || "").trim()
+      const validationName = String(
+        getMappingsForTool(storeToolId)["validation_population.name"] || ""
+      ).trim()
       if (!validationName) {
         const label = toolDisplayNames[storeToolId.toLowerCase()] || "XPASS"
         toast.error(
@@ -2443,8 +2442,8 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
       populationConfigs[tool] = populations
       toolMappingsPayload[tool] = toolMapping
-      const fileType = ((toolMapping["genotype_config.file_type"] as string) || "merged")
-      const sumstatsType = (toolMapping["pre_processing.sumstats_file_type"] as string) || fileType
+      const fileType = String(toolMapping["genotype_config.file_type"] || "merged")
+      const sumstatsType = String(toolMapping["pre_processing.sumstats_file_type"] || fileType)
 
       if (toolKey === "prscsx" && prscsxConfig) {
         const targetEntry: Record<string, string> = {

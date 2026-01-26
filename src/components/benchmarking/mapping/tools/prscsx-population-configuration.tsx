@@ -12,6 +12,7 @@ import {
 import type {
   PrscsxPopulationState,
   PrscsxTargetPopulation,
+  PrscsxBasePopulation,
 } from "@/stores/benchmarking-store"
 import {
   Collapsible,
@@ -36,7 +37,7 @@ interface PopulationMappingSummary {
 }
 
 interface BasePopulationSummary {
-  base: PrscsxTargetPopulation
+  base: PrscsxBasePopulation
   mappings: PopulationMappingSummary
 }
 

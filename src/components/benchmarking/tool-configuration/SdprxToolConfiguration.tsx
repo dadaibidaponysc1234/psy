@@ -1048,7 +1048,11 @@ export function SdprxToolConfiguration({
                   value={config?.genotype_config?.file_patterns?.bed ?? ""}
                   onChange={(event) =>
                     updateGenotypeConfig({
-                      file_patterns: { bed: event.target.value },
+                      file_patterns: {
+                        bed: event.target.value,
+                        bim: config?.genotype_config?.file_patterns?.bim ?? "",
+                        fam: config?.genotype_config?.file_patterns?.fam ?? "",
+                      },
                     })
                   }
                 />
@@ -1059,7 +1063,11 @@ export function SdprxToolConfiguration({
                   value={config?.genotype_config?.file_patterns?.bim ?? ""}
                   onChange={(event) =>
                     updateGenotypeConfig({
-                      file_patterns: { bim: event.target.value },
+                      file_patterns: {
+                        bed: config?.genotype_config?.file_patterns?.bed ?? "",
+                        bim: event.target.value,
+                        fam: config?.genotype_config?.file_patterns?.fam ?? "",
+                      },
                     })
                   }
                 />
@@ -1072,7 +1080,11 @@ export function SdprxToolConfiguration({
                   value={config?.genotype_config?.file_patterns?.fam ?? ""}
                   onChange={(event) =>
                     updateGenotypeConfig({
-                      file_patterns: { fam: event.target.value },
+                      file_patterns: {
+                        bed: config?.genotype_config?.file_patterns?.bed ?? "",
+                        bim: config?.genotype_config?.file_patterns?.bim ?? "",
+                        fam: event.target.value,
+                      },
                     })
                   }
                 />

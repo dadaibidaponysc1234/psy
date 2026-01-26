@@ -145,7 +145,10 @@ export function XpassPlusToolConfiguration({
 
   useEffect(() => {
     const columnMappings = config.column_mappings?.by_population || {}
-    const nextMappings: Record<string, Record<XpassColumnKey, string>> = {}
+    const nextMappings: Record<
+      string,
+      Partial<Record<XpassColumnKey, string>>
+    > = {}
 
     populations.forEach((population) => {
       nextMappings[population.name] = {
