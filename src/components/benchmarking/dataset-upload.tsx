@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,12 @@ import {
   FileText as FileTextIcon,
   Loader2,
 } from "lucide-react"
-import { getBenchmarkUploadUrl } from "@/lib/config"
+import {
+  getBenchmarkUploadUrl,
+  BENCHMARK_CONFIG,
+  getBenchmarkChunkedUploadUrl,
+  getBenchmarkChunkedCancelUrl,
+} from "@/lib/config"
 import axios from "axios"
 import { toast, Toaster } from "react-hot-toast"
 import { toastInfo } from "@/hooks/use-toast"
@@ -67,6 +72,112 @@ const isValidFileType = (fileName: string): boolean => {
   return FILE_TYPE_REGEX.test(fileName)
 }
 
+type UploadOptions = {
+  chunkSize?: number
+  maxRetries?: number
+  backoffBaseMs?: number
+  combineTimeoutSecs?: number
+}
+
+async function sleep(ms: number) {
+  return new Promise((res) => setTimeout(res, ms))
+}
+
+type ChunkedResult = {
+  jobId: string
+  lastStatus: number
+  lastStatusText: string
+  lastHeaders: Record<string, string>
+  lastData: any
+}
+
+async function uploadChunkedWithRetry(
+  apiBase: string,
+  file: File,
+  jobId?: string,
+  opts: UploadOptions = {},
+  onChunk?: (chunkBytes: number, uploadedSoFarFile: number, totalBytesFile: number) => void,
+  signal?: AbortSignal
+): Promise<ChunkedResult> {
+  const chunkSize = opts.chunkSize ?? 5 * 1024 * 1024
+  const maxRetries = opts.maxRetries ?? 3
+  const backoffBaseMs = opts.backoffBaseMs ?? 500
+  const totalChunks = Math.ceil(file.size / chunkSize)
+  let currentJobId = jobId ?? ""
+  let lastStatus = 0
+  let lastStatusText = ""
+  let lastHeaders: Record<string, string> = {}
+  let lastData: any = null
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * chunkSize
+    const end = Math.min(start + chunkSize, file.size)
+    const blob = file.slice(start, end)
+
+    let attempt = 0
+    while (true) {
+      const form = new FormData()
+      if (i === 0 && !currentJobId) {
+      } else {
+        form.append("job_id", currentJobId)
+      }
+      form.append("chunk_index", String(i))
+      form.append("total_chunks", String(totalChunks))
+      form.append("filename", file.name)
+      form.append("chunk", blob, `${file.name}.part${i}`)
+      if (i === totalChunks - 1 && opts.combineTimeoutSecs !== undefined) {
+        form.append("combine_timeout_secs", String(opts.combineTimeoutSecs))
+      }
+
+      let res: Response | null = null
+      try {
+        res = await fetch(getBenchmarkChunkedUploadUrl(), {
+          method: "POST",
+          body: form,
+          credentials: "include",
+          signal,
+        })
+      } catch {
+        res = null
+      }
+
+      if (res && res.ok) {
+        const json = await res.json()
+        if (!currentJobId) currentJobId = json.job_id
+        lastStatus = res.status
+        lastStatusText = res.statusText
+        const hdrs: Record<string, string> = {}
+        res.headers.forEach((v, k) => {
+          hdrs[k] = v
+        })
+        lastHeaders = hdrs
+        lastData = json
+        if (typeof onChunk === "function") {
+          onChunk(blob.size, end, file.size)
+        }
+        break
+      }
+
+      attempt += 1
+      if (attempt > maxRetries) {
+        throw new Error(
+          `Chunk ${i + 1}/${totalChunks} failed after ${maxRetries} retries`
+        )
+      }
+      const backoff = backoffBaseMs * Math.pow(2, attempt - 1)
+      await sleep(backoff)
+    }
+  }
+
+  return {
+    jobId: currentJobId,
+    lastStatus,
+    lastStatusText,
+    lastHeaders,
+    lastData,
+  }
+}
+
 interface DatasetUploadProps {
   onNext: (data: any) => void
   onPrevious?: () => void
@@ -79,6 +190,9 @@ export function DatasetUpload({
   data,
 }: DatasetUploadProps) {
   const [showSupportedTypes, setShowSupportedTypes] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const currentFileNameRef = useRef<string | null>(null)
+  const currentJobIdRef = useRef<string | null>(null)
 
   const {
     jobId,
@@ -94,6 +208,7 @@ export function DatasetUpload({
     setUploadProgress,
     addUploadedFile,
     removeUploadedFile,
+    setJobId,
   } = useBenchmarkingStore()
 
   // Check if there's already an active job and restore uploaded state
@@ -219,71 +334,82 @@ export function DatasetUpload({
     }
   }
 
+  const cancelUpload = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const payload: any = {
+      job_id: currentJobIdRef.current || jobId || "",
+    }
+    if (currentFileNameRef.current) {
+      payload.filename = currentFileNameRef.current
+    }
+    try {
+      await axios.post(getBenchmarkChunkedCancelUrl(), payload, {
+        headers: { "Content-Type": "application/json" },
+      })
+      toast.success("Upload cancelled")
+    } catch (e: any) {
+      console.error("Cancel upload failed:", e?.response?.data || e?.message || e)
+      toast.error("Failed to cancel upload")
+    }
+  }
+
   const handleUpload = async () => {
     setIsUploading(true)
     setUploadProgress(0)
 
     try {
-      // Get job ID from Zustand store
-      if (!jobId) {
-        throw new Error("No job ID found. Please create a job first.")
+      const validFiles = uploadedFiles.filter((f: any) => f.file instanceof Blob)
+      if (validFiles.length === 0) {
+        toast.error("No valid files to upload")
+        return
       }
-
-      console.log("🚀 Starting file upload to benchmark backend...")
-      console.log("📁 Files to upload:", uploadedFiles)
-      console.log("🆔 Job ID:", jobId)
-
-      const formData = new FormData()
-      // Append only valid Blob/File entries; warn and skip invalid ones
-      let skippedInvalid = 0
-      uploadedFiles.forEach((fileInfo) => {
-        const f: any = fileInfo.file
-        if (f instanceof Blob) {
-          formData.append("files", f, fileInfo.name)
-        } else if (f) {
-          skippedInvalid++
-          console.warn("[Upload] Skipping non-Blob entry", {
-            name: fileInfo.name,
-            type: typeof f,
-            value: f,
-          })
-        }
-      })
-      if (skippedInvalid > 0) {
-        toast.error(
-          `Skipped ${skippedInvalid} invalid file(s): not Blob/File. Please re-add from disk.`,
-          { duration: 5000 }
-        )
-      }
-
-      const uploadUrl = getBenchmarkUploadUrl(jobId)
+      const totalBytes = validFiles.reduce(
+        (sum: number, f: any) => sum + (f.file?.size || 0),
+        0
+      )
+      let uploadedBytes = 0
+      let currentJobId = jobId || ""
+      currentJobIdRef.current = currentJobId
+      const chunkedUrl = getBenchmarkChunkedUploadUrl()
       console.log("📤 Request details:")
-      console.log("  URL:", uploadUrl)
+      console.log("  URL:", chunkedUrl)
       console.log("  Method: POST")
       console.log("  Content-Type: multipart/form-data")
-      console.log("  Files count:", uploadedFiles.length)
-
-      const response = await axios.post(uploadUrl, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            )
-            setUploadProgress(percentCompleted)
-          }
-        },
-      })
-
-      console.log("📡 Response details:")
-      console.log("  Status:", response.status)
-      console.log("  Status Text:", response.statusText)
-      console.log("  Headers:", response.headers)
-      console.log("  Data:", response.data)
-
-      setUploadedFileIds(uploadedFiles.map((f: any) => f.id))
+      console.log("  Files count:", validFiles.length)
+      let lastResult: ChunkedResult | null = null
+      abortControllerRef.current = new AbortController()
+      for (const f of validFiles) {
+        const fileObj: File = f.file as File
+        currentFileNameRef.current = fileObj.name
+        const res = await uploadChunkedWithRetry(
+          BENCHMARK_CONFIG.BASE_URL,
+          fileObj,
+          currentJobId,
+          { chunkSize: 5 * 1024 * 1024, maxRetries: 3, backoffBaseMs: 500 },
+          (chunkBytes, uploadedSoFarFile, totalBytesFile) => {
+            uploadedBytes += chunkBytes
+            const pct = Math.round((uploadedBytes * 100) / totalBytes)
+            setUploadProgress(pct)
+          },
+          abortControllerRef.current.signal
+        )
+        currentJobId = res.jobId
+        currentJobIdRef.current = currentJobId
+        lastResult = res
+      }
+      if (currentJobId && currentJobId !== jobId) {
+        setJobId(currentJobId)
+      }
+      setUploadedFileIds(validFiles.map((f: any) => f.id))
+      if (lastResult) {
+        console.log("📡 Response details:")
+        console.log("  Status:", lastResult.lastStatus)
+        console.log("  Status Text:", lastResult.lastStatusText)
+        console.log("  Headers:", lastResult.lastHeaders)
+        console.log("  Data:", lastResult.lastData)
+      }
       toast.success("Files uploaded successfully!")
     } catch (error) {
       console.error("❌ Upload failed:", error)
@@ -301,6 +427,7 @@ export function DatasetUpload({
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
+      abortControllerRef.current = null
     }
   }
 
@@ -351,6 +478,14 @@ export function DatasetUpload({
               <span className="text-sm font-medium text-blue-800">
                 Upload in progress... {uploadProgress}%
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={cancelUpload}
+              >
+                Cancel
+              </Button>
             </div>
             <p className="mt-1 text-xs text-blue-600">
               You can safely navigate to other tabs. Upload will continue in the

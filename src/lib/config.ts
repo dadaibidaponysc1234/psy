@@ -4,6 +4,8 @@ export const BENCHMARK_CONFIG = {
     process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL ||
     "http://localhost:8000/api/v1/benchmarks",
   UPLOAD_ENDPOINT: "/upload",
+  CHUNKED_UPLOAD_ENDPOINT: "/upload-chunked",
+  CHUNKED_CANCEL_ENDPOINT: "/upload-chunked/cancel",
   JOBS_ENDPOINT: "/jobs",
 } as const
 
@@ -11,6 +13,16 @@ export const BENCHMARK_CONFIG = {
 export const getBenchmarkUploadUrl = (jobId?: string) => {
   const baseUrl = `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.UPLOAD_ENDPOINT}`
   return jobId ? `${baseUrl}?job_id=${jobId}` : baseUrl
+}
+
+// Helper function to get the chunked upload URL
+export const getBenchmarkChunkedUploadUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.CHUNKED_UPLOAD_ENDPOINT}`
+}
+
+// Helper function to get the chunked cancel URL
+export const getBenchmarkChunkedCancelUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.CHUNKED_CANCEL_ENDPOINT}`
 }
 
 // Helper function to get the job creation URL
