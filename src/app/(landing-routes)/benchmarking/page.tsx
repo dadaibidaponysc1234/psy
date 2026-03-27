@@ -44,7 +44,6 @@ import {
   useUploadProgress,
 } from "@/stores/benchmarking-store"
 import { useHydration } from "@/hooks/use-hydration"
-import { Configure } from "@/components/benchmarking/configure"
 import { ToolConfiguration } from "@/components/benchmarking/tool-configuration"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
 import { AuthControls } from "@/components/benchmarking/auth-controls"
