@@ -1426,7 +1426,23 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       const statusData = await checkJobStatus(jobKey)
       console.log("[Mapping] checkStatusAndLoadData:status", statusData)
 
-      if (statusData.status && statusData.status.toLowerCase() === "uploaded") {
+      const jobStatus = (statusData.status || "").toLowerCase()
+
+      if (jobStatus === "extracting") {
+        // Poll until extraction completes
+        console.log("[Mapping] checkStatusAndLoadData:extracting — polling")
+        let current = jobStatus
+        while (current === "extracting") {
+          await new Promise((r) => setTimeout(r, 3000))
+          const pollRes = await checkJobStatus(jobKey)
+          current = (pollRes.status || "").toLowerCase()
+        }
+        if (current === "uploaded" || current === "configured" || current === "preprocessing" || current === "processing" || current === "completed") {
+          await fetchDatasetStructure(jobKey)
+        } else if (statusRequestRef.current === jobKey) {
+          setLoading(false)
+        }
+      } else if (jobStatus === "uploaded" || jobStatus === "configured" || jobStatus === "preprocessing" || jobStatus === "processing" || jobStatus === "completed") {
         console.log("[Mapping] checkStatusAndLoadData:fetchDataset")
         await fetchDatasetStructure(jobKey)
       } else if (statusRequestRef.current === jobKey) {

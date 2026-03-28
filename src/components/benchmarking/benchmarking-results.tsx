@@ -15,6 +15,7 @@ import {
   Search,
 } from "lucide-react"
 import axios from "axios"
+import { toast } from "react-hot-toast"
 import { BENCHMARK_CONFIG, getBenchmarkJobStatusUrl } from "@/lib/config"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -216,11 +217,65 @@ export function BenchmarkingResults({
     [backendOrigin, resolveUrl]
   )
 
-  // Build a file URL from the jobId and file path (preferred over trusting provided absolute URLs)
-  const fileUrlFromPath = (path: string) => {
+  // Build the API endpoint URL for a results file.
+  // In split mode this returns JSON { url, filename } with a presigned S3 URL.
+  const fileEndpointFromPath = (path: string) => {
     const p = encodeURIComponent(path)
     return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/results/file?path=${p}`
   }
+
+  // Fetch a presigned URL for a results file (split mode).
+  // Falls back to returning the API endpoint URL directly on error.
+  const fetchPresignedUrl = useCallback(
+    async (path: string): Promise<string> => {
+      try {
+        const res = await axios.get(fileEndpointFromPath(path))
+        // Split mode returns { url, filename }
+        if (res.data?.url) return res.data.url
+        // Full mode — the endpoint itself serves the file
+        return fileEndpointFromPath(path)
+      } catch {
+        return fileEndpointFromPath(path)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jobId]
+  )
+
+  // Open a preview dialog for an artifact (resolves presigned URL first)
+  const openArtifactPreview = useCallback(
+    async (artifact: ManifestArtifact) => {
+      const url = artifact.url
+        ? resolveUrl(artifact.url)
+        : await fetchPresignedUrl(artifact.path)
+      setPreviewItem({
+        name: artifact.name,
+        url,
+        contentType: artifact.content_type,
+      })
+    },
+    [resolveUrl, fetchPresignedUrl]
+  )
+
+  // Trigger a download for an artifact (resolves presigned URL first)
+  const downloadArtifact = useCallback(
+    async (artifact: ManifestArtifact) => {
+      try {
+        const url = artifact.url
+          ? resolveUrl(artifact.url)
+          : await fetchPresignedUrl(artifact.path)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = artifact.name
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      } catch {
+        toast.error("Failed to get download URL")
+      }
+    },
+    [resolveUrl, fetchPresignedUrl]
+  )
 
   const isImageLike = (contentType?: string, nameOrUrl?: string) => {
     if (contentType && contentType.startsWith("image/")) return true
@@ -1244,7 +1299,7 @@ export function BenchmarkingResults({
                       onClick={() =>
                         setPreviewItem({
                           name: plot.name,
-                          url: fileUrlFromPath(plot.path),
+                          url: resolveUrl(plot.url) || fileEndpointFromPath(plot.path),
                           contentType: plot.content_type,
                         })
                       }
@@ -1265,7 +1320,7 @@ export function BenchmarkingResults({
                       <div className="relative aspect-[4/3] bg-muted">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={fileUrlFromPath(plot.path)}
+                          src={resolveUrl(plot.url) || fileEndpointFromPath(plot.path)}
                           alt={plot.name}
                           className="absolute inset-0 h-full w-full object-contain"
                         />
@@ -1531,7 +1586,7 @@ export function BenchmarkingResults({
                                 onClick={() =>
                                   setPreviewItem({
                                     name: plot.name,
-                                    url: fileUrlFromPath(plot.path),
+                                    url: resolveUrl(plot.url) || fileEndpointFromPath(plot.path),
                                     contentType: plot.content_type,
                                   })
                                 }
@@ -1552,7 +1607,7 @@ export function BenchmarkingResults({
                                 <div className="relative aspect-[4/3] bg-muted">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={fileUrlFromPath(plot.path)}
+                                    src={resolveUrl(plot.url) || fileEndpointFromPath(plot.path)}
                                     alt={plot.name}
                                     className="absolute inset-0 h-full w-full object-contain"
                                   />
@@ -1682,36 +1737,22 @@ export function BenchmarkingResults({
                                               "image/"
                                             )
                                           ) {
-                                            setPreviewItem({
-                                              name: artifact.name,
-                                              url: fileUrlFromPath(
-                                                artifact.path
-                                              ),
-                                              contentType:
-                                                artifact.content_type,
-                                            })
+                                            openArtifactPreview(artifact)
                                           }
                                         }}
                                       >
                                         Open
                                       </Button>
-                                      <a
-                                        href={
-                                          fileUrlFromPath(artifact.path) +
-                                          (fileUrlFromPath(
-                                            artifact.path
-                                          ).includes("?")
-                                            ? "&"
-                                            : "?") +
-                                          "download=true"
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() =>
+                                          downloadArtifact(artifact)
                                         }
-                                        download
                                       >
-                                        <Button size="sm" variant="ghost">
-                                          <Download className="mr-2 h-4 w-4" />{" "}
-                                          Download
-                                        </Button>
-                                      </a>
+                                        <Download className="mr-2 h-4 w-4" />{" "}
+                                        Download
+                                      </Button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1805,33 +1846,22 @@ export function BenchmarkingResults({
                                             "image/"
                                           )
                                         ) {
-                                          setPreviewItem({
-                                            name: artifact.name,
-                                            url: fileUrlFromPath(artifact.path),
-                                            contentType: artifact.content_type,
-                                          })
+                                          openArtifactPreview(artifact)
                                         }
                                       }}
                                     >
                                       Open
                                     </Button>
-                                    <a
-                                      href={
-                                        fileUrlFromPath(artifact.path) +
-                                        (fileUrlFromPath(
-                                          artifact.path
-                                        ).includes("?")
-                                          ? "&"
-                                          : "?") +
-                                        "download=true"
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        downloadArtifact(artifact)
                                       }
-                                      download
                                     >
-                                      <Button size="sm" variant="ghost">
-                                        <Download className="mr-2 h-4 w-4" />{" "}
-                                        Download
-                                      </Button>
-                                    </a>
+                                      <Download className="mr-2 h-4 w-4" />{" "}
+                                      Download
+                                    </Button>
                                   </div>
                                 </td>
                               </tr>

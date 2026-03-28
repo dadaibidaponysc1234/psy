@@ -1,12 +1,12 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import React, { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { JobTracker } from "./job-tracker"
 import { toast } from "react-hot-toast"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
+import { getBenchmarkJobStatusUrl } from "@/lib/config"
 
 interface JobStatusProps {
   onNext: (data: any) => void
@@ -32,12 +32,9 @@ export function JobStatus({
 
     // If job is not completed, cancel it first
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL || "http://localhost:8000/api/v1/benchmarks"}/${jobId}`,
-        {
-          method: "DELETE",
-        }
-      )
+      const response = await fetch(getBenchmarkJobStatusUrl(jobId), {
+        method: "DELETE",
+      })
       if (response.ok) {
         console.log("🗑️ Job cancelled before clearing")
       }

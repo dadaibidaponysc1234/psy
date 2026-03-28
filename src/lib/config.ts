@@ -4,8 +4,6 @@ export const BENCHMARK_CONFIG = {
     process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL ||
     "http://localhost:8000/api/v1/benchmarks",
   UPLOAD_ENDPOINT: "/upload",
-  CHUNKED_UPLOAD_ENDPOINT: "/upload-chunked",
-  CHUNKED_CANCEL_ENDPOINT: "/upload-chunked/cancel",
   JOBS_ENDPOINT: "/jobs",
 } as const
 
@@ -15,14 +13,14 @@ export const getBenchmarkUploadUrl = (jobId?: string) => {
   return jobId ? `${baseUrl}?job_id=${jobId}` : baseUrl
 }
 
-// Helper function to get the chunked upload URL
-export const getBenchmarkChunkedUploadUrl = () => {
-  return `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.CHUNKED_UPLOAD_ENDPOINT}`
+// Helper function to get the presigned upload URL
+export const getBenchmarkPresignUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/presign`
 }
 
-// Helper function to get the chunked cancel URL
-export const getBenchmarkChunkedCancelUrl = () => {
-  return `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.CHUNKED_CANCEL_ENDPOINT}`
+// Helper function to get the upload complete URL
+export const getBenchmarkUploadCompleteUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/complete`
 }
 
 // Helper function to get the job creation URL
@@ -33,6 +31,11 @@ export const getBenchmarkJobsUrl = () => {
 // Helper function to get the job status URL
 export const getBenchmarkJobStatusUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}`
+}
+
+// Helper function to get the SSE events URL
+export const getBenchmarkEventsUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/events`
 }
 
 // Helper function to get the preview URL: /benchmark/{job_id}/preview/{file_path}
@@ -52,10 +55,34 @@ export const getBenchmarkConfigUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/config`
 }
 
-// Reference data paths - centrally managed for easy environment switching
+// Helper function to get per-tool log history
+export const getBenchmarkLogsUrl = (
+  jobId: string,
+  tool: string,
+  opts?: { level?: string; offset?: number; limit?: number }
+) => {
+  const params = new URLSearchParams({ tool })
+  if (opts?.level) params.set("level", opts.level)
+  if (opts?.offset != null) params.set("offset", String(opts.offset))
+  if (opts?.limit != null) params.set("limit", String(opts.limit))
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/logs/tool?${params.toString()}`
+}
+
+// Helper function to list shared datasets
+export const getBenchmarkSharedDatasetsUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/datasets/shared`
+}
+
+// Helper function to select a shared dataset for a job
+export const getBenchmarkUseSharedUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/dataset/use-shared`
+}
+
+// Reference data paths — backend handles these via env vars now.
+// Values are sent as empty strings so the payload shape is preserved
+// but the backend ignores/overrides them.
 export const REFERENCE_PATHS = {
-  SDPRX_LD_REF: "/Users/cable/Downloads/Work/prs-backend/dataset/chr_22.gz",
-  BRIDGEPRS_LD_REF:
-    "/Users/cable/Downloads/Work/prs-backend/dataset/h3gwas_data/1000G_5P",
-  PRSCSX_LD_REF: "ld_ref",
+  SDPRX_LD_REF: "",
+  BRIDGEPRS_LD_REF: "",
+  PRSCSX_LD_REF: "",
 } as const

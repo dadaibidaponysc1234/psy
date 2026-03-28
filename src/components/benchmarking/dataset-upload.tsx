@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,15 +15,18 @@ import {
   Archive,
   FileText as FileTextIcon,
   Loader2,
+  Database,
+  CheckCircle,
 } from "lucide-react"
 import {
-  getBenchmarkUploadUrl,
-  BENCHMARK_CONFIG,
-  getBenchmarkChunkedUploadUrl,
-  getBenchmarkChunkedCancelUrl,
+  getBenchmarkPresignUrl,
+  getBenchmarkUploadCompleteUrl,
+  getBenchmarkJobStatusUrl,
+  getBenchmarkSharedDatasetsUrl,
+  getBenchmarkUseSharedUrl,
 } from "@/lib/config"
 import axios from "axios"
-import { toast, Toaster } from "react-hot-toast"
+import { toast } from "react-hot-toast"
 import { toastInfo } from "@/hooks/use-toast"
 import {
   useBenchmarkingStore,
@@ -33,6 +36,13 @@ import {
   useIsUploading,
   useUploadProgress,
 } from "@/stores/benchmarking-store"
+import type {
+  PresignResponse,
+  UploadCompleteResponse,
+  SharedDataset,
+  SharedDatasetsResponse,
+  UseSharedResponse,
+} from "@/types/benchmarking"
 
 // Supported file types for benchmark uploads
 const SUPPORTED_FILE_TYPES = [
@@ -67,114 +77,70 @@ const SUPPORTED_FILE_TYPES = [
 const FILE_TYPE_REGEX =
   /^.*\.(bed|bim|fam|ped|map|vcf(?:\.gz)?|tbi|bgen|sample|gen|txt(?:\.gz)?|tsv(?:\.gz)?|csv(?:\.gz)?|ldscore(?:\.gz)?|annot(?:\.gz)?|zip|tar(?:\.gz)?|tgz)$/i
 
-// Function to validate file type
 const isValidFileType = (fileName: string): boolean => {
   return FILE_TYPE_REGEX.test(fileName)
 }
 
-type UploadOptions = {
-  chunkSize?: number
-  maxRetries?: number
-  backoffBaseMs?: number
-  combineTimeoutSecs?: number
-}
+type DatasetMode = "upload" | "shared"
 
-async function sleep(ms: number) {
-  return new Promise((res) => setTimeout(res, ms))
-}
-
-type ChunkedResult = {
-  jobId: string
-  lastStatus: number
-  lastStatusText: string
-  lastHeaders: Record<string, string>
-  lastData: any
-}
-
-async function uploadChunkedWithRetry(
-  apiBase: string,
+/**
+ * Upload a file directly to S3 via presigned URL using XMLHttpRequest
+ * for upload progress tracking.
+ */
+function uploadToS3WithProgress(
+  url: string,
   file: File,
-  jobId?: string,
-  opts: UploadOptions = {},
-  onChunk?: (chunkBytes: number, uploadedSoFarFile: number, totalBytesFile: number) => void,
+  contentType: string,
+  onProgress?: (loaded: number, total: number) => void,
   signal?: AbortSignal
-): Promise<ChunkedResult> {
-  const chunkSize = opts.chunkSize ?? 5 * 1024 * 1024
-  const maxRetries = opts.maxRetries ?? 3
-  const backoffBaseMs = opts.backoffBaseMs ?? 500
-  const totalChunks = Math.ceil(file.size / chunkSize)
-  let currentJobId = jobId ?? ""
-  let lastStatus = 0
-  let lastStatusText = ""
-  let lastHeaders: Record<string, string> = {}
-  let lastData: any = null
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("PUT", url)
+    xhr.setRequestHeader("Content-Type", contentType)
 
-  for (let i = 0; i < totalChunks; i++) {
-    const start = i * chunkSize
-    const end = Math.min(start + chunkSize, file.size)
-    const blob = file.slice(start, end)
-
-    let attempt = 0
-    while (true) {
-      const form = new FormData()
-      if (i === 0 && !currentJobId) {
-      } else {
-        form.append("job_id", currentJobId)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(e.loaded, e.total)
       }
-      form.append("chunk_index", String(i))
-      form.append("total_chunks", String(totalChunks))
-      form.append("filename", file.name)
-      form.append("chunk", blob, `${file.name}.part${i}`)
-      if (i === totalChunks - 1 && opts.combineTimeoutSecs !== undefined) {
-        form.append("combine_timeout_secs", String(opts.combineTimeoutSecs))
-      }
-
-      let res: Response | null = null
-      try {
-        res = await fetch(getBenchmarkChunkedUploadUrl(), {
-          method: "POST",
-          body: form,
-          credentials: "include",
-          signal,
-        })
-      } catch {
-        res = null
-      }
-
-      if (res && res.ok) {
-        const json = await res.json()
-        if (!currentJobId) currentJobId = json.job_id
-        lastStatus = res.status
-        lastStatusText = res.statusText
-        const hdrs: Record<string, string> = {}
-        res.headers.forEach((v, k) => {
-          hdrs[k] = v
-        })
-        lastHeaders = hdrs
-        lastData = json
-        if (typeof onChunk === "function") {
-          onChunk(blob.size, end, file.size)
-        }
-        break
-      }
-
-      attempt += 1
-      if (attempt > maxRetries) {
-        throw new Error(
-          `Chunk ${i + 1}/${totalChunks} failed after ${maxRetries} retries`
-        )
-      }
-      const backoff = backoffBaseMs * Math.pow(2, attempt - 1)
-      await sleep(backoff)
     }
-  }
 
-  return {
-    jobId: currentJobId,
-    lastStatus,
-    lastStatusText,
-    lastHeaders,
-    lastData,
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve()
+      } else {
+        reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error("Network error during S3 upload"))
+    xhr.ontimeout = () => reject(new Error("S3 upload timed out"))
+
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        xhr.abort()
+        reject(new Error("Upload aborted"))
+      })
+    }
+
+    xhr.send(file)
+  })
+}
+
+/**
+ * Poll job status until it leaves the "extracting" state.
+ */
+async function waitForExtraction(
+  jobId: string,
+  signal?: AbortSignal
+): Promise<string> {
+  const pollInterval = 3000
+  while (true) {
+    if (signal?.aborted) throw new Error("Upload aborted")
+    const res = await axios.get(getBenchmarkJobStatusUrl(jobId))
+    const status = (res.data.status || "").toLowerCase()
+    if (status !== "extracting") return status
+    await new Promise((r) => setTimeout(r, pollInterval))
   }
 }
 
@@ -189,10 +155,18 @@ export function DatasetUpload({
   onPrevious,
   data,
 }: DatasetUploadProps) {
+  const [mode, setMode] = useState<DatasetMode>("upload")
   const [showSupportedTypes, setShowSupportedTypes] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const currentFileNameRef = useRef<string | null>(null)
-  const currentJobIdRef = useRef<string | null>(null)
+
+  // Shared dataset state
+  const [sharedDatasets, setSharedDatasets] = useState<SharedDataset[]>([])
+  const [sharedLoading, setSharedLoading] = useState(false)
+  const [sharedError, setSharedError] = useState<string | null>(null)
+  const [selectedShared, setSelectedShared] = useState<string | null>(null)
+  const [isSelectingShared, setIsSelectingShared] = useState(false)
+  const [sharedFetched, setSharedFetched] = useState(false)
 
   const {
     jobId,
@@ -212,88 +186,142 @@ export function DatasetUpload({
   } = useBenchmarkingStore()
 
   // Check if there's already an active job and restore uploaded state
-  // This also handles tab switching during upload - when you return to this tab,
-  // it will check the server status and restore the correct state
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when jobId changes
   useEffect(() => {
     const checkExistingJob = async () => {
-      console.log("🔍 Checking existing job:", jobId)
+      if (!jobId) return
 
-      if (jobId) {
-        try {
-          // Check job status to see if files are already uploaded
-          const response = await axios.get(
-            `${getBenchmarkUploadUrl().replace("/upload", "")}/${jobId}`
-          )
+      try {
+        const response = await axios.get(getBenchmarkJobStatusUrl(jobId))
+        const status = (response.data.status || "").toLowerCase()
 
-          console.log("📊 Job status response:", response.data)
-
-          if (
-            response.data.status &&
-            response.data.status.toLowerCase() !== "created"
-          ) {
-            // Files are already uploaded (includes 'uploaded', 'processing', etc.)
-            // Any status other than 'created' means files have been handled successfully
-            console.log("📁 Files already uploaded/processed, restoring state")
-            console.log(
-              "📁 Processing details:",
-              response.data.processing_details
-            )
-
-            // Create mock file entries for the uploaded files
-            const mockFiles =
-              response.data.processing_details?.uploaded_files?.map(
-                (filename: string) => ({
-                  id: Math.random().toString(36).substr(2, 9),
-                  name: filename,
-                  size: 0, // We don't have the actual size
-                  type: "application/octet-stream",
-                  file: undefined, // No file object for server-uploaded files
-                })
-              ) || []
-
-            console.log("📁 Mock files created:", mockFiles)
-
-            setUploadedFiles(mockFiles)
-            setUploadedFileIds(mockFiles.map((f: any) => f.id))
-            setHasServerUploads(mockFiles.length > 0)
-
-            // Reset upload state since files are already on server
-            setIsUploading(false)
-            setUploadProgress(0)
-
-            toast.success("Uploaded files restored from existing job")
-          } else {
-            console.log("📁 Job status is 'created', no files uploaded yet")
-
-            // If we were uploading and job is still 'created',
-            // the upload might have been interrupted
-            if (isUploading) {
-              console.log("⚠️ Upload was interrupted, resetting upload state")
-              setIsUploading(false)
-              setUploadProgress(0)
-              toastInfo("Upload was interrupted. Please try uploading again.")
-            }
+        if (status === "extracting") {
+          setIsExtracting(true)
+          toast("Files are being extracted...", { icon: "📦" })
+          try {
+            await waitForExtraction(jobId)
+            setIsExtracting(false)
+            toast.success("File extraction complete")
+          } catch {
+            setIsExtracting(false)
           }
-        } catch (error) {
-          console.error("Failed to check existing job:", error)
-
-          // If we can't reach the server and were uploading, reset state
+          const updated = await axios.get(getBenchmarkJobStatusUrl(jobId))
+          restoreUploadedState(updated.data)
+        } else if (status !== "created") {
+          restoreUploadedState(response.data)
+        } else {
           if (isUploading) {
-            console.log("⚠️ Server unreachable, resetting upload state")
             setIsUploading(false)
             setUploadProgress(0)
-            toast.error(
-              "Cannot reach server. Upload may have been interrupted."
-            )
+            toastInfo("Upload was interrupted. Please try uploading again.")
           }
         }
-      } else {
-        console.log("🔍 No job ID found in Zustand store")
+      } catch (error) {
+        console.error("Failed to check existing job:", error)
+        if (isUploading) {
+          setIsUploading(false)
+          setUploadProgress(0)
+          toast.error("Cannot reach server. Upload may have been interrupted.")
+        }
       }
     }
 
     checkExistingJob()
   }, [jobId])
+
+  const restoreUploadedState = useCallback(
+    (data: any) => {
+      const mockFiles =
+        data.processing_details?.uploaded_files?.map((filename: string) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          name: filename,
+          size: 0,
+          type: "application/octet-stream",
+          file: undefined,
+        })) || []
+
+      setUploadedFiles(mockFiles)
+      setUploadedFileIds(mockFiles.map((f: any) => f.id))
+      setHasServerUploads(mockFiles.length > 0)
+      setIsUploading(false)
+      setUploadProgress(0)
+      toast.success("Uploaded files restored from existing job")
+    },
+    [setUploadedFiles, setUploadedFileIds, setHasServerUploads, setIsUploading, setUploadProgress]
+  )
+
+  // ---------------------------------------------------------------------------
+  // Shared datasets
+  // ---------------------------------------------------------------------------
+
+  const fetchSharedDatasets = useCallback(async () => {
+    if (sharedFetched && sharedDatasets.length > 0) return
+    setSharedLoading(true)
+    setSharedError(null)
+    try {
+      const res = await axios.get<SharedDatasetsResponse>(
+        getBenchmarkSharedDatasetsUrl()
+      )
+      setSharedDatasets(res.data.datasets || [])
+      setSharedFetched(true)
+    } catch (err) {
+      setSharedError("Failed to load shared datasets")
+      console.error("Failed to fetch shared datasets:", err)
+    } finally {
+      setSharedLoading(false)
+    }
+  }, [sharedFetched, sharedDatasets.length])
+
+  // Fetch shared datasets when user switches to shared mode
+  useEffect(() => {
+    if (mode === "shared") {
+      fetchSharedDatasets()
+    }
+  }, [mode, fetchSharedDatasets])
+
+  const handleUseSharedDataset = async () => {
+    if (!jobId || !selectedShared) return
+
+    setIsSelectingShared(true)
+    try {
+      const res = await axios.post<UseSharedResponse>(
+        getBenchmarkUseSharedUrl(jobId),
+        { dataset: selectedShared },
+        { headers: { "Content-Type": "application/json" } }
+      )
+
+      // The job is now "uploaded" — create mock files to show in the UI
+      const dataset = sharedDatasets.find((d) => d.name === selectedShared)
+      const mockFiles = [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          name: `${selectedShared} (${dataset?.file_count ?? res.data.file_count} files)`,
+          size: dataset?.total_size ?? 0,
+          type: "shared-dataset",
+          file: undefined,
+        },
+      ]
+      setUploadedFiles(mockFiles)
+      setUploadedFileIds(mockFiles.map((f) => f.id))
+      setHasServerUploads(true)
+
+      toast.success(res.data.message || "Shared dataset selected")
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        toast.error(
+          `Failed to select dataset: ${err.response?.data?.detail || err.message}`
+        )
+      } else {
+        toast.error("Failed to select shared dataset")
+      }
+    } finally {
+      setIsSelectingShared(false)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // File upload (own dataset)
+  // ---------------------------------------------------------------------------
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -328,94 +356,90 @@ export function DatasetUpload({
     }
 
     if (validFiles.length > 0) {
-      // Add each file to the store
       validFiles.forEach((file) => addUploadedFile(file))
       toast.success(`Added ${validFiles.length} file(s) successfully.`)
     }
   }
 
-  const cancelUpload = async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    const payload: any = {
-      job_id: currentJobIdRef.current || jobId || "",
-    }
-    if (currentFileNameRef.current) {
-      payload.filename = currentFileNameRef.current
-    }
-    try {
-      await axios.post(getBenchmarkChunkedCancelUrl(), payload, {
-        headers: { "Content-Type": "application/json" },
-      })
-      toast.success("Upload cancelled")
-    } catch (e: any) {
-      console.error("Cancel upload failed:", e?.response?.data || e?.message || e)
-      toast.error("Failed to cancel upload")
-    }
-  }
-
   const handleUpload = async () => {
+    const validFiles = uploadedFiles.filter((f: any) => f.file instanceof Blob)
+    if (validFiles.length === 0) {
+      toast.error("No valid files to upload")
+      return
+    }
+
+    if (!jobId) {
+      toast.error("No job ID found. Please select tools first.")
+      return
+    }
+
     setIsUploading(true)
     setUploadProgress(0)
+    abortControllerRef.current = new AbortController()
+    const signal = abortControllerRef.current.signal
 
     try {
-      const validFiles = uploadedFiles.filter((f: any) => f.file instanceof Blob)
-      if (validFiles.length === 0) {
-        toast.error("No valid files to upload")
-        return
-      }
+      // Step 1: Request presigned URLs for all files
+      const filenames = validFiles.map((f: any) => f.name)
+      const presignRes = await axios.post<PresignResponse>(
+        getBenchmarkPresignUrl(jobId),
+        { filenames },
+        { headers: { "Content-Type": "application/json" } }
+      )
+      const { urls } = presignRes.data
+
+      // Step 2: Upload each file directly to S3
       const totalBytes = validFiles.reduce(
         (sum: number, f: any) => sum + (f.file?.size || 0),
         0
       )
-      let uploadedBytes = 0
-      let currentJobId = jobId || ""
-      currentJobIdRef.current = currentJobId
-      const chunkedUrl = getBenchmarkChunkedUploadUrl()
-      console.log("📤 Request details:")
-      console.log("  URL:", chunkedUrl)
-      console.log("  Method: POST")
-      console.log("  Content-Type: multipart/form-data")
-      console.log("  Files count:", validFiles.length)
-      let lastResult: ChunkedResult | null = null
-      abortControllerRef.current = new AbortController()
+      const fileProgress: Record<string, number> = {}
+
       for (const f of validFiles) {
         const fileObj: File = f.file as File
-        currentFileNameRef.current = fileObj.name
-        const res = await uploadChunkedWithRetry(
-          BENCHMARK_CONFIG.BASE_URL,
+        const presigned = urls[fileObj.name]
+        if (!presigned) {
+          throw new Error(`No presigned URL returned for ${fileObj.name}`)
+        }
+
+        fileProgress[fileObj.name] = 0
+
+        await uploadToS3WithProgress(
+          presigned.url,
           fileObj,
-          currentJobId,
-          { chunkSize: 5 * 1024 * 1024, maxRetries: 3, backoffBaseMs: 500 },
-          (chunkBytes, uploadedSoFarFile, totalBytesFile) => {
-            uploadedBytes += chunkBytes
-            const pct = Math.round((uploadedBytes * 100) / totalBytes)
-            setUploadProgress(pct)
+          presigned.content_type,
+          (loaded) => {
+            fileProgress[fileObj.name] = loaded
+            const totalLoaded = Object.values(fileProgress).reduce(
+              (a, b) => a + b,
+              0
+            )
+            setUploadProgress(Math.round((totalLoaded * 100) / totalBytes))
           },
-          abortControllerRef.current.signal
+          signal
         )
-        currentJobId = res.jobId
-        currentJobIdRef.current = currentJobId
-        lastResult = res
       }
-      if (currentJobId && currentJobId !== jobId) {
-        setJobId(currentJobId)
-      }
+
+      // Step 3: Confirm upload
+      const completeRes = await axios.post<UploadCompleteResponse>(
+        getBenchmarkUploadCompleteUrl(jobId)
+      )
+
       setUploadedFileIds(validFiles.map((f: any) => f.id))
-      if (lastResult) {
-        console.log("📡 Response details:")
-        console.log("  Status:", lastResult.lastStatus)
-        console.log("  Status Text:", lastResult.lastStatusText)
-        console.log("  Headers:", lastResult.lastHeaders)
-        console.log("  Data:", lastResult.lastData)
+
+      // Step 4: If extracting, poll until uploaded
+      if (completeRes.data.status === "extracting") {
+        setIsExtracting(true)
+        toast("Extracting uploaded archives...", { icon: "📦" })
+        await waitForExtraction(jobId, signal)
+        setIsExtracting(false)
       }
+
       toast.success("Files uploaded successfully!")
     } catch (error) {
-      console.error("❌ Upload failed:", error)
-      if (axios.isAxiosError(error)) {
-        console.error("  Response status:", error.response?.status)
-        console.error("  Response data:", error.response?.data)
+      if (error instanceof Error && error.message === "Upload aborted") {
+        toast("Upload cancelled", { icon: "🚫" })
+      } else if (axios.isAxiosError(error)) {
         toast.error(
           `Upload failed: ${error.response?.data?.detail || error.message}`
         )
@@ -426,8 +450,15 @@ export function DatasetUpload({
       }
     } finally {
       setIsUploading(false)
+      setIsExtracting(false)
       setUploadProgress(0)
       abortControllerRef.current = null
+    }
+  }
+
+  const cancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
     }
   }
 
@@ -456,28 +487,55 @@ export function DatasetUpload({
     return File
   }
 
+  const canProceed =
+    (uploadedFiles.length > 0 || hasServerUploads) &&
+    !isUploading &&
+    !isExtracting &&
+    !isSelectingShared
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-2 text-xl font-semibold">Upload Datasets</h3>
+        <h3 className="mb-2 text-xl font-semibold">Dataset</h3>
         <p className="text-muted-foreground">
-          Upload your benchmark datasets. We support a wide variety of genetic
-          data formats.
+          Upload your own benchmark dataset or use a shared dataset from our
+          collection.
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          💡 <strong>Tip:</strong> If you have multiple files or need to
-          preserve directory structures, consider uploading a ZIP file
-          containing all your data files.
-        </p>
+      </div>
 
-        {/* Upload Status Indicator */}
-        {isUploading && (
-          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
-                Upload in progress... {uploadProgress}%
-              </span>
+      {/* Mode selector */}
+      <div className="flex gap-3">
+        <Button
+          variant={mode === "upload" ? "default" : "outline"}
+          onClick={() => setMode("upload")}
+          className="flex-1"
+          disabled={isUploading || isSelectingShared}
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          Upload my own dataset
+        </Button>
+        <Button
+          variant={mode === "shared" ? "default" : "outline"}
+          onClick={() => setMode("shared")}
+          className="flex-1"
+          disabled={isUploading || isSelectingShared}
+        >
+          <Database className="mr-2 h-4 w-4" />
+          Use shared dataset
+        </Button>
+      </div>
+
+      {/* Upload Status Indicator */}
+      {isUploading && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">
+              {isExtracting
+                ? "Extracting uploaded archives..."
+                : `Uploading to cloud... ${uploadProgress}%`}
+            </span>
+            {!isExtracting && (
               <Button
                 variant="outline"
                 size="sm"
@@ -486,196 +544,337 @@ export function DatasetUpload({
               >
                 Cancel
               </Button>
-            </div>
-            <p className="mt-1 text-xs text-blue-600">
-              You can safely navigate to other tabs. Upload will continue in the
-              background.
-            </p>
-          </div>
-        )}
-
-        {/* Supported File Types Collapsible Section */}
-        <div className="mt-4">
-          <button
-            onClick={() => setShowSupportedTypes(!showSupportedTypes)}
-            className="flex items-center gap-2 text-sm text-primary transition-colors hover:text-primary/80"
-          >
-            {showSupportedTypes ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
             )}
-            <span className="font-medium">
-              {showSupportedTypes ? "Hide" : "Show"} Supported File Types
-            </span>
-          </button>
-
-          {showSupportedTypes && (
-            <div className="mt-3 rounded-lg bg-muted/50 p-4">
-              <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3 lg:grid-cols-4">
-                {SUPPORTED_FILE_TYPES.map((fileType) => (
-                  <div
-                    key={fileType}
-                    className="font-mono text-muted-foreground"
-                  >
-                    {fileType}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>File Upload</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center transition-colors hover:border-muted-foreground/50">
-            <Upload className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <div className="space-y-2">
-              <Label htmlFor="file-upload" className="cursor-pointer">
-                <span className="text-lg font-medium">
-                  Click to upload files
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  or drag and drop multiple files
-                </p>
-              </Label>
-              <Input
-                id="file-upload"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileUpload}
-                accept={SUPPORTED_FILE_TYPES.join(",")}
-              />
-            </div>
           </div>
-        </CardContent>
-      </Card>
-      {uploadedFiles.length > 0 && (
+          <p className="mt-1 text-xs text-blue-600">
+            {isExtracting
+              ? "Please wait while your archives are being extracted on the server."
+              : "Uploading files directly to cloud storage."}
+          </p>
+        </div>
+      )}
+
+      {/* Extracting indicator (when not actively uploading but extraction is happening) */}
+      {isExtracting && !isUploading && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+            <span className="text-sm font-medium text-amber-800">
+              Extracting files on server...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================== */}
+      {/* MODE: Upload own dataset                                            */}
+      {/* ================================================================== */}
+      {mode === "upload" && (
         <>
-          {hasServerUploads && (
-            <Card>
-              <CardHeader>
-                <CardTitle>📁 Files Restored from Server</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  These files were already uploaded to the server. You can
-                  upload additional files below.
-                </p>
-              </CardHeader>
-            </Card>
-          )}
+          <p className="text-sm text-muted-foreground">
+            We support a wide variety of genetic data formats. If you have
+            multiple files or need to preserve directory structures, consider
+            uploading a ZIP file.
+          </p>
+
+          {/* Supported File Types Collapsible Section */}
+          <div>
+            <button
+              onClick={() => setShowSupportedTypes(!showSupportedTypes)}
+              className="flex items-center gap-2 text-sm text-primary transition-colors hover:text-primary/80"
+            >
+              {showSupportedTypes ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <span className="font-medium">
+                {showSupportedTypes ? "Hide" : "Show"} Supported File Types
+              </span>
+            </button>
+
+            {showSupportedTypes && (
+              <div className="mt-3 rounded-lg bg-muted/50 p-4">
+                <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3 lg:grid-cols-4">
+                  {SUPPORTED_FILE_TYPES.map((fileType) => (
+                    <div
+                      key={fileType}
+                      className="font-mono text-muted-foreground"
+                    >
+                      {fileType}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Selected Files</CardTitle>
-              {hasServerUploads && (
-                <p className="text-sm text-muted-foreground">
-                  📁 Files restored from server - you can upload additional
-                  files
-                </p>
-              )}
+              <CardTitle>File Upload</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {uploadedFiles.map((file) => {
-                  const FileIcon = getFileIcon(file.name)
-                  return (
-                    <div
-                      key={file.id}
-                      className={`relative rounded-lg border p-4 transition-all ${
-                        uploadedFileIds.includes(file.id)
-                          ? "border-green-200 bg-green-50 dark:bg-green-950/20"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          <FileIcon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex items-center gap-2">
-                            <p
-                              className="truncate text-sm font-medium"
-                              title={file.name}
-                            >
-                              {file.name}
-                            </p>
-                            {uploadedFileIds.includes(file.id) && (
-                              <Badge variant="outline" className="text-xs">
-                                Uploaded
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(file.id)}
-                          disabled={uploadedFileIds.includes(file.id)}
-                          className="h-6 w-6 flex-shrink-0 p-0"
-                        >
-                          ×
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center transition-colors hover:border-muted-foreground/50">
+                <Upload className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <div className="space-y-2">
+                  <Label htmlFor="file-upload" className="cursor-pointer">
+                    <span className="text-lg font-medium">
+                      Click to upload files
+                    </span>
+                    <p className="text-sm text-muted-foreground">
+                      or drag and drop multiple files
+                    </p>
+                  </Label>
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept={SUPPORTED_FILE_TYPES.join(",")}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {uploadedFiles.length > 0 && (
-            <Card>
-              <CardContent>
-                <div className="mt-4">
-                  <Button
-                    onClick={handleUpload}
-                    disabled={
-                      isUploading ||
-                      uploadedFileIds.length === uploadedFiles.length ||
-                      uploadedFiles.length === 0
-                    }
-                    className="w-full"
-                  >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : uploadedFileIds.length === uploadedFiles.length ? (
-                      "All Files Uploaded"
-                    ) : uploadedFiles.length === 0 ? (
-                      "No Files Selected"
-                    ) : (
-                      "Upload Files"
-                    )}
-                  </Button>
-                  {isUploading && (
-                    <Progress value={uploadProgress} className="mt-2" />
+            <>
+              {hasServerUploads && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Files Restored from Server</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      These files were already uploaded to the server. You can
+                      upload additional files below.
+                    </p>
+                  </CardHeader>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Selected Files</CardTitle>
+                  {hasServerUploads && (
+                    <p className="text-sm text-muted-foreground">
+                      Files restored from server - you can upload additional
+                      files
+                    </p>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {uploadedFiles.map((file) => {
+                      const FileIcon = getFileIcon(file.name)
+                      return (
+                        <div
+                          key={file.id}
+                          className={`relative rounded-lg border p-4 transition-all ${
+                            uploadedFileIds.includes(file.id)
+                              ? "border-green-200 bg-green-50 dark:bg-green-950/20"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                              <FileIcon className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex items-center gap-2">
+                                <p
+                                  className="truncate text-sm font-medium"
+                                  title={file.name}
+                                >
+                                  {file.name}
+                                </p>
+                                {uploadedFileIds.includes(file.id) && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Uploaded
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(file.size)}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(file.id)}
+                              disabled={uploadedFileIds.includes(file.id)}
+                              className="h-6 w-6 flex-shrink-0 p-0"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleUpload}
+                      disabled={
+                        isUploading ||
+                        isExtracting ||
+                        uploadedFileIds.length === uploadedFiles.length ||
+                        uploadedFiles.length === 0
+                      }
+                      className="w-full"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {isExtracting ? "Extracting..." : "Uploading..."}
+                        </>
+                      ) : uploadedFileIds.length === uploadedFiles.length ? (
+                        "All Files Uploaded"
+                      ) : uploadedFiles.length === 0 ? (
+                        "No Files Selected"
+                      ) : (
+                        "Upload Files"
+                      )}
+                    </Button>
+                    {isUploading && !isExtracting && (
+                      <Progress value={uploadProgress} className="mt-2" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </>
       )}
-      {/* The JobTracker component is removed as per the edit hint */}
+
+      {/* ================================================================== */}
+      {/* MODE: Shared dataset                                                */}
+      {/* ================================================================== */}
+      {mode === "shared" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Shared Datasets</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select a pre-existing dataset from our shared collection. No
+              upload needed — the dataset will be linked to your job instantly.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {sharedLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Loading shared datasets...
+                </span>
+              </div>
+            )}
+
+            {sharedError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {sharedError}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-3"
+                  onClick={() => {
+                    setSharedFetched(false)
+                    fetchSharedDatasets()
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {!sharedLoading && !sharedError && sharedDatasets.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No shared datasets available.
+              </div>
+            )}
+
+            {!sharedLoading && sharedDatasets.length > 0 && (
+              <div className="space-y-3">
+                {sharedDatasets.map((dataset) => {
+                  const isSelected = selectedShared === dataset.name
+                  return (
+                    <button
+                      key={dataset.name}
+                      type="button"
+                      onClick={() => setSelectedShared(dataset.name)}
+                      disabled={isSelectingShared || hasServerUploads}
+                      className={`w-full rounded-lg border p-4 text-left transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:border-primary/50"
+                      } ${isSelectingShared || hasServerUploads ? "opacity-60" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Database
+                          className={`h-8 w-8 shrink-0 ${
+                            isSelected
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">{dataset.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {dataset.file_count} files
+                            {dataset.total_size_formatted &&
+                              ` — ${dataset.total_size_formatted}`}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle className="h-5 w-5 shrink-0 text-primary" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+
+                {!hasServerUploads && (
+                  <Button
+                    onClick={handleUseSharedDataset}
+                    disabled={!selectedShared || isSelectingShared || !jobId}
+                    className="w-full"
+                  >
+                    {isSelectingShared ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Selecting dataset...
+                      </>
+                    ) : (
+                      "Use Selected Dataset"
+                    )}
+                  </Button>
+                )}
+
+                {hasServerUploads && (
+                  <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">
+                      Dataset ready — proceed to the next step.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Navigation */}
       <div className="mt-4 flex gap-2">
         {onPrevious && (
           <Button variant="secondary" onClick={onPrevious}>
             Back
           </Button>
         )}
-        <Button
-          onClick={() => onNext({ uploadedFiles, uploadedFileIds })}
-          disabled={uploadedFiles.length === 0 && !hasServerUploads}
-        >
+        <Button onClick={() => onNext({ uploadedFiles, uploadedFileIds })} disabled={!canProceed}>
           Next
         </Button>
       </div>
