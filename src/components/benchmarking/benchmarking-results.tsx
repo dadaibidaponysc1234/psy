@@ -17,6 +17,8 @@ import {
 import axios from "axios"
 import { toast } from "react-hot-toast"
 import { BENCHMARK_CONFIG, getBenchmarkJobStatusUrl } from "@/lib/config"
+import { useBenchmarkingStore } from "@/stores/benchmarking-store"
+import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Image as ImageIcon,
@@ -118,9 +120,11 @@ export function BenchmarkingResults({
   const [evalR2, setEvalR2] = useState<EvalR2Response | null>(null)
   const [evalAUC, setEvalAUC] = useState<EvalR2Response | null>(null)
   const [plots, setPlots] = useState<ManifestPlot[] | null>(null)
-  const [toolSummary, setToolSummary] = useState<ToolSummaryResponse | null>(
-    null
-  )
+  // SSE-driven tool states from zustand (replaces tool-summary endpoint)
+  const toolStates = useBenchmarkingStore((s) => s.toolStates)
+
+  // Connect SSE so tool states are live even on the results page
+  useBenchmarkSSE(jobId || null)
   const [loading, setLoading] = useState({
     manifest: true,
     summary: true,
@@ -178,7 +182,6 @@ export function BenchmarkingResults({
       manifest: `${base}/${jobId}/results/manifest`,
       plots: `${base}/${jobId}/results/plots`,
       prsSummary: `${base}/${jobId}/results/prs-summary`,
-      toolSummary: `${base}/${jobId}/results/tool-summary`,
       evalR2: `${base}/${jobId}/results/eval-r2`,
       evalAUC: `${base}/${jobId}/results/eval-auc`,
       archive: `${base}/${jobId}/results/archive.zip`,
@@ -364,22 +367,6 @@ export function BenchmarkingResults({
         }))
       } finally {
         setLoading((prev) => ({ ...prev, summary: false }))
-      }
-
-      // Fetch per-tool execution summary from dedicated endpoint
-      try {
-        const res = await axios.get<ToolSummaryResponse>(
-          endpoints.toolSummary
-        )
-        if (log) console.log("[Benchmark] Tool summary response:", JSON.stringify(res.data, null, 2))
-        setToolSummary(res.data)
-      } catch (e: any) {
-        if (log)
-          console.error(
-            "[Benchmark] Tool summary error:",
-            JSON.stringify(e?.response?.data || e?.message || e)
-          )
-        // No error surfaced; we can fall back to prsSummary.tool_summary if present
       }
 
       try {
@@ -629,12 +616,28 @@ export function BenchmarkingResults({
     return map
   }, [evalAUC, evalR2, matchToolId])
 
-  // Combine tool summary from dedicated endpoint with any augmented responses
+  // Derive tool execution summary from SSE-driven toolStates in zustand
   const combinedToolSummary = useMemo<Record<string, ToolStageSummary>>(() => {
-    const fromDedicated = toolSummary?.tool_summary
-    const fromPrs = prsSummary?.tool_summary
-    return fromDedicated ?? fromPrs ?? {}
-  }, [toolSummary, prsSummary])
+    const result: Record<string, ToolStageSummary> = {}
+    for (const [name, ts] of Object.entries(toolStates)) {
+      const mapStatus = (s: string): "succeeded" | "failed" | "skipped" | "unknown" => {
+        if (s === "completed") return "succeeded"
+        if (s === "failed") return "failed"
+        if (s === "skipped") return "skipped"
+        return "unknown"
+      }
+      result[name] = {
+        preprocessing: mapStatus(ts.status),
+        processing: mapStatus(ts.status),
+        messages: ts.message || ts.last_error || null,
+      }
+    }
+    // Fall back to prsSummary.tool_summary if SSE data is empty
+    if (Object.keys(result).length === 0 && prsSummary?.tool_summary) {
+      return prsSummary.tool_summary
+    }
+    return result
+  }, [toolStates, prsSummary])
 
   const renderStageBadge = useCallback((value?: string) => {
     const v = (value || "unknown").toLowerCase()

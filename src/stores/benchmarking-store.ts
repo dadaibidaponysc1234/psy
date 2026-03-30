@@ -5,6 +5,11 @@ import {
   devtools,
   subscribeWithSelector,
 } from "zustand/middleware"
+import type {
+  ToolStatusEvent,
+  LogLine,
+  AggregateProgress,
+} from "@/types/benchmarking"
 
 // Types for the benchmarking workflow
 export interface ToolPopulationState {
@@ -141,6 +146,14 @@ export interface BenchmarkingState {
   // Mapping state
   mappingState: Record<string, MappingJobState>
 
+  // SSE-driven state (not persisted)
+  sseConnected: boolean
+  sseStatus: string
+  toolStates: Record<string, ToolStatusEvent>
+  toolLogs: Record<string, LogLine[]>
+  aggregateProgress: AggregateProgress | null
+  extractionProgress: { current: number; total: number } | null
+
   // Actions
   setJobId: (jobId: string | null) => void
   setJobStatus: (status: string | null) => void
@@ -171,6 +184,17 @@ export interface BenchmarkingState {
   ) => void
   removePrscsxBasePopulation: (baseId: string) => void
   resetMappingForJob: (jobId: string) => void
+
+  // SSE actions
+  setSseConnected: (connected: boolean) => void
+  setSseStatus: (status: string) => void
+  setToolStates: (states: Record<string, ToolStatusEvent>) => void
+  updateToolState: (tool: string, state: ToolStatusEvent) => void
+  appendToolLogs: (tool: string, lines: LogLine[]) => void
+  setToolLogs: (tool: string, lines: LogLine[]) => void
+  setAggregateProgress: (progress: AggregateProgress | null) => void
+  setExtractionProgress: (progress: { current: number; total: number } | null) => void
+  clearSseState: () => void
 
   // Upload actions
   setUploadedFiles: (
@@ -212,6 +236,12 @@ const initialState = {
   isSidebarCollapsed: false,
   configActiveTab: null,
   mappingState: {},
+  sseConnected: false,
+  sseStatus: "",
+  toolStates: {},
+  toolLogs: {},
+  aggregateProgress: null,
+  extractionProgress: null,
 }
 
 export const useBenchmarkingStore = create<BenchmarkingState>()(
@@ -251,6 +281,43 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
       setConfigActiveTab: (configActiveTab: string | null) =>
         set({ configActiveTab }),
 
+      // SSE actions
+      setSseConnected: (sseConnected) => set({ sseConnected }),
+      setSseStatus: (sseStatus) => set({ sseStatus }),
+      setToolStates: (toolStates) => set({ toolStates }),
+      updateToolState: (tool, state) =>
+        set((s) => ({
+          toolStates: { ...s.toolStates, [tool]: state },
+        })),
+      appendToolLogs: (tool, lines) =>
+        set((s) => {
+          const existing = s.toolLogs[tool] || []
+          const combined = [...existing, ...lines]
+          const maxLines = 1500
+          return {
+            toolLogs: {
+              ...s.toolLogs,
+              [tool]: combined.length > maxLines
+                ? combined.slice(-maxLines)
+                : combined,
+            },
+          }
+        }),
+      setToolLogs: (tool, lines) =>
+        set((s) => ({ toolLogs: { ...s.toolLogs, [tool]: lines } })),
+      setAggregateProgress: (aggregateProgress) => set({ aggregateProgress }),
+      setExtractionProgress: (extractionProgress) =>
+        set({ extractionProgress }),
+      clearSseState: () =>
+        set({
+          sseConnected: false,
+          sseStatus: "",
+          toolStates: {},
+          toolLogs: {},
+          aggregateProgress: null,
+          extractionProgress: null,
+        }),
+
       // Reset actions
       resetWorkflow: () => set(initialState),
 
@@ -264,6 +331,12 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
           isUploading: false,
           uploadProgress: 0,
           mappingState: {},
+          sseConnected: false,
+          sseStatus: "",
+          toolStates: {},
+          toolLogs: {},
+          aggregateProgress: null,
+          extractionProgress: null,
         }),
 
       // Mapping actions

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,11 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
-import {
-  getBenchmarkJobStatusUrl,
-  getBenchmarkEventsUrl,
-  getBenchmarkLogsUrl,
-} from "@/lib/config"
+import { getBenchmarkJobStatusUrl } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
 import {
@@ -32,20 +28,10 @@ import {
   Settings,
   Cpu,
   BarChart3,
-  AlertTriangle,
 } from "lucide-react"
-import type {
-  ToolStatusEvent,
-  LogLine,
-  LogLevel,
-  AggregateProgress,
-  ToolLogsResponse,
-} from "@/types/benchmarking"
-
-// Strip ANSI escape codes from log lines
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "")
-
-const MAX_LOG_LINES_PER_TOOL = 1500
+import { useBenchmarkingStore } from "@/stores/benchmarking-store"
+import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
+import type { LogLevel } from "@/types/benchmarking"
 
 interface JobTrackerProps {
   jobId: string
@@ -60,36 +46,31 @@ export function JobTracker({
   onReset,
   onStatusChange,
 }: JobTrackerProps) {
-  // Connection & job state
-  const [isConnected, setIsConnected] = useState(false)
+  // Local UI state only
   const [isReconnecting, setIsReconnecting] = useState(false)
-  const [currentStatus, setCurrentStatus] = useState("")
   const [isCanceling, setIsCanceling] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
-
-  // Per-tool state
-  const [toolStates, setToolStates] = useState<Record<string, ToolStatusEvent>>({})
-  const [toolLogs, setToolLogs] = useState<Record<string, LogLine[]>>({})
-
-  // Aggregate progress
-  const [aggregateProgress, setAggregateProgress] = useState<AggregateProgress | null>(null)
-
-  // Log panel UI state
   const [activeLogTab, setActiveLogTab] = useState<string>("")
   const [logLevelFilter, setLogLevelFilter] = useState<string>("info")
   const [autoScroll, setAutoScroll] = useState(true)
-
-  // Extraction progress (for zip files)
-  const [extractionProgress, setExtractionProgress] = useState<{
-    current: number
-    total: number
-  } | null>(null)
-
-  const eventSourceRef = useRef<EventSource | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
+  // SSE-driven state from zustand
+  const isConnected = useBenchmarkingStore((s) => s.sseConnected)
+  const currentStatus = useBenchmarkingStore((s) => s.sseStatus)
+  const toolStates = useBenchmarkingStore((s) => s.toolStates)
+  const toolLogs = useBenchmarkingStore((s) => s.toolLogs)
+  const aggregateProgress = useBenchmarkingStore((s) => s.aggregateProgress)
+  const extractionProgress = useBenchmarkingStore((s) => s.extractionProgress)
+
+  // Connect SSE via shared hook
+  const { reconnect } = useBenchmarkSSE(jobId, onStatusChange)
+
   // Tool names derived from toolStates
-  const toolNames = useMemo(() => Object.keys(toolStates).sort(), [toolStates])
+  const toolNames = useMemo(
+    () => Object.keys(toolStates).sort(),
+    [toolStates]
+  )
 
   // Set first tool as active log tab when tools appear
   useEffect(() => {
@@ -105,290 +86,14 @@ export function JobTracker({
     }
   }, [toolLogs, activeLogTab, autoScroll])
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  const appendLogLines = useCallback(
-    (tool: string, lines: LogLine[]) => {
-      setToolLogs((prev) => {
-        const existing = prev[tool] || []
-        const combined = [...existing, ...lines]
-        return {
-          ...prev,
-          [tool]: combined.length > MAX_LOG_LINES_PER_TOOL
-            ? combined.slice(-MAX_LOG_LINES_PER_TOOL)
-            : combined,
-        }
-      })
-    },
-    []
-  )
-
-  // ---------------------------------------------------------------------------
-  // Fetch historical logs for all tools (on mount / reconnect)
-  // ---------------------------------------------------------------------------
-
-  const fetchHistoricalLogs = useCallback(
-    async (tools: string[]) => {
-      for (const tool of tools) {
-        try {
-          const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES_PER_TOOL })
-          console.log(`[JobTracker] Fetching historical logs for ${tool}:`, url)
-          const res = await axios.get<ToolLogsResponse>(url)
-          console.log(`[JobTracker] Historical logs for ${tool}:`, JSON.stringify({
-            total_lines: res.data?.total_lines,
-            returned: res.data?.lines?.length ?? 0,
-            status: res.status,
-          }))
-          if (res.data?.lines?.length) {
-            const lines: LogLine[] = res.data.lines.map((l) => ({
-              level: l.level,
-              line: stripAnsi(l.line),
-              timestamp: l.timestamp,
-              source: l.source,
-            }))
-            setToolLogs((prev) => ({ ...prev, [tool]: lines }))
-          }
-        } catch (err: any) {
-          console.error(`[JobTracker] Failed to fetch logs for ${tool}:`, JSON.stringify({
-            status: err?.response?.status,
-            data: err?.response?.data,
-            message: err?.message,
-            url: err?.config?.url,
-          }))
-        }
-      }
-    },
-    [jobId]
-  )
-
-  // Fetch historical logs whenever new tools appear in toolStates
-  const fetchedLogsForRef = useRef<Set<string>>(new Set())
+  // Toast on terminal states
   useEffect(() => {
-    const newTools = toolNames.filter((name) => !fetchedLogsForRef.current.has(name))
-    if (newTools.length === 0) return
-    newTools.forEach((name) => fetchedLogsForRef.current.add(name))
-    fetchHistoricalLogs(newTools)
-  }, [toolNames, fetchHistoricalLogs])
-
-  // ---------------------------------------------------------------------------
-  // SSE connection
-  // ---------------------------------------------------------------------------
-
-  const connectToSSE = useCallback(() => {
-    if (!jobId) return null
-
-    // Fetch current status first
-    const fetchCurrentStatus = async () => {
-      try {
-        const response = await axios.get(getBenchmarkJobStatusUrl(jobId))
-        const data = response.data
-        if (data.status) {
-          setCurrentStatus(data.status)
-          localStorage.setItem("benchmark_job_status", data.status)
-          onStatusChange?.(data.status)
-        }
-        console.log("[JobTracker] Status tools array:", JSON.stringify({
-          hasTools: !!data.tools,
-          isArray: Array.isArray(data.tools),
-          length: data.tools?.length ?? 0,
-          toolNames: data.tools?.map((t: any) => t.tool_name) ?? [],
-        }))
-        // Initialize tool states from status.tools[] if present
-        if (data.tools && Array.isArray(data.tools)) {
-          const isCompleted = (data.status || "").toLowerCase() === "completed"
-          const states: Record<string, ToolStatusEvent> = {}
-          for (const t of data.tools) {
-            states[t.tool_name] = {
-              tool: t.tool_name,
-              stage: t.progress_stage || "",
-              status: isCompleted ? "completed" : inferToolStatus(t),
-              progress_percent: isCompleted ? 100 : (t.progress_percent ?? 0),
-              message: t.progress_message || "",
-              last_error: t.last_error || null,
-              timestamp: new Date().toISOString(),
-            }
-          }
-          setToolStates(states)
-        }
-        if (data.progress) {
-          setAggregateProgress(data.progress)
-        }
-      } catch (error) {
-        console.error("Failed to fetch current job status:", error)
-      }
+    if (currentStatus === "completed" || currentStatus === "failed") {
+      toast.success(
+        `Job ${currentStatus}! You can now proceed to the next step.`
+      )
     }
-
-    fetchCurrentStatus()
-
-    const es = new EventSource(getBenchmarkEventsUrl(jobId))
-
-    es.onopen = () => {
-      setIsConnected(true)
-      setIsReconnecting(false)
-    }
-
-    // Unified handler for all SSE events (named and unnamed)
-    const handleSSEEvent = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data)
-        // Named events use event.type; unnamed events fall back to data.type
-        const eventType = (event.type !== "message" ? event.type : null) || data.type || "message"
-
-        console.log("[JobTracker] SSE event:", eventType, JSON.stringify(data))
-
-        switch (eventType) {
-          case "status": {
-            const status = data.status || ""
-            setCurrentStatus(status)
-            localStorage.setItem("benchmark_job_status", status)
-            onStatusChange?.(status)
-
-            // Update tool states from tools[] array
-            if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
-              setToolStates((prev) => {
-                const next = { ...prev }
-                for (const t of data.tools) {
-                  next[t.tool_name] = {
-                    tool: t.tool_name,
-                    stage: t.progress_stage || prev[t.tool_name]?.stage || "",
-                    status: inferToolStatus(t),
-                    progress_percent: t.progress_percent ?? 0,
-                    message: t.progress_message || "",
-                    last_error: t.last_error || null,
-                    timestamp: new Date().toISOString(),
-                  }
-                }
-                return next
-              })
-            }
-
-            // Update aggregate progress
-            if (data.progress) {
-              setAggregateProgress(data.progress)
-            }
-
-            // On completion, set all tool progress to 100%
-            if (status === "completed") {
-              setToolStates((prev) => {
-                const next = { ...prev }
-                for (const name of Object.keys(next)) {
-                  next[name] = {
-                    ...next[name],
-                    status: "completed",
-                    progress_percent: 100,
-                  }
-                }
-                return next
-              })
-              setAggregateProgress((prev) =>
-                prev
-                  ? { ...prev, percent: 100, message: "Completed" }
-                  : { stage: "completed", percent: 100, message: "Completed", timestamp: new Date().toISOString() }
-              )
-            }
-
-            // Notify on terminal states
-            if (status === "completed" || status === "failed") {
-              setTimeout(() => {
-                toast.success(
-                  `Job ${status}! You can now proceed to the next step.`
-                )
-              }, 1000)
-            }
-            break
-          }
-
-          case "tool_status": {
-            const ts: ToolStatusEvent = {
-              tool: data.tool,
-              stage: data.stage,
-              status: data.status,
-              progress_percent: data.progress_percent ?? 0,
-              message: data.message || "",
-              last_error: data.last_error || null,
-              timestamp: data.timestamp || new Date().toISOString(),
-            }
-            setToolStates((prev) => ({ ...prev, [ts.tool]: ts }))
-            break
-          }
-
-          case "progress": {
-            if (data.progress) {
-              setAggregateProgress(data.progress)
-            } else if (data.stage != null) {
-              setAggregateProgress({
-                stage: data.stage,
-                message: data.message || "",
-                percent: data.percent ?? 0,
-                timestamp: data.timestamp || new Date().toISOString(),
-              })
-            }
-            break
-          }
-
-          case "log": {
-            const line: LogLine = {
-              level: data.level || "info",
-              line: stripAnsi(data.line || ""),
-              timestamp: data.timestamp || null,
-            }
-            if (data.tool) {
-              appendLogLines(data.tool, [line])
-            }
-            break
-          }
-
-          case "extracting": {
-            if (data.status === "start") {
-              setExtractionProgress({ current: 0, total: data.total_files || 0 })
-            } else if (data.status === "completed") {
-              setExtractionProgress({
-                current: data.total_files || 0,
-                total: data.total_files || 0,
-              })
-            }
-            break
-          }
-
-          default:
-            break
-        }
-      } catch (error) {
-        console.error("Error parsing SSE data:", error)
-      }
-    }
-
-    // Listen for unnamed events (fallback)
-    es.onmessage = handleSSEEvent
-
-    // Listen for all named event types the backend may send
-    const namedEvents = ["status", "tool_status", "progress", "log", "extracting", "connected", "keepalive", "info", "error"]
-    for (const name of namedEvents) {
-      es.addEventListener(name, handleSSEEvent as EventListener)
-    }
-
-    es.onerror = () => {
-      setIsConnected(false)
-    }
-
-    return es
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, appendLogLines, fetchHistoricalLogs])
-
-  // Connect on mount
-  useEffect(() => {
-    if (!jobId) return
-
-    const es = connectToSSE()
-    if (es) eventSourceRef.current = es
-
-    return () => {
-      es?.close()
-      setIsConnected(false)
-    }
-  }, [jobId, connectToSSE])
+  }, [currentStatus])
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -410,11 +115,8 @@ export function JobTracker({
 
   const handleRefreshConnection = () => {
     setIsReconnecting(true)
-    eventSourceRef.current?.close()
-    setTimeout(() => {
-      const es = connectToSSE()
-      if (es) eventSourceRef.current = es
-    }, 500)
+    reconnect()
+    setTimeout(() => setIsReconnecting(false), 1000)
   }
 
   // ---------------------------------------------------------------------------
@@ -679,20 +381,6 @@ export function JobTracker({
 // ---------------------------------------------------------------------------
 // Utility functions
 // ---------------------------------------------------------------------------
-
-function inferToolStatus(
-  t: Record<string, any>
-): ToolStatusEvent["status"] {
-  if (t.processing_status === "completed" && t.preprocessing_status === "completed")
-    return "completed"
-  if (t.processing_status === "failed" || t.preprocessing_status === "failed")
-    return "failed"
-  if (t.processing_status === "running" || t.preprocessing_status === "running")
-    return "running"
-  if (t.processing_status === "skipped" && t.preprocessing_status === "skipped")
-    return "skipped"
-  return "pending"
-}
 
 function formatStatusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1)
