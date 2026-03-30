@@ -27,6 +27,7 @@ import type {
   PrscsxPhenotypePopulationConfig,
   EvaluationType,
   PrscsxProcessingState,
+  PrscsxProcessingModeState,
   PrscsxProcessingPayload,
   BridgeprsPreProcessingConfig,
   BridgeprsColumnKey,
@@ -59,6 +60,10 @@ import {
   buildXpassPlusProcessingPayload,
 } from "@/components/benchmarking/payload-builders"
 import { REFERENCE_PATHS } from "@/lib/config"
+import {
+  DEV_FILL_TOOL_CONFIG_EVENT,
+  type DevFillToolConfigDetail,
+} from "@/components/benchmarking/dev-testing-drawer"
 
 interface ToolConfigurationProps {
   onNext: (data: {
@@ -171,7 +176,7 @@ export function ToolConfiguration({
   toolsData,
   mappingData,
 }: ToolConfigurationProps) {
-  const { jobId, stepData, setStepData } = useBenchmarkingStore()
+  const { jobId, stepData, setStepData, setConfigActiveTab } = useBenchmarkingStore()
 
   const selectedTools: string[] = useMemo(() => {
     const fromTools = toolsData?.selectedTools
@@ -220,6 +225,11 @@ export function ToolConfiguration({
       setActiveTab(normalizedTools[0])
     }
   }, [normalizedTools, activeTab])
+
+  // Sync active tab to store for dev drawer
+  useEffect(() => {
+    setConfigActiveTab(activeTab || null)
+  }, [activeTab, setConfigActiveTab])
 
   const configStorageKey = jobId ? `tool_config_${jobId}` : undefined
   const processingStorageKey = jobId
@@ -1361,6 +1371,129 @@ export function ToolConfiguration({
     jobId,
     setStepData,
   ])
+
+  // Dev-only: listen for fill events from DevTestingDrawer
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+
+    const handler = (e: Event) => {
+      const { toolIds, configs: fillConfigs } = (
+        e as CustomEvent<DevFillToolConfigDetail>
+      ).detail
+
+      const nextConfigs = { ...configs }
+      const nextPrscsxProc = { ...processingConfigs }
+      const nextBridgeProc = { ...bridgeprsProcessingConfigs }
+      const nextSdprxProc = { ...sdprxProcessingConfigs }
+      const nextXpassPlusProc = { ...xpassPlusProcessingConfigs }
+      let detectedEvalType: EvaluationType | null = null
+
+      toolIds.forEach((toolId) => {
+        const tc = fillConfigs[toolId]
+        if (!tc) return
+        const pre = tc.pre_processing
+
+        // Set pre-processing config directly — the test config's pre_processing
+        // is already in the correct shape since it came from a successful submission
+        if (pre) {
+          nextConfigs[toolId] = pre as ToolPreProcessingConfig
+
+          if (pre.options?.evaluation_type) {
+            detectedEvalType = pre.options.evaluation_type
+          }
+        }
+
+        // For processing state: reverse-map from payload where needed
+        const proc = tc.processing
+        if (proc && isPrscsx(toolId) && pre) {
+          // Map payload back to PrscsxProcessingState
+          // Use population names from pre_processing (actual names like "AFR", "EUR")
+          // not from processing.populations which may contain template placeholders
+          const popNames = (pre as PrscsxPreProcessingConfig).populations?.map(
+            (p: any) => p.name
+          ) || []
+          const nGwasValues = (mode: any) => (mode?.n_gwas || "").split(",")
+          const mapMode = (
+            mode: any
+          ): PrscsxProcessingModeState => ({
+            runPopulation: mode?.scoring_population || "",
+            chrom: mode?.chrom || "22",
+            phi: mode?.phi || "1e-2",
+            phenoColumn: mode?.pheno_column_name || "",
+            nGwas: Object.fromEntries(
+              popNames.map((name: string, i: number) => [
+                name,
+                nGwasValues(mode)[i]?.trim() || "",
+              ])
+            ),
+            genotypeBasename: "geno",
+          })
+          nextPrscsxProc[toolId] = {
+            binary: proc.binary ? mapMode(proc.binary) : normalizeProcessingState(undefined, pre as PrscsxPreProcessingConfig).binary,
+            quantitative: proc.quantitative ? mapMode(proc.quantitative) : normalizeProcessingState(undefined, pre as PrscsxPreProcessingConfig).quantitative,
+          }
+        }
+
+        if (proc && isBridgeprs(toolId)) {
+          const mapBridgeMode = (mode: any): BridgeprsProcessingModeState => ({
+            bridgeprs_phenotype: mode?.bridgeprs_phenotype || "",
+            fst: mode?.fst || "0.1",
+            sumstats_size_EUR: mode?.sumstats_size_EUR || "",
+            sumstats_size_AFR: mode?.sumstats_size_AFR || "",
+            bridgeprs_genotype_file: mode?.bridgeprs_genotype_file || "geno",
+          })
+          nextBridgeProc[toolId] = {
+            binary: proc.binary ? mapBridgeMode(proc.binary) : buildDefaultBridgeprsProcessingState().binary,
+            quantitative: proc.quantitative ? mapBridgeMode(proc.quantitative) : buildDefaultBridgeprsProcessingState().quantitative,
+          }
+        }
+
+        if (proc && isSdprx(toolId)) {
+          nextSdprxProc[toolId] = proc as SdprxProcessingState
+        }
+
+        if (proc && isXpassPlus(toolId)) {
+          // XPASS+ processing state maps directly from payload
+          const mode = proc.binary || proc.quantitative
+          if (mode) {
+            nextXpassPlusProc[toolId] = {
+              compPRS: mode.compPRS || "T",
+              sd_method: mode.sd_method || "LD_block",
+              compPosMean: mode.compPosMean || "T",
+              outputName: mode.outputName || "xpass_plus",
+              xpass_pop1: mode.xpass_pop1 || "",
+              output_dir: mode.output_dir,
+              log_dir: mode.log_dir,
+              clump_params: mode.clump_params,
+              use_pop1_snps: mode.use_pop1_snps,
+              use_pop2_snps: mode.use_pop2_snps,
+            }
+          }
+        }
+      })
+
+      setConfigs(nextConfigs)
+      setProcessingConfigs(nextPrscsxProc)
+      setBridgeprsProcessingConfigs(nextBridgeProc)
+      setSdprxProcessingConfigs(nextSdprxProc)
+      setXpassPlusProcessingConfigs(nextXpassPlusProc)
+      if (detectedEvalType) {
+        setEvaluationType(detectedEvalType)
+      }
+    }
+
+    window.addEventListener(DEV_FILL_TOOL_CONFIG_EVENT, handler)
+    return () =>
+      window.removeEventListener(DEV_FILL_TOOL_CONFIG_EVENT, handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    configs,
+    processingConfigs,
+    bridgeprsProcessingConfigs,
+    sdprxProcessingConfigs,
+    xpassPlusProcessingConfigs,
+  ])
+
   const buildDefaultBridgeprsConfig = (
     toolId: string
   ): BridgeprsPreProcessingConfig => ({

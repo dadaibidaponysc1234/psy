@@ -21,7 +21,19 @@ import {
 } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
-import { RefreshCw } from "lucide-react"
+import {
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Clock,
+  SkipForward,
+  Package,
+  Settings,
+  Cpu,
+  BarChart3,
+  AlertTriangle,
+} from "lucide-react"
 import type {
   ToolStatusEvent,
   LogLine,
@@ -121,9 +133,14 @@ export function JobTracker({
     async (tools: string[]) => {
       for (const tool of tools) {
         try {
-          const res = await axios.get<ToolLogsResponse>(
-            getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES_PER_TOOL })
-          )
+          const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES_PER_TOOL })
+          console.log(`[JobTracker] Fetching historical logs for ${tool}:`, url)
+          const res = await axios.get<ToolLogsResponse>(url)
+          console.log(`[JobTracker] Historical logs for ${tool}:`, JSON.stringify({
+            total_lines: res.data?.total_lines,
+            returned: res.data?.lines?.length ?? 0,
+            status: res.status,
+          }))
           if (res.data?.lines?.length) {
             const lines: LogLine[] = res.data.lines.map((l) => ({
               level: l.level,
@@ -133,13 +150,27 @@ export function JobTracker({
             }))
             setToolLogs((prev) => ({ ...prev, [tool]: lines }))
           }
-        } catch {
-          // Logs may not be available yet — that's OK
+        } catch (err: any) {
+          console.error(`[JobTracker] Failed to fetch logs for ${tool}:`, JSON.stringify({
+            status: err?.response?.status,
+            data: err?.response?.data,
+            message: err?.message,
+            url: err?.config?.url,
+          }))
         }
       }
     },
     [jobId]
   )
+
+  // Fetch historical logs whenever new tools appear in toolStates
+  const fetchedLogsForRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const newTools = toolNames.filter((name) => !fetchedLogsForRef.current.has(name))
+    if (newTools.length === 0) return
+    newTools.forEach((name) => fetchedLogsForRef.current.add(name))
+    fetchHistoricalLogs(newTools)
+  }, [toolNames, fetchHistoricalLogs])
 
   // ---------------------------------------------------------------------------
   // SSE connection
@@ -158,23 +189,28 @@ export function JobTracker({
           localStorage.setItem("benchmark_job_status", data.status)
           onStatusChange?.(data.status)
         }
+        console.log("[JobTracker] Status tools array:", JSON.stringify({
+          hasTools: !!data.tools,
+          isArray: Array.isArray(data.tools),
+          length: data.tools?.length ?? 0,
+          toolNames: data.tools?.map((t: any) => t.tool_name) ?? [],
+        }))
         // Initialize tool states from status.tools[] if present
         if (data.tools && Array.isArray(data.tools)) {
+          const isCompleted = (data.status || "").toLowerCase() === "completed"
           const states: Record<string, ToolStatusEvent> = {}
           for (const t of data.tools) {
             states[t.tool_name] = {
               tool: t.tool_name,
               stage: t.progress_stage || "",
-              status: inferToolStatus(t),
-              progress_percent: t.progress_percent ?? 0,
+              status: isCompleted ? "completed" : inferToolStatus(t),
+              progress_percent: isCompleted ? 100 : (t.progress_percent ?? 0),
               message: t.progress_message || "",
               last_error: t.last_error || null,
               timestamp: new Date().toISOString(),
             }
           }
           setToolStates(states)
-          // Fetch historical logs for these tools
-          fetchHistoricalLogs(Object.keys(states))
         }
         if (data.progress) {
           setAggregateProgress(data.progress)
@@ -193,10 +229,14 @@ export function JobTracker({
       setIsReconnecting(false)
     }
 
-    es.onmessage = (event) => {
+    // Unified handler for all SSE events (named and unnamed)
+    const handleSSEEvent = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data)
-        const eventType = data.type || event.type || "message"
+        // Named events use event.type; unnamed events fall back to data.type
+        const eventType = (event.type !== "message" ? event.type : null) || data.type || "message"
+
+        console.log("[JobTracker] SSE event:", eventType, JSON.stringify(data))
 
         switch (eventType) {
           case "status": {
@@ -206,7 +246,7 @@ export function JobTracker({
             onStatusChange?.(status)
 
             // Update tool states from tools[] array
-            if (data.tools && Array.isArray(data.tools)) {
+            if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
               setToolStates((prev) => {
                 const next = { ...prev }
                 for (const t of data.tools) {
@@ -227,6 +267,26 @@ export function JobTracker({
             // Update aggregate progress
             if (data.progress) {
               setAggregateProgress(data.progress)
+            }
+
+            // On completion, set all tool progress to 100%
+            if (status === "completed") {
+              setToolStates((prev) => {
+                const next = { ...prev }
+                for (const name of Object.keys(next)) {
+                  next[name] = {
+                    ...next[name],
+                    status: "completed",
+                    progress_percent: 100,
+                  }
+                }
+                return next
+              })
+              setAggregateProgress((prev) =>
+                prev
+                  ? { ...prev, percent: 100, message: "Completed" }
+                  : { stage: "completed", percent: 100, message: "Completed", timestamp: new Date().toISOString() }
+              )
             }
 
             // Notify on terminal states
@@ -258,7 +318,6 @@ export function JobTracker({
             if (data.progress) {
               setAggregateProgress(data.progress)
             } else if (data.stage != null) {
-              // Top-level progress fields
               setAggregateProgress({
                 stage: data.stage,
                 message: data.message || "",
@@ -299,6 +358,15 @@ export function JobTracker({
       } catch (error) {
         console.error("Error parsing SSE data:", error)
       }
+    }
+
+    // Listen for unnamed events (fallback)
+    es.onmessage = handleSSEEvent
+
+    // Listen for all named event types the backend may send
+    const namedEvents = ["status", "tool_status", "progress", "log", "extracting", "connected", "keepalive", "info", "error"]
+    for (const name of namedEvents) {
+      es.addEventListener(name, handleSSEEvent as EventListener)
     }
 
     es.onerror = () => {
@@ -372,22 +440,29 @@ export function JobTracker({
               <div
                 className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {isConnected ? "Connected" : "Disconnected"}
               </span>
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
                 onClick={() => setShowCancelModal(true)}
                 disabled={isCanceling}
               >
-                {isCanceling ? "Canceling..." : "Cancel Job"}
+                {isCanceling ? (
+                  <>
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    Canceling...
+                  </>
+                ) : (
+                  "Cancel Job"
+                )}
               </Button>
               <Button variant="outline" size="sm" onClick={onClear}>
                 Clear Job
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleRefreshConnection}
                 disabled={isReconnecting}
@@ -403,9 +478,9 @@ export function JobTracker({
           {/* Status badge */}
           {currentStatus && (
             <div className="flex items-center gap-2">
-              <span className="text-2xl">{getStatusIcon(currentStatus)}</span>
+              {getStatusIcon(currentStatus)}
               <span className={`font-medium ${getStatusColor(currentStatus)}`}>
-                {currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}
+                {formatStatusLabel(currentStatus)}
               </span>
             </div>
           )}
@@ -414,8 +489,8 @@ export function JobTracker({
           {extractionProgress && extractionProgress.total > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Extracting files...</span>
-                <span>
+                <span className="text-muted-foreground">Extracting files...</span>
+                <span className="text-muted-foreground">
                   {extractionProgress.current}/{extractionProgress.total}
                 </span>
               </div>
@@ -439,7 +514,7 @@ export function JobTracker({
                   {Math.round(aggregateProgress.percent)}%
                 </span>
               </div>
-              <Progress value={aggregateProgress.percent} className="h-3" />
+              <Progress value={aggregateProgress.percent} className="h-2" />
             </div>
           )}
         </CardHeader>
@@ -468,6 +543,7 @@ export function JobTracker({
                       variant="outline"
                       className={`shrink-0 text-xs ${getToolBadgeClass(ts.status)}`}
                     >
+                      <span className="mr-1">{getToolStatusIcon(ts.status)}</span>
                       {ts.status}
                     </Badge>
                     <div className="min-w-0 flex-1">
@@ -479,10 +555,12 @@ export function JobTracker({
                     <span className="w-10 shrink-0 text-right text-xs text-muted-foreground">
                       {Math.round(ts.progress_percent)}%
                     </span>
-                    <span className="hidden truncate text-xs text-muted-foreground sm:block sm:max-w-[200px]">
-                      {ts.stage ? `${ts.stage}` : ""}
-                      {ts.message ? ` — ${ts.message}` : ""}
-                    </span>
+                    {ts.stage && (
+                      <span className="hidden truncate text-xs text-muted-foreground sm:block sm:max-w-[200px]">
+                        {ts.stage}
+                        {ts.message ? ` — ${ts.message}` : ""}
+                      </span>
+                    )}
                     {ts.last_error && (
                       <span
                         className="max-w-[200px] truncate text-xs text-red-600"
@@ -518,10 +596,9 @@ export function JobTracker({
                   </SelectContent>
                 </Select>
                 <Button
-                  variant="outline"
+                  variant={autoScroll ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => setAutoScroll(!autoScroll)}
-                  className={autoScroll ? "bg-primary/10" : ""}
                 >
                   {autoScroll ? "Auto-scroll ON" : "Auto-scroll OFF"}
                 </Button>
@@ -535,9 +612,9 @@ export function JobTracker({
                   <TabsTrigger key={name} value={name} className="text-xs">
                     {name}
                     {(toolLogs[name]?.length ?? 0) > 0 && (
-                      <span className="ml-1 text-muted-foreground">
-                        ({toolLogs[name]?.length})
-                      </span>
+                      <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                        {toolLogs[name]?.length}
+                      </Badge>
                     )}
                   </TabsTrigger>
                 ))}
@@ -545,7 +622,7 @@ export function JobTracker({
               {toolNames.map((name) => (
                 <TabsContent key={name} value={name}>
                   <div
-                    className="h-80 overflow-auto rounded-md bg-zinc-950 p-3 font-mono text-xs text-zinc-200"
+                    className="h-80 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs"
                     onScroll={(e) => {
                       const el = e.currentTarget
                       const atBottom =
@@ -555,7 +632,7 @@ export function JobTracker({
                     }}
                   >
                     {filteredLogs.length === 0 ? (
-                      <div className="flex h-full items-center justify-center text-zinc-500">
+                      <div className="flex h-full items-center justify-center text-muted-foreground">
                         {toolLogs[name]?.length
                           ? `No logs at level "${logLevelFilter}" or above`
                           : "Waiting for log output..."}
@@ -565,7 +642,7 @@ export function JobTracker({
                         {filteredLogs.map((l, i) => (
                           <div key={i} className={getLogLineClass(l.level)}>
                             {l.timestamp && (
-                              <span className="text-zinc-500">
+                              <span className="text-muted-foreground">
                                 {formatLogTimestamp(l.timestamp)}{" "}
                               </span>
                             )}
@@ -617,28 +694,33 @@ function inferToolStatus(
   return "pending"
 }
 
+function formatStatusLabel(status: string) {
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
 function getStatusIcon(status: string) {
+  const cls = "h-5 w-5"
   switch (status.toLowerCase()) {
     case "uploaded":
-      return "📤"
+      return <CheckCircle className={`${cls} text-blue-600`} />
     case "extracting":
-      return "📦"
+      return <Package className={`${cls} text-amber-600`} />
     case "configured":
-      return "⚙️"
+      return <Settings className={`${cls} text-yellow-600`} />
     case "preprocessing":
-      return "🔧"
+      return <Cpu className={`${cls} text-indigo-600`} />
     case "processing":
-      return "🔄"
+      return <Loader2 className={`${cls} animate-spin text-primary`} />
     case "evaluating":
-      return "📊"
+      return <BarChart3 className={`${cls} text-cyan-600`} />
     case "completed":
-      return "✅"
+      return <CheckCircle className={`${cls} text-green-600`} />
     case "failed":
-      return "❌"
+      return <XCircle className={`${cls} text-red-600`} />
     case "cancelled":
-      return "🚫"
+      return <XCircle className={`${cls} text-muted-foreground`} />
     default:
-      return "📋"
+      return <Clock className={`${cls} text-muted-foreground`} />
   }
 }
 
@@ -653,7 +735,7 @@ function getStatusColor(status: string) {
     case "preprocessing":
       return "text-indigo-600"
     case "processing":
-      return "text-purple-600"
+      return "text-primary"
     case "evaluating":
       return "text-cyan-600"
     case "completed":
@@ -661,9 +743,25 @@ function getStatusColor(status: string) {
     case "failed":
       return "text-red-600"
     case "cancelled":
-      return "text-gray-600"
+      return "text-muted-foreground"
     default:
-      return "text-gray-600"
+      return "text-muted-foreground"
+  }
+}
+
+function getToolStatusIcon(status: string) {
+  const cls = "inline h-3 w-3"
+  switch (status) {
+    case "completed":
+      return <CheckCircle className={cls} />
+    case "running":
+      return <Loader2 className={`${cls} animate-spin`} />
+    case "failed":
+      return <XCircle className={cls} />
+    case "skipped":
+      return <SkipForward className={cls} />
+    default:
+      return <Clock className={cls} />
   }
 }
 
@@ -672,22 +770,22 @@ function getToolBadgeClass(status: string) {
     case "completed":
       return "border-green-300 bg-green-50 text-green-700"
     case "running":
-      return "border-blue-300 bg-blue-50 text-blue-700"
+      return "border-primary/30 bg-primary/5 text-primary"
     case "failed":
       return "border-red-300 bg-red-50 text-red-700"
     case "skipped":
-      return "border-gray-300 bg-gray-50 text-gray-600"
+      return "border-muted bg-muted text-muted-foreground"
     default:
-      return "border-gray-200 bg-gray-50 text-gray-500"
+      return "border-border bg-muted/50 text-muted-foreground"
   }
 }
 
 function getLogLineClass(level: LogLevel) {
   switch (level) {
     case "error":
-      return "text-red-400"
+      return "text-red-600"
     case "warning":
-      return "text-yellow-400"
+      return "text-amber-600"
     default:
       return ""
   }
@@ -696,13 +794,13 @@ function getLogLineClass(level: LogLevel) {
 function getLogLevelClass(level: LogLevel) {
   switch (level) {
     case "error":
-      return "text-red-500 font-semibold"
+      return "font-semibold text-red-600"
     case "warning":
-      return "text-yellow-500"
+      return "text-amber-600"
     case "debug":
-      return "text-zinc-500"
+      return "text-muted-foreground"
     default:
-      return "text-blue-400"
+      return "text-primary"
   }
 }
 

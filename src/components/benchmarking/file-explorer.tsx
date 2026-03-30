@@ -12,11 +12,24 @@ import {
   File,
   Archive,
   FileText as FileTextIcon,
-  Grip,
   X,
   Loader2,
 } from "lucide-react"
-import { Draggable } from "@hello-pangea/dnd"
+// Drag-and-drop removed — passthrough wrapper for backward compat
+const Draggable = ({
+  children,
+}: {
+  draggableId: string
+  index: number
+  children: (provided: any) => React.ReactNode
+}) => {
+  const provided = {
+    innerRef: () => {},
+    draggableProps: { style: {} },
+    dragHandleProps: {},
+  }
+  return <>{children(provided)}</>
+}
 import axios from "axios"
 import { getBenchmarkUploadUrl, getBenchmarkPreviewUrl } from "@/lib/config"
 
@@ -64,6 +77,8 @@ export function FileExplorer({
   selectedFile,
   selectedDirectory,
 }: FileExplorerProps) {
+  console.log("[FileExplorer] datasetStructure:", JSON.stringify(datasetStructure, null, 2))
+
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState<any>(null)
@@ -310,9 +325,7 @@ export function FileExplorer({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                          isDirectorySelected(subDir)
-                            ? "border border-blue-300 bg-blue-100 text-blue-900"
-                            : ""
+                          ""
                         }`}
                         style={{
                           marginLeft: `${(level + 1) * 16}px`,
@@ -340,7 +353,7 @@ export function FileExplorer({
                         {/* Folder Content - Clickable for selection */}
                         <div
                             className="flex flex-1 cursor-pointer items-center gap-2"
-                            onClick={() => handleDirectorySelect(subDir)}
+                            onClick={() => toggleFolder(subDir.path)}
                           >
                           {/* Remove directory size display in subdirectory header (first occurrence) */}
                           <Folder className="h-4 w-4 text-blue-500" />
@@ -358,9 +371,6 @@ export function FileExplorer({
                           )}
                         </div>
                         
-                        <div {...provided.dragHandleProps}>
-                          <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                        </div>
                       </div>
                     )}
                   </Draggable>
@@ -404,6 +414,9 @@ export function FileExplorer({
                             <span className="truncate text-sm">{file.name}</span>
                           </Tooltip>
                         </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                        <span>{file.size_formatted}</span>
                         {file.is_previewable && (
                           <Badge
                             variant="outline"
@@ -413,12 +426,6 @@ export function FileExplorer({
                             Preview
                           </Badge>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{file.size_formatted}</span>
-                        <div {...provided.dragHandleProps}>
-                          <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                        </div>
                       </div>
                     </div>
                   )}
@@ -495,9 +502,7 @@ export function FileExplorer({
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                      isDirectorySelected(subDir)
-                        ? "border border-blue-300 bg-blue-100 text-blue-900"
-                        : ""
+                      ""
                     }`}
                     style={{
                       marginLeft: `${level * 16}px`,
@@ -526,7 +531,7 @@ export function FileExplorer({
                     {/* Folder Content - Clickable for selection */}
                     <div
                       className="flex flex-1 cursor-pointer items-center gap-2"
-                      onClick={() => handleDirectorySelect(subDir)}
+                      onClick={() => toggleFolder(subDir.path)}
                     >
                       <Folder className="h-4 w-4 text-blue-500" />
                       <div className="min-w-0 flex-1">
@@ -543,9 +548,6 @@ export function FileExplorer({
                       )}
                     </div>
 
-                    <div {...provided.dragHandleProps}>
-                      <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                    </div>
                   </div>
                 )}
               </Draggable>
@@ -583,6 +585,9 @@ export function FileExplorer({
                         <span className="truncate text-sm">{file.name}</span>
                       </Tooltip>
                     </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                    <span>{file.size_formatted}</span>
                     {file.is_previewable && (
                       <Badge
                         variant="outline"
@@ -592,12 +597,6 @@ export function FileExplorer({
                         Preview
                       </Badge>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{file.size_formatted}</span>
-                    <div {...provided.dragHandleProps}>
-                      <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                    </div>
                   </div>
                 </div>
               )}
@@ -659,6 +658,9 @@ export function FileExplorer({
                             <span className="truncate text-sm">{file.name}</span>
                           </Tooltip>
                         </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                        <span>{file.size_formatted}</span>
                         {file.is_previewable && (
                           <Badge
                             variant="outline"
@@ -668,12 +670,6 @@ export function FileExplorer({
                             Preview
                           </Badge>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{file.size_formatted}</span>
-                        <div {...provided.dragHandleProps}>
-                          <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                        </div>
                       </div>
                     </div>
                   )}
@@ -699,9 +695,7 @@ export function FileExplorer({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         className={`flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                          isDirectorySelected(dir)
-                            ? "border border-blue-300 bg-blue-100 text-blue-900"
-                            : ""
+                          ""
                         }`}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -723,10 +717,10 @@ export function FileExplorer({
                           )}
                           {!hasChildren && <div className="w-6" />}
                           
-                          {/* Folder Content - Clickable for selection */}
+                          {/* Folder Content - Clickable to expand/collapse */}
                           <div
                              className="flex flex-1 cursor-pointer items-center gap-2"
-                             onClick={() => handleDirectorySelect(dir)}
+                             onClick={() => toggleFolder(dir.path)}
                            >
                             <Folder className="h-4 w-4 text-blue-500" />
                             <div className="min-w-0 flex-1">
@@ -744,9 +738,6 @@ export function FileExplorer({
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div {...provided.dragHandleProps}>
-                            <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                          </div>
                         </div>
                       </div>
                     )}
@@ -773,9 +764,7 @@ export function FileExplorer({
                                    ref={provided.innerRef}
                                    {...provided.draggableProps}
                                    className={`flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-muted/50 ${
-                                     isDirectorySelected(subDir)
-                                       ? "border border-blue-300 bg-blue-100 text-blue-900"
-                                       : ""
+                                     ""
                                    }`}
                                    style={{
                                      marginLeft: "16px",
@@ -804,7 +793,7 @@ export function FileExplorer({
                                    {/* Folder Content - Clickable for selection */}
                                    <div
                                      className="flex flex-1 cursor-pointer items-center gap-2"
-                                     onClick={() => handleDirectorySelect(subDir)}
+                                     onClick={() => toggleFolder(subDir.path)}
                                    >
                                      <Folder className="h-4 w-4 text-blue-500" />
                                      <div className="min-w-0 flex-1">
@@ -821,9 +810,6 @@ export function FileExplorer({
                                      )}
                                    </div>
 
-                                   <div {...provided.dragHandleProps}>
-                                     <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                   </div>
                                  </div>
                                )}
                              </Draggable>
@@ -861,6 +847,9 @@ export function FileExplorer({
                                  <div className="flex min-w-0 flex-1 items-center gap-2">
                                    <FileIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                    <span className="truncate text-sm">{file.name}</span>
+                                 </div>
+                                 <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                                   <span>{file.size_formatted}</span>
                                    {file.is_previewable && (
                                      <Badge
                                        variant="outline"
@@ -870,12 +859,6 @@ export function FileExplorer({
                                        Preview
                                      </Badge>
                                    )}
-                                 </div>
-                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                   <span>{file.size_formatted}</span>
-                                   <div {...provided.dragHandleProps}>
-                                     <Grip className="h-4 w-4 cursor-grab text-gray-400" />
-                                   </div>
                                  </div>
                                </div>
                              )}
@@ -893,13 +876,13 @@ export function FileExplorer({
 
       {/* Preview Modal */}
       {previewModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative max-h-[80vh] w-full max-w-4xl rounded-lg bg-white shadow-xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="relative max-h-[85vh] w-full max-w-2xl mx-4 rounded-lg bg-white shadow-xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b p-4">
-              <div className="flex items-center gap-2">
-                <FileTextIcon className="h-5 w-5 text-blue-500" />
-                <h3 className="text-lg font-semibold">
+            <div className="flex items-center justify-between gap-2 border-b p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileTextIcon className="h-5 w-5 flex-shrink-0 text-blue-500" />
+                <h3 className="truncate text-lg font-semibold">
                   File Preview: {previewFileName}
                 </h3>
               </div>

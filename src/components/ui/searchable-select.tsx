@@ -45,7 +45,12 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[520px]">
-        <Command>
+        <Command
+          filter={(value, search) => {
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1
+            return 0
+          }}
+        >
           <CommandInput placeholder="Type to search..." />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>

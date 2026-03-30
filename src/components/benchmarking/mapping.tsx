@@ -26,7 +26,6 @@ import {
   Loader2,
   RefreshCw,
   X,
-  MapPin,
   AlertTriangle,
   Info,
 } from "lucide-react"
@@ -35,7 +34,12 @@ import { getBenchmarkUploadUrl, getBenchmarkJobStatusUrl } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
 import { FileExplorer } from "./file-explorer"
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   ToolPopulationState,
   PrscsxPopulationState,
@@ -496,6 +500,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
   const [error, setError] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<JobStatusResponse | null>(null)
   const [isCheckingStatus, setIsCheckingStatus] = useState(false)
+  const [fileExplorerOpen, setFileExplorerOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null)
   const [selectedDirectory, setSelectedDirectory] =
     useState<DirectoryItem | null>(null)
@@ -1616,50 +1621,6 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
   }
 
-  // Drag and drop handlers
-  const onDragEndForTool = (toolId: string) => (result: any) => {
-    const { destination, source, draggableId } = result
-
-    if (!destination || !toolId) {
-      return
-    }
-
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return
-    }
-
-    // destination.droppableId is constructed as `${tool}-${field.id}`; we must map to the actual field.id key
-    const prefix = `${toolId}-`
-    const fieldId = destination.droppableId.startsWith(prefix)
-      ? destination.droppableId.slice(prefix.length)
-      : destination.droppableId
-
-    const file = findFileById(draggableId)
-    const directory = findDirectoryById(draggableId)
-    const storeToolId = resolveStoreToolId(toolId)
-
-    if (file) {
-      setToolFieldValue(storeToolId, fieldId, file)
-      toast.success(`Mapped ${file.name} to ${fieldId}`)
-    } else if (directory) {
-      setToolFieldValue(storeToolId, fieldId, directory)
-      toast.success(`Mapped directory ${directory.name} to ${fieldId}`)
-    }
-  }
-
-  const findFileById = (id: string): FileInfo | null => {
-    if (!datasetStructure) return null
-    return datasetStructure.files.find((file) => file.path === id) || null
-  }
-
-  const findDirectoryById = (id: string): DirectoryItem | null => {
-    if (!datasetStructure) return null
-    return datasetStructure.directories.find((dir) => dir.path === id) || null
-  }
-
   const renderPopulationConfiguration = (tool: string) => {
     const storeToolId = resolveStoreToolId(tool)
     const key = storeToolId.toLowerCase()
@@ -1833,20 +1794,9 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
     return fields.map((field) => {
       const mappedValue = (toolMapping[field.id] ?? null) as MappingValue
-      const isFileCompatible = selectedFile
-        ? isValidFileForField(selectedFile, field)
-        : false
-      const isDirectoryCompatible = selectedDirectory
-        ? isValidDirectoryForField(tool, selectedDirectory, field)
-        : false
-      const isCompatible = isFileCompatible || isDirectoryCompatible
       const isMapped = Boolean(mappedValue)
       const eligibleFiles = getEligibleFilesForField(field)
       const eligibleDirectories = getEligibleDirectoriesForField(tool, field)
-      const canMapSelectedFile =
-        isFileCompatible && field.fieldType !== "genotype_directory"
-      const canMapSelectedDirectory = isDirectoryCompatible
-      const canMapSelection = canMapSelectedFile || canMapSelectedDirectory
 
       // Build display label with population names inline for XPASS
       const toolKey = tool.toLowerCase()
@@ -1875,9 +1825,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           className={`border ${
             isMapped
               ? "border-green-200 bg-green-50"
-              : isCompatible
-                ? "border-blue-200 bg-blue-50"
-                : "border-muted"
+              : "border-muted"
           }`}
         >
           <CardHeader className="flex flex-row items-start justify-between">
@@ -1916,128 +1864,78 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                 <Badge variant="outline">Optional</Badge>
               )}
 
-              {((isCompatible && !isMapped) || canMapSelection) && (
-                <div className="flex items-center gap-2">
-                  {isCompatible && !isMapped && (
-                    <span className="text-xs text-blue-600">
-                      Selected {selectedFile ? "file" : "directory"} is
-                      compatible
-                    </span>
-                  )}
-                  {canMapSelection && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (canMapSelectedFile) {
-                          mapFileToField(field.id, tool)
-                        } else if (canMapSelectedDirectory) {
-                          mapDirectoryToField(field.id, tool)
-                        }
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <MapPin className="mr-1 h-3 w-3" />
-                      Map
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
           </CardHeader>
           <CardContent>
-            <Droppable droppableId={`${tool}-${field.id}`}>
-              {(provided: any, snapshot: any) => (
-                <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className={`flex min-h-[80px] items-center justify-center rounded-md p-4 ${
-                    snapshot.isDraggingOver ? "bg-blue-100" : "bg-transparent"
-                  }`}
-                >
-                  {isMapped ? (
-                    <div className="flex w-full items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {(mappedValue && (mappedValue as any).file_count !== undefined) ? (
-                          <Folder className="h-4 w-4 text-blue-500" />
-                        ) : (
-                          <File className="h-4 w-4 text-gray-500" />
-                        )}
-                        <div>
-                          <div className="font-medium">{mappedValue?.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {mappedValue?.path}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeMapping(field.id, tool)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+            <div className="flex min-h-[60px] items-center justify-center rounded-md p-3">
+              {isMapped ? (
+                <div className="flex w-full items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {(mappedValue && (mappedValue as any).file_count !== undefined) ? (
+                      <Folder className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <File className="h-4 w-4 text-gray-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{mappedValue?.name}</div>
+                      <div className="truncate text-sm text-muted-foreground" title={mappedValue?.path}>
+                        {mappedValue?.path}
                       </div>
                     </div>
-                  ) : (
-                    <div className="w-full space-y-3">
-                      <div className="text-center text-muted-foreground">
-                        {snapshot.isDraggingOver
-                          ? (field.fieldType === "genotype_directory" || eligibleDirectories.length > 0)
-                            ? "Drop file or directory here"
-                            : "Drop file here"
-                          : (field.fieldType === "genotype_directory" || eligibleDirectories.length > 0)
-                            ? "Drag file or directory here or use dropdown"
-                            : "Drag file here or use dropdown"}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm">Or select:</Label>
-                        <SearchableSelect
-                          placeholder={
-                            field.fieldType === "genotype_directory"
-                              ? "Choose a directory..."
-                              : eligibleDirectories.length > 0
-                                ? "Choose a file or directory..."
-                                : "Choose a file..."
-                          }
-                          directoryItems={eligibleDirectories.map((directory) => ({
-                            label: directory.name,
-                            value: directory.path,
-                            description: directory.path,
-                          }) as SearchableSelectItem)}
-                          fileItems={
-                            field.fieldType === "genotype_directory"
-                              ? []
-                              : eligibleFiles.map((file) => ({
-                                  label: file.name,
-                                  value: file.path,
-                                  description: file.path,
-                                }) as SearchableSelectItem)
-                          }
-                          onSelect={(value) => {
-                            if (field.fieldType === "genotype_directory") {
-                              // value may be prefixed with "dir:"; strip if present
-                              const dirPath = (value as string).startsWith("dir:")
-                                ? (value as string).slice(4)
-                                : (value as string)
-                              selectDirectoryFromDropdown(field.id, dirPath, tool)
-                            } else {
-                              if ((value as string).startsWith("dir:")) {
-                                selectDirectoryFromDropdown(field.id, (value as string).slice(4), tool)
-                              } else {
-                                const filePath = (value as string).startsWith("file:") ? (value as string).slice(5) : (value as string)
-                                selectFileFromDropdown(field.id, filePath, tool)
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {provided.placeholder}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMapping(field.id, tool)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full space-y-2">
+                  <SearchableSelect
+                    placeholder={
+                      field.fieldType === "genotype_directory"
+                        ? "Search for a directory..."
+                        : eligibleDirectories.length > 0
+                          ? "Search for a file or directory..."
+                          : "Search for a file..."
+                    }
+                    directoryItems={eligibleDirectories.map((directory) => ({
+                      label: directory.name,
+                      value: directory.path,
+                      description: directory.path,
+                    }) as SearchableSelectItem)}
+                    fileItems={
+                      field.fieldType === "genotype_directory"
+                        ? []
+                        : eligibleFiles.map((file) => ({
+                            label: file.name,
+                            value: file.path,
+                            description: file.path,
+                          }) as SearchableSelectItem)
+                    }
+                    onSelect={(value) => {
+                      if (field.fieldType === "genotype_directory") {
+                        const dirPath = (value as string).startsWith("dir:")
+                          ? (value as string).slice(4)
+                          : (value as string)
+                        selectDirectoryFromDropdown(field.id, dirPath, tool)
+                      } else {
+                        if ((value as string).startsWith("dir:")) {
+                          selectDirectoryFromDropdown(field.id, (value as string).slice(4), tool)
+                        } else {
+                          const filePath = (value as string).startsWith("file:") ? (value as string).slice(5) : (value as string)
+                          selectFileFromDropdown(field.id, filePath, tool)
+                        }
+                      }
+                    }}
+                  />
                 </div>
               )}
-            </Droppable>
+            </div>
           </CardContent>
         </Card>
       )
@@ -2093,144 +1991,136 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
     }
 
     return (
-      <DragDropContext onDragEnd={onDragEndForTool(tool)}>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
-          <div className="order-2 lg:order-1 lg:col-span-5">
-            <Droppable
-              droppableId={`file-explorer-${tool}`}
-              isDropDisabled={true}
-            >
-              {(provided: any) => (
-                <div {...provided.droppableProps} ref={provided.innerRef}>
-                  <FileExplorer
-                    datasetStructure={datasetStructure}
-                    onFileSelect={handleFileSelect}
-                    onDirectorySelect={handleDirectorySelect}
-                    jobId={jobId}
-                    selectedFile={selectedFile}
-                    selectedDirectory={selectedDirectory}
-                  />
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </div>
-
-          <div className="order-1 lg:order-2 lg:col-span-7">
-            <Card className="flex h-[400px] flex-col lg:h-[600px]">
-              <CardHeader className="flex-shrink-0">
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
                 <CardTitle>Configuration Mapping</CardTitle>
                 <CardDescription>
-                  Map files for the {populationLabel}.
+                  Map files for the {populationLabel}. Use the search dropdown in
+                  each card to find and assign files.
                 </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto pr-2">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs">Genotype file structure</Label>
-                      <Tooltip
-                        delayMs={400}
-                        content={
-                          <div>
-                            <div className="font-semibold mb-1">Genotype file structure</div>
-                            <div>
-                              <span className="font-medium">Merged</span> means a single set of PLINK files
-                              (<code>.bed</code>, <code>.bim</code>, <code>.fam</code>) covering all chromosomes.
-                            </div>
-                            <div className="mt-1">
-                              <span className="font-medium">Multi Chromosome</span> means a directory with per-chromosome
-                              PLINK triplets (e.g., <code>chr1.bed/bim/fam</code>, <code>chr2.*</code>).
-                            </div>
-                          </div>
-                        }
-                      >
-                        <div aria-label="Genotype file structure help" className="inline-flex cursor-help">
-                          <Info className="h-3 w-3 text-orange-500" />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFileExplorerOpen(true)}
+              >
+                <Folder className="mr-2 h-4 w-4" />
+                Browse Files
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">Genotype file structure</Label>
+                  <Tooltip
+                    delayMs={400}
+                    content={
+                      <div>
+                        <div className="font-semibold mb-1">Genotype file structure</div>
+                        <div>
+                          <span className="font-medium">Merged</span> means a single set of PLINK files
+                          (<code>.bed</code>, <code>.bim</code>, <code>.fam</code>) covering all chromosomes.
                         </div>
-                      </Tooltip>
-                    </div>
-                    <Select
-                      value={String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged")}
-                      onValueChange={(value) =>
-                        setToolFieldValue(
-                          tool,
-                          "genotype_config.file_type",
-                          value as "merged" | "multi_chromosome"
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder="Select genotype file type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="merged">Merged</SelectItem>
-                        <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs">Sumstats file structure</Label>
-                      <Tooltip
-                        delayMs={400}
-                        content={
-                          <div>
-                            <div className="font-semibold mb-1">Sumstats file structure</div>
-                            <div>
-                              Defaults to your genotype selection: if genotype is <span className="font-medium">Merged</span>,
-                              sumstats defaults to <span className="font-medium">Merged</span>; if genotype is
-                              <span className="font-medium"> Multi Chromosome</span>, sumstats defaults to
-                              <span className="font-medium"> Multi Chromosome</span>.
-                            </div>
-                            <div className="mt-1">You can change sumstats independently here if needed.</div>
-                            <div className="mt-2">
-                              <div className="font-medium">Differences:</div>
-                              <ul className="mt-1 list-disc pl-4">
-                                <li>
-                                  <span className="font-medium">Merged</span>: a single summary statistics file containing variants across all
-                                  chromosomes (e.g., <code>sumstats.txt</code>).
-                                </li>
-                                <li>
-                                  <span className="font-medium">Multi Chromosome</span>: a directory with separate per‑chromosome files
-                                  (e.g., <code>sumstats_chr1.txt</code>, <code>sumstats_chr2.txt</code>, … or <code>chr1.sumstats</code>, <code>chr2.sumstats</code>).
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        }
-                      >
-                        <div aria-label="Sumstats file structure help" className="inline-flex cursor-help">
-                          <Info className="h-3 w-3 text-orange-500" />
+                        <div className="mt-1">
+                          <span className="font-medium">Multi Chromosome</span> means a directory with per-chromosome
+                          PLINK triplets (e.g., <code>chr1.bed/bim/fam</code>, <code>chr2.*</code>).
                         </div>
-                      </Tooltip>
+                      </div>
+                    }
+                  >
+                    <div aria-label="Genotype file structure help" className="inline-flex cursor-help">
+                      <Info className="h-3 w-3 text-orange-500" />
                     </div>
-                    <Select
-                      value={String(getMappingsForTool(tool)["pre_processing.sumstats_file_type"] || String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged"))}
-                      onValueChange={(value) =>
-                        setToolFieldValue(
-                          tool,
-                          "pre_processing.sumstats_file_type",
-                          value as "merged" | "multi_chromosome"
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder="Select sumstats file type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="merged">Merged</SelectItem>
-                        <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  </Tooltip>
                 </div>
-                {renderMappingCards(tool)}
-              </CardContent>
-            </Card>
-          </div>
+                <Select
+                  value={String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged")}
+                  onValueChange={(value) =>
+                    setToolFieldValue(
+                      tool,
+                      "genotype_config.file_type",
+                      value as "merged" | "multi_chromosome"
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Select genotype file type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="merged">Merged</SelectItem>
+                    <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">Sumstats file structure</Label>
+                  <Tooltip
+                    delayMs={400}
+                    content={
+                      <div>
+                        <div className="font-semibold mb-1">Sumstats file structure</div>
+                        <div>
+                          Defaults to your genotype selection: if genotype is <span className="font-medium">Merged</span>,
+                          sumstats defaults to <span className="font-medium">Merged</span>; if genotype is
+                          <span className="font-medium"> Multi Chromosome</span>, sumstats defaults to
+                          <span className="font-medium"> Multi Chromosome</span>.
+                        </div>
+                        <div className="mt-1">You can change sumstats independently here if needed.</div>
+                        <div className="mt-2">
+                          <div className="font-medium">Differences:</div>
+                          <ul className="mt-1 list-disc pl-4">
+                            <li>
+                              <span className="font-medium">Merged</span>: a single summary statistics file containing variants across all
+                              chromosomes (e.g., <code>sumstats.txt</code>).
+                            </li>
+                            <li>
+                              <span className="font-medium">Multi Chromosome</span>: a directory with separate per‑chromosome files
+                              (e.g., <code>sumstats_chr1.txt</code>, <code>sumstats_chr2.txt</code>, … or <code>chr1.sumstats</code>, <code>chr2.sumstats</code>).
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div aria-label="Sumstats file structure help" className="inline-flex cursor-help">
+                      <Info className="h-3 w-3 text-orange-500" />
+                    </div>
+                  </Tooltip>
+                </div>
+                <Select
+                  value={String(getMappingsForTool(tool)["pre_processing.sumstats_file_type"] || String(getMappingsForTool(tool)["genotype_config.file_type"] || "merged"))}
+                  onValueChange={(value) =>
+                    setToolFieldValue(
+                      tool,
+                      "pre_processing.sumstats_file_type",
+                      value as "merged" | "multi_chromosome"
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Select sumstats file type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="merged">Merged</SelectItem>
+                    <SelectItem value="multi_chromosome">Multi Chromosome</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Mapping cards grid */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {renderMappingCards(tool)}
         </div>
-      </DragDropContext>
+      </div>
     )
   }
   const isValidFileForField = (file: FileInfo, field: MappingField) => {
@@ -2818,6 +2708,23 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
           </Button>
         </div>
       </div>
+
+      {/* File Explorer Dialog */}
+      <Dialog open={fileExplorerOpen} onOpenChange={setFileExplorerOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Browse Dataset Files</DialogTitle>
+          </DialogHeader>
+          <FileExplorer
+            datasetStructure={datasetStructure}
+            onFileSelect={handleFileSelect}
+            onDirectorySelect={handleDirectorySelect}
+            jobId={jobId}
+            selectedFile={selectedFile}
+            selectedDirectory={selectedDirectory}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

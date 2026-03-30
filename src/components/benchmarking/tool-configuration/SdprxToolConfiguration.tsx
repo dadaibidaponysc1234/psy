@@ -687,12 +687,12 @@ export function SdprxToolConfiguration({
               {/* File path moved under the preview button above to match PRSice layout */}
               {previewLines.length > 0 && (
                 <div className="rounded-lg border shadow-sm">
-                  <div className="flex items-center justify-between border-b p-2 text-sm">
-                    <div className="font-medium">
+                  <div className="flex items-center justify-between gap-2 border-b p-2 text-sm">
+                    <div className="min-w-0 truncate font-medium">
                       {config.pop1.sumstats_path.split("/").pop() ||
                         config.pop1.sumstats_path}
                     </div>
-                    <div className="text-muted-foreground">
+                    <div className="flex-shrink-0 text-muted-foreground">
                       {headers.length} columns detected
                     </div>
                   </div>

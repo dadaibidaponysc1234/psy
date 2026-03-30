@@ -136,6 +136,7 @@ export interface BenchmarkingState {
 
   // UI state
   isSidebarCollapsed: boolean
+  configActiveTab: string | null
 
   // Mapping state
   mappingState: Record<string, MappingJobState>
@@ -148,6 +149,7 @@ export interface BenchmarkingState {
   removeCompletedStep: (step: string) => void
   setStepData: (stepId: string, data: any) => void
   setSidebarCollapsed: (collapsed: boolean) => void
+  setConfigActiveTab: (tab: string | null) => void
   resetWorkflow: () => void
   clearJob: () => void
 
@@ -208,6 +210,7 @@ const initialState = {
   isUploading: false,
   uploadProgress: 0,
   isSidebarCollapsed: false,
+  configActiveTab: null,
   mappingState: {},
 }
 
@@ -244,6 +247,9 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
 
       setSidebarCollapsed: (isSidebarCollapsed: boolean) =>
         set({ isSidebarCollapsed }),
+
+      setConfigActiveTab: (configActiveTab: string | null) =>
+        set({ configActiveTab }),
 
       // Reset actions
       resetWorkflow: () => set(initialState),

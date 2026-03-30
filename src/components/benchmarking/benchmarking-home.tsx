@@ -62,10 +62,10 @@ export const BenchmarkingHome: React.FC = () => {
           </div>
 
           {/* Highlights */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <Card className="min-w-0 overflow-hidden">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">Tools</Badge>
                   Population-aware benchmarking
                 </CardTitle>
@@ -74,9 +74,9 @@ export const BenchmarkingHome: React.FC = () => {
                 Configure multiple PRS tools side-by-side and review metrics like R2 and AUC across populations and datasets.
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-0 overflow-hidden">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">Mapping</Badge>
                   Unified dataset mapping
                 </CardTitle>
@@ -85,9 +85,9 @@ export const BenchmarkingHome: React.FC = () => {
                 Intuitive file and field mapping flows reduce setup friction and help standardize inputs for consistent results.
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-0 overflow-hidden">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">Results</Badge>
                   Visual summaries & downloads
                 </CardTitle>

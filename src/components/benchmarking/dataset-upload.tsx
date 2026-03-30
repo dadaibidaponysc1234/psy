@@ -24,6 +24,9 @@ import {
   getBenchmarkJobStatusUrl,
   getBenchmarkSharedDatasetsUrl,
   getBenchmarkUseSharedUrl,
+  getBenchmarkMultipartInitiateUrl,
+  getBenchmarkMultipartCompleteUrl,
+  getBenchmarkMultipartAbortUrl,
 } from "@/lib/config"
 import axios from "axios"
 import { toast } from "react-hot-toast"
@@ -42,6 +45,7 @@ import type {
   SharedDataset,
   SharedDatasetsResponse,
   UseSharedResponse,
+  MultipartInitiateResponse,
 } from "@/types/benchmarking"
 
 // Supported file types for benchmark uploads
@@ -84,20 +88,23 @@ const isValidFileType = (fileName: string): boolean => {
 type DatasetMode = "upload" | "shared"
 
 /**
- * Upload a file directly to S3 via presigned URL using XMLHttpRequest
- * for upload progress tracking.
+ * Upload a file/blob directly to S3 via presigned URL using XMLHttpRequest
+ * for upload progress tracking. Returns response headers (needed for ETag
+ * in multipart uploads).
  */
 function uploadToS3WithProgress(
   url: string,
-  file: File,
-  contentType: string,
+  body: File | Blob,
+  contentType: string | null,
   onProgress?: (loaded: number, total: number) => void,
   signal?: AbortSignal
-): Promise<void> {
+): Promise<{ etag: string | null }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("PUT", url)
-    xhr.setRequestHeader("Content-Type", contentType)
+    if (contentType) {
+      xhr.setRequestHeader("Content-Type", contentType)
+    }
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -107,7 +114,7 @@ function uploadToS3WithProgress(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve()
+        resolve({ etag: xhr.getResponseHeader("ETag") })
       } else {
         reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`))
       }
@@ -123,7 +130,7 @@ function uploadToS3WithProgress(
       })
     }
 
-    xhr.send(file)
+    xhr.send(body)
   })
 }
 
@@ -141,6 +148,80 @@ async function waitForExtraction(
     const status = (res.data.status || "").toLowerCase()
     if (status !== "extracting") return status
     await new Promise((r) => setTimeout(r, pollInterval))
+  }
+}
+
+const MULTIPART_THRESHOLD = 5 * 1024 * 1024 * 1024 // 5GB
+
+/**
+ * Upload a large file (>= 5GB) via S3 multipart upload.
+ * Initiates the upload, uploads each part with progress, then completes.
+ * On abort, sends a best-effort abort request to clean up.
+ */
+async function uploadMultipartToS3(
+  jobId: string,
+  file: File,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  // Step 1: Initiate
+  const initRes = await axios.post<MultipartInitiateResponse>(
+    getBenchmarkMultipartInitiateUrl(jobId),
+    { filename: file.name, file_size: file.size },
+    { headers: { "Content-Type": "application/json" } }
+  )
+
+  const { upload_id, part_size, parts } = initRes.data
+  const completedParts: Array<{ PartNumber: number; ETag: string }> = []
+  let totalUploaded = 0
+
+  try {
+    for (const part of parts) {
+      if (signal?.aborted) throw new Error("Upload aborted")
+
+      const start = (part.part_number - 1) * part_size
+      const end = Math.min(start + part_size, file.size)
+      const blob = file.slice(start, end)
+
+      const { etag } = await uploadToS3WithProgress(
+        part.presigned_url,
+        blob,
+        null, // S3 multipart parts don't need Content-Type
+        (loaded) => {
+          if (onProgress) {
+            onProgress(totalUploaded + loaded, file.size)
+          }
+        },
+        signal
+      )
+
+      if (!etag) {
+        throw new Error(
+          `S3 did not return ETag for part ${part.part_number}`
+        )
+      }
+
+      completedParts.push({ PartNumber: part.part_number, ETag: etag })
+      totalUploaded += end - start
+    }
+
+    // Step 2: Complete
+    await axios.post(
+      getBenchmarkMultipartCompleteUrl(jobId),
+      { upload_id, filename: file.name, parts: completedParts },
+      { headers: { "Content-Type": "application/json" } }
+    )
+  } catch (err) {
+    // Best-effort abort to clean up incomplete multipart upload on S3
+    axios
+      .post(
+        getBenchmarkMultipartAbortUrl(jobId),
+        { upload_id, filename: file.name },
+        { headers: { "Content-Type": "application/json" } }
+      )
+      .catch(() => {}) // fire-and-forget
+
+    throw err
   }
 }
 
@@ -379,35 +460,64 @@ export function DatasetUpload({
     const signal = abortControllerRef.current.signal
 
     try {
-      // Step 1: Request presigned URLs for all files
-      const filenames = validFiles.map((f: any) => f.name)
-      const presignRes = await axios.post<PresignResponse>(
-        getBenchmarkPresignUrl(jobId),
-        { filenames },
-        { headers: { "Content-Type": "application/json" } }
-      )
-      const { urls } = presignRes.data
-
-      // Step 2: Upload each file directly to S3
       const totalBytes = validFiles.reduce(
         (sum: number, f: any) => sum + (f.file?.size || 0),
         0
       )
       const fileProgress: Record<string, number> = {}
 
-      for (const f of validFiles) {
-        const fileObj: File = f.file as File
-        const presigned = urls[fileObj.name]
-        if (!presigned) {
-          throw new Error(`No presigned URL returned for ${fileObj.name}`)
-        }
+      // Split files by size threshold
+      const smallFiles = validFiles.filter(
+        (f: any) => (f.file?.size || 0) < MULTIPART_THRESHOLD
+      )
+      const largeFiles = validFiles.filter(
+        (f: any) => (f.file?.size || 0) >= MULTIPART_THRESHOLD
+      )
 
+      // Upload small files via presigned PUT
+      if (smallFiles.length > 0) {
+        const filenames = smallFiles.map((f: any) => f.name)
+        const presignRes = await axios.post<PresignResponse>(
+          getBenchmarkPresignUrl(jobId),
+          { filenames },
+          { headers: { "Content-Type": "application/json" } }
+        )
+        const { urls } = presignRes.data
+
+        for (const f of smallFiles) {
+          const fileObj: File = f.file as File
+          const presigned = urls[fileObj.name]
+          if (!presigned) {
+            throw new Error(`No presigned URL returned for ${fileObj.name}`)
+          }
+
+          fileProgress[fileObj.name] = 0
+
+          await uploadToS3WithProgress(
+            presigned.url,
+            fileObj,
+            presigned.content_type,
+            (loaded) => {
+              fileProgress[fileObj.name] = loaded
+              const totalLoaded = Object.values(fileProgress).reduce(
+                (a, b) => a + b,
+                0
+              )
+              setUploadProgress(Math.round((totalLoaded * 100) / totalBytes))
+            },
+            signal
+          )
+        }
+      }
+
+      // Upload large files via multipart
+      for (const f of largeFiles) {
+        const fileObj: File = f.file as File
         fileProgress[fileObj.name] = 0
 
-        await uploadToS3WithProgress(
-          presigned.url,
+        await uploadMultipartToS3(
+          jobId,
           fileObj,
-          presigned.content_type,
           (loaded) => {
             fileProgress[fileObj.name] = loaded
             const totalLoaded = Object.values(fileProgress).reduce(
@@ -680,7 +790,7 @@ export function DatasetUpload({
                               <FileIcon className="h-8 w-8 text-muted-foreground" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="mb-1 flex items-center gap-2">
+                              <div className="mb-1 flex min-w-0 items-center gap-2">
                                 <p
                                   className="truncate text-sm font-medium"
                                   title={file.name}

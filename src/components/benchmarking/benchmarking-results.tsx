@@ -292,14 +292,14 @@ export function BenchmarkingResults({
       try {
         const res = await axios.get(getBenchmarkJobStatusUrl(jobId))
         const status = (res.data?.status ?? "").toString()
-        if (log) console.log("[Benchmark] Status response:", res.data)
+        if (log) console.log("[Benchmark] Status response:", JSON.stringify(res.data, null, 2))
         setBackendStatus(status)
         setStatusDetails(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] Status error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         setBackendStatus(null)
         setStatusDetails(null)
@@ -316,13 +316,13 @@ export function BenchmarkingResults({
       fetchStatus(log)
       try {
         const res = await axios.get<ResultsManifest>(endpoints.manifest)
-        if (log) console.log("[Benchmark] Manifest response:", res.data)
+        if (log) console.log("[Benchmark] Manifest response:", JSON.stringify(res.data, null, 2))
         setManifest(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] Manifest error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         setErrors((prev) => ({
           ...prev,
@@ -337,26 +337,26 @@ export function BenchmarkingResults({
         const res = await axios.get<{ job_id: string; plots: ManifestPlot[] }>(
           endpoints.plots
         )
-        if (log) console.log("[Benchmark] Plots response:", res.data)
+        if (log) console.log("[Benchmark] Plots response:", JSON.stringify(res.data, null, 2))
         setPlots(res.data?.plots ?? null)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] Plots error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         // no error surfaced; we will rely on manifest.plots if present
       }
 
       try {
         const res = await axios.get<PRSSummaryResponse>(endpoints.prsSummary)
-        if (log) console.log("[Benchmark] PRS summary response:", res.data)
+        if (log) console.log("[Benchmark] PRS summary response:", JSON.stringify(res.data, null, 2))
         setPrsSummary(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] PRS summary error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         setErrors((prev) => ({
           ...prev,
@@ -371,26 +371,26 @@ export function BenchmarkingResults({
         const res = await axios.get<ToolSummaryResponse>(
           endpoints.toolSummary
         )
-        if (log) console.log("[Benchmark] Tool summary response:", res.data)
+        if (log) console.log("[Benchmark] Tool summary response:", JSON.stringify(res.data, null, 2))
         setToolSummary(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] Tool summary error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         // No error surfaced; we can fall back to prsSummary.tool_summary if present
       }
 
       try {
         const res = await axios.get<EvalR2Response>(endpoints.evalR2)
-        if (log) console.log("[Benchmark] R2 tables response:", res.data)
+        if (log) console.log("[Benchmark] R2 tables response:", JSON.stringify(res.data, null, 2))
         setEvalR2(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] R2 tables error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         setErrors((prev) => ({
           ...prev,
@@ -402,13 +402,13 @@ export function BenchmarkingResults({
 
       try {
         const res = await axios.get<EvalR2Response>(endpoints.evalAUC)
-        if (log) console.log("[Benchmark] AUC tables response:", res.data)
+        if (log) console.log("[Benchmark] AUC tables response:", JSON.stringify(res.data, null, 2))
         setEvalAUC(res.data)
       } catch (e: any) {
         if (log)
           console.error(
             "[Benchmark] AUC tables error:",
-            e?.response?.data || e?.message || e
+            JSON.stringify(e?.response?.data || e?.message || e)
           )
         setErrors((prev) => ({
           ...prev,
@@ -424,7 +424,7 @@ export function BenchmarkingResults({
   useEffect(() => {
     // reset completion refresh guard on job change
     hasRefreshedOnCompletion.current = false
-    fetchAll()
+    fetchAll(true) // log on initial load to aid debugging
   }, [fetchAll, jobId])
 
   // Light polling to keep status fresh until a terminal state
@@ -453,8 +453,14 @@ export function BenchmarkingResults({
 
   const allPlots = useMemo(() => {
     const fromManifest = manifest?.plots ?? []
-    if (plots && plots.length > 0) return plots
-    return fromManifest
+    const result = plots && plots.length > 0 ? plots : fromManifest
+    console.log("[Benchmark] allPlots:", JSON.stringify({
+      fromPlotsEndpoint: plots?.length ?? 0,
+      fromManifest: fromManifest.length,
+      using: result.length,
+      sampleUrls: result.slice(0, 3).map((p) => ({ name: p.name, url: p.url?.slice(0, 120) })),
+    }, null, 2))
+    return result
   }, [manifest, plots])
 
   const orderedTools = useMemo(() => {

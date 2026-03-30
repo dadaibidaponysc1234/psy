@@ -78,6 +78,19 @@ export const getBenchmarkUseSharedUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/dataset/use-shared`
 }
 
+// Multipart upload helpers (files >= 5GB)
+export const getBenchmarkMultipartInitiateUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/multipart/initiate`
+}
+
+export const getBenchmarkMultipartCompleteUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/multipart/complete`
+}
+
+export const getBenchmarkMultipartAbortUrl = (jobId: string) => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/multipart/abort`
+}
+
 // Reference data paths — backend handles these via env vars now.
 // Values are sent as empty strings so the payload shape is preserved
 // but the backend ignores/overrides them.

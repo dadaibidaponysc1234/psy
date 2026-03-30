@@ -48,6 +48,7 @@ import { ToolConfiguration } from "@/components/benchmarking/tool-configuration"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
 import { AuthControls } from "@/components/benchmarking/auth-controls"
 import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
+import { DevTestingDrawer } from "@/components/benchmarking/dev-testing-drawer"
 
 const steps = [
   {
@@ -426,6 +427,7 @@ const BenchmarkingPage = () => {
         </main>
       </div>
       <Toaster />
+      {process.env.NODE_ENV !== "production" && <DevTestingDrawer />}
     </div>
   )
 }

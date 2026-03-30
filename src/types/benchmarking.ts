@@ -23,6 +23,43 @@ export interface UploadCompleteResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Multipart Upload (files >= 5GB)
+// ---------------------------------------------------------------------------
+
+export interface MultipartInitiateRequest {
+  filename: string
+  file_size: number
+}
+
+export interface MultipartPart {
+  part_number: number
+  presigned_url: string
+}
+
+export interface MultipartInitiateResponse {
+  job_id: string
+  upload_id: string
+  key: string
+  part_size: number
+  num_parts: number
+  parts: MultipartPart[]
+}
+
+export interface MultipartCompleteRequest {
+  upload_id: string
+  filename: string
+  parts: Array<{
+    PartNumber: number
+    ETag: string
+  }>
+}
+
+export interface MultipartAbortRequest {
+  upload_id: string
+  filename: string
+}
+
+// ---------------------------------------------------------------------------
 // SSE: Aggregate progress
 // ---------------------------------------------------------------------------
 
