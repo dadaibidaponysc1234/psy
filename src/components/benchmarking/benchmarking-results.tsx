@@ -76,8 +76,6 @@ interface PRSSummaryResponse {
   summary?: { tool?: string; r2?: string | number; auc?: string | number }
   links?: Record<string, Record<string, string>>
   table?: { columns: string[]; rows: Array<Record<string, string | number>> }
-  // Newly augmented by backend: optional per-tool execution summary
-  tool_summary?: Record<string, ToolStageSummary>
 }
 
 interface EvalR2Response {
@@ -95,11 +93,6 @@ interface ToolStageSummary {
   evaluation_r2?: "succeeded" | "missing" | "unknown"
   evaluation_auc?: "succeeded" | "missing" | "unknown"
   messages?: string | null
-}
-
-interface ToolSummaryResponse {
-  job_id: string
-  tool_summary: Record<string, ToolStageSummary>
 }
 
 type SummaryTableRow = Record<string, string | number>
@@ -619,25 +612,28 @@ export function BenchmarkingResults({
   // Derive tool execution summary from SSE-driven toolStates in zustand
   const combinedToolSummary = useMemo<Record<string, ToolStageSummary>>(() => {
     const result: Record<string, ToolStageSummary> = {}
+    const mapStatus = (s: string): "succeeded" | "failed" | "skipped" | "unknown" => {
+      if (s === "completed") return "succeeded"
+      if (s === "failed") return "failed"
+      if (s === "skipped") return "skipped"
+      return "unknown"
+    }
+    const mapEvalStatus = (s: string): "succeeded" | "missing" | "unknown" => {
+      if (s === "completed") return "succeeded"
+      if (s === "failed" || s === "skipped") return "missing"
+      return "unknown"
+    }
     for (const [name, ts] of Object.entries(toolStates)) {
-      const mapStatus = (s: string): "succeeded" | "failed" | "skipped" | "unknown" => {
-        if (s === "completed") return "succeeded"
-        if (s === "failed") return "failed"
-        if (s === "skipped") return "skipped"
-        return "unknown"
-      }
       result[name] = {
         preprocessing: mapStatus(ts.status),
         processing: mapStatus(ts.status),
+        evaluation_r2: mapEvalStatus(ts.evaluation_r2_status),
+        evaluation_auc: mapEvalStatus(ts.evaluation_auc_status),
         messages: ts.message || ts.last_error || null,
       }
     }
-    // Fall back to prsSummary.tool_summary if SSE data is empty
-    if (Object.keys(result).length === 0 && prsSummary?.tool_summary) {
-      return prsSummary.tool_summary
-    }
     return result
-  }, [toolStates, prsSummary])
+  }, [toolStates])
 
   const renderStageBadge = useCallback((value?: string) => {
     const v = (value || "unknown").toLowerCase()

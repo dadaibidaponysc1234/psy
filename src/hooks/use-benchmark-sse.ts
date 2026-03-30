@@ -150,6 +150,8 @@ export function useBenchmarkSSE(
           progress_percent: isCompleted ? 100 : (t.progress_percent ?? 0),
           message: t.progress_message || "",
           last_error: t.last_error || null,
+          evaluation_r2_status: t.evaluation_r2_status || "pending",
+          evaluation_auc_status: t.evaluation_auc_status || "pending",
           timestamp: new Date().toISOString(),
         }
       }
@@ -267,6 +269,8 @@ export function useBenchmarkSSE(
               progress_percent: data.progress_percent ?? 0,
               message: data.message || "",
               last_error: data.last_error || null,
+              evaluation_r2_status: data.evaluation_r2_status || "pending",
+              evaluation_auc_status: data.evaluation_auc_status || "pending",
               timestamp: data.timestamp || new Date().toISOString(),
             }
             updateToolState(ts.tool, ts)

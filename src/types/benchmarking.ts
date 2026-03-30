@@ -74,6 +74,8 @@ export interface AggregateProgress {
 // SSE: Per-tool progress (inside status.tools[])
 // ---------------------------------------------------------------------------
 
+export type EvalStatus = "pending" | "running" | "completed" | "failed" | "skipped"
+
 export interface ToolProgress {
   tool_name: string
   preprocessing_status: string
@@ -82,6 +84,8 @@ export interface ToolProgress {
   progress_message: string
   progress_stage: string
   last_error: string | null
+  evaluation_r2_status: EvalStatus
+  evaluation_auc_status: EvalStatus
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +99,8 @@ export interface ToolStatusEvent {
   progress_percent: number
   message: string
   last_error: string | null
+  evaluation_r2_status: EvalStatus
+  evaluation_auc_status: EvalStatus
   timestamp: string
 }
 
