@@ -29,25 +29,17 @@ export function JobStatus({
   const handleClearJob = async () => {
     if (!jobId) return
 
-    // Debug: Check what's happening
-    console.log("🔍 Debug clearJob:", { jobId })
-
     // If job is not completed, cancel it first
     try {
-      const response = await fetch(getBenchmarkJobStatusUrl(jobId), {
+      await fetch(getBenchmarkJobStatusUrl(jobId), {
         method: "DELETE",
       })
-      if (response.ok) {
-        console.log("🗑️ Job cancelled before clearing")
-      }
-    } catch (error) {
-      console.error("❌ Failed to cancel job:", error)
+    } catch {
+      // Best-effort cancel — continue with clear regardless
     }
 
-    // Clear from Zustand store
     clearJobFromStore()
 
-    // Reset the entire benchmarking workflow
     if (onReset) {
       onReset()
     }

@@ -28,7 +28,7 @@ function parseSSELine(
   buffer: string,
   onEvent: (eventType: string, data: string) => void
 ): string {
-  const lines = buffer.split("\n")
+  const lines = buffer.split(/\r?\n/)
   let currentEvent = "message"
   let currentData = ""
   let remaining = ""
@@ -36,11 +36,14 @@ function parseSSELine(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    // If this is the last line and doesn't end with \n, it's incomplete
-    if (i === lines.length - 1 && !buffer.endsWith("\n")) {
+    // If this is the last line and buffer doesn't end with a newline, it's incomplete
+    if (i === lines.length - 1 && !/\r?\n$/.test(buffer)) {
       remaining = line
       break
     }
+
+    // SSE comments (keep-alive) — ignore
+    if (line.startsWith(":")) continue
 
     if (line.startsWith("event:")) {
       currentEvent = line.slice(6).trim()
@@ -324,12 +327,16 @@ export function useBenchmarkSSE(
         const decoder = new TextDecoder()
         let buffer = ""
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
 
-          buffer += decoder.decode(value, { stream: true })
-          buffer = parseSSELine(buffer, handleSSEData)
+            buffer += decoder.decode(value, { stream: true })
+            buffer = parseSSELine(buffer, handleSSEData)
+          }
+        } finally {
+          reader.cancel().catch(() => {})
         }
       } catch (err: any) {
         if (err?.name !== "AbortError") {

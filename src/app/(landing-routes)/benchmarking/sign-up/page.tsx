@@ -39,9 +39,12 @@ const SignUpPage = () => {
       toast.success("Account created successfully")
       router.push("/benchmarking")
     } catch (err: any) {
+      const detail = err?.response?.data?.detail
       const msg =
-        err?.response?.data?.detail || err?.message || "Sign up failed"
-      toast.error(typeof msg === "string" ? msg : "Sign up failed")
+        typeof detail === "string" ? detail
+        : Array.isArray(detail) ? detail[0]?.msg || "Validation failed"
+        : err?.message || "Sign up failed"
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

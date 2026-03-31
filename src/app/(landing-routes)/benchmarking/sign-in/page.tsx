@@ -37,9 +37,12 @@ const SignInPage = () => {
       toast.success("Signed in successfully")
       router.push("/benchmarking")
     } catch (err: any) {
+      const detail = err?.response?.data?.detail
       const msg =
-        err?.response?.data?.detail || err?.message || "Sign in failed"
-      toast.error(typeof msg === "string" ? msg : "Sign in failed")
+        typeof detail === "string" ? detail
+        : Array.isArray(detail) ? detail[0]?.msg || "Validation failed"
+        : err?.message || "Sign in failed"
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }
