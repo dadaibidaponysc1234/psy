@@ -1,8 +1,62 @@
 /**
  * Types for the benchmarking backend migration (split mode).
  *
- * Covers presigned uploads, SSE events, per-tool logs, and results.
+ * Covers auth, presigned uploads, SSE events, per-tool logs, and results.
  */
+
+// ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+export interface SignupRequest {
+  email: string
+  password: string
+  name?: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface RefreshRequest {
+  refresh_token: string
+}
+
+export interface UserOut {
+  user_id: string
+  email: string
+  name: string | null
+  provider: string
+  is_active: boolean
+  created_at: string
+  last_login_at: string | null
+}
+
+export interface TokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type: "bearer"
+  user: UserOut
+}
+
+export interface JobSummary {
+  job_id: string
+  status: string
+  created_at: string
+  uploaded_at: string | null
+  configured_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  error_message: string | null
+  dataset_filename: string | null
+}
+
+export interface ConfigSubmitResponse {
+  job_id: string
+  status: "configured"
+  warning: string | null
+}
 
 // ---------------------------------------------------------------------------
 // Presigned Upload

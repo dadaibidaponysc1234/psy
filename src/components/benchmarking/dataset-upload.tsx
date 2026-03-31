@@ -29,6 +29,7 @@ import {
   getBenchmarkMultipartAbortUrl,
 } from "@/lib/config"
 import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { toastInfo } from "@/hooks/use-toast"
 import {
@@ -144,7 +145,7 @@ async function waitForExtraction(
   const pollInterval = 3000
   while (true) {
     if (signal?.aborted) throw new Error("Upload aborted")
-    const res = await axios.get(getBenchmarkJobStatusUrl(jobId))
+    const res = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
     const status = (res.data.status || "").toLowerCase()
     if (status !== "extracting") return status
     await new Promise((r) => setTimeout(r, pollInterval))
@@ -165,7 +166,7 @@ async function uploadMultipartToS3(
   signal?: AbortSignal
 ): Promise<void> {
   // Step 1: Initiate
-  const initRes = await axios.post<MultipartInitiateResponse>(
+  const initRes = await benchmarkApi.post<MultipartInitiateResponse>(
     getBenchmarkMultipartInitiateUrl(jobId),
     { filename: file.name, file_size: file.size },
     { headers: { "Content-Type": "application/json" } }
@@ -206,7 +207,7 @@ async function uploadMultipartToS3(
     }
 
     // Step 2: Complete
-    await axios.post(
+    await benchmarkApi.post(
       getBenchmarkMultipartCompleteUrl(jobId),
       { upload_id, filename: file.name, parts: completedParts },
       { headers: { "Content-Type": "application/json" } }
@@ -273,7 +274,7 @@ export function DatasetUpload({
       if (!jobId) return
 
       try {
-        const response = await axios.get(getBenchmarkJobStatusUrl(jobId))
+        const response = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
         const status = (response.data.status || "").toLowerCase()
 
         if (status === "extracting") {
@@ -286,7 +287,7 @@ export function DatasetUpload({
           } catch {
             setIsExtracting(false)
           }
-          const updated = await axios.get(getBenchmarkJobStatusUrl(jobId))
+          const updated = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
           restoreUploadedState(updated.data)
         } else if (status !== "created") {
           restoreUploadedState(response.data)
@@ -340,7 +341,7 @@ export function DatasetUpload({
     setSharedLoading(true)
     setSharedError(null)
     try {
-      const res = await axios.get<SharedDatasetsResponse>(
+      const res = await benchmarkApi.get<SharedDatasetsResponse>(
         getBenchmarkSharedDatasetsUrl()
       )
       setSharedDatasets(res.data.datasets || [])
@@ -365,7 +366,7 @@ export function DatasetUpload({
 
     setIsSelectingShared(true)
     try {
-      const res = await axios.post<UseSharedResponse>(
+      const res = await benchmarkApi.post<UseSharedResponse>(
         getBenchmarkUseSharedUrl(jobId),
         { dataset: selectedShared },
         { headers: { "Content-Type": "application/json" } }
@@ -477,7 +478,7 @@ export function DatasetUpload({
       // Upload small files via presigned PUT
       if (smallFiles.length > 0) {
         const filenames = smallFiles.map((f: any) => f.name)
-        const presignRes = await axios.post<PresignResponse>(
+        const presignRes = await benchmarkApi.post<PresignResponse>(
           getBenchmarkPresignUrl(jobId),
           { filenames },
           { headers: { "Content-Type": "application/json" } }
@@ -531,7 +532,7 @@ export function DatasetUpload({
       }
 
       // Step 3: Confirm upload
-      const completeRes = await axios.post<UploadCompleteResponse>(
+      const completeRes = await benchmarkApi.post<UploadCompleteResponse>(
         getBenchmarkUploadCompleteUrl(jobId)
       )
 

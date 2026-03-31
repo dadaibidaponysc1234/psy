@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { getBenchmarkJobStatusUrl } from "@/lib/config"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import {
   RefreshCw,
@@ -79,15 +79,24 @@ export function JobTracker({
     }
   }, [toolNames, activeLogTab])
 
-  // Auto-scroll log panel
+  // Auto-scroll within the log panel only (not the page)
   useEffect(() => {
     if (autoScroll && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: "smooth" })
+      // Scroll within the log container, not the page
+      const container = logEndRef.current.parentElement
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
     }
   }, [toolLogs, activeLogTab, autoScroll])
 
-  // Toast on terminal states
+  // Toast on terminal states — only when status *transitions*, not on mount
+  const prevStatusRef = useRef<string>("")
   useEffect(() => {
+    const prev = prevStatusRef.current
+    prevStatusRef.current = currentStatus
+    // Only toast if we transitioned from a non-terminal state
+    if (!prev || prev === currentStatus) return
     if (currentStatus === "completed" || currentStatus === "failed") {
       toast.success(
         `Job ${currentStatus}! You can now proceed to the next step.`
@@ -102,7 +111,7 @@ export function JobTracker({
   const cancelJob = async () => {
     setIsCanceling(true)
     try {
-      await axios.delete(getBenchmarkJobStatusUrl(jobId))
+      await benchmarkApi.delete(getBenchmarkJobStatusUrl(jobId))
       toast.success("Job cancelled successfully")
       onReset?.()
       onClear()

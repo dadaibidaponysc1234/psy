@@ -1,66 +1,70 @@
 "use client"
 
 import { useEffect, useRef, useCallback } from "react"
-import axios from "axios"
-import {
-  getBenchmarkJobStatusUrl,
-  getBenchmarkEventsUrl,
-  getBenchmarkLogsUrl,
-} from "@/lib/config"
+import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl } from "@/lib/config"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
-import type {
-  ToolStatusEvent,
-  LogLine,
-  AggregateProgress,
-  ToolLogsResponse,
-} from "@/types/benchmarking"
+import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
+import benchmarkApi from "@/lib/benchmark-api"
+import type { ToolStatusEvent, LogLine, ToolLogsResponse } from "@/types/benchmarking"
 
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "")
 const MAX_LOG_LINES = 1500
 
-function inferToolStatus(
-  t: Record<string, any>
-): ToolStatusEvent["status"] {
-  if (
-    t.processing_status === "completed" &&
-    t.preprocessing_status === "completed"
-  )
-    return "completed"
-  if (
-    t.processing_status === "failed" ||
-    t.preprocessing_status === "failed"
-  )
-    return "failed"
-  if (
-    t.processing_status === "running" ||
-    t.preprocessing_status === "running"
-  )
-    return "running"
-  if (
-    t.processing_status === "skipped" &&
-    t.preprocessing_status === "skipped"
-  )
-    return "skipped"
-  if (
-    t.processing_status === "pending" &&
-    t.preprocessing_status === "pending"
-  )
-    return "pending"
+function inferToolStatus(t: Record<string, any>): ToolStatusEvent["status"] {
+  if (t.processing_status === "completed" && t.preprocessing_status === "completed") return "completed"
+  if (t.processing_status === "failed" || t.preprocessing_status === "failed") return "failed"
+  if (t.processing_status === "running" || t.preprocessing_status === "running") return "running"
+  if (t.processing_status === "skipped" && t.preprocessing_status === "skipped") return "skipped"
+  if (t.processing_status === "pending" && t.preprocessing_status === "pending") return "pending"
   return "running"
 }
 
 /**
+ * Parse a raw SSE text stream into individual events.
+ * Handles "event:", "data:", and blank-line delimiters.
+ */
+function parseSSELine(
+  buffer: string,
+  onEvent: (eventType: string, data: string) => void
+): string {
+  const lines = buffer.split("\n")
+  let currentEvent = "message"
+  let currentData = ""
+  let remaining = ""
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // If this is the last line and doesn't end with \n, it's incomplete
+    if (i === lines.length - 1 && !buffer.endsWith("\n")) {
+      remaining = line
+      break
+    }
+
+    if (line.startsWith("event:")) {
+      currentEvent = line.slice(6).trim()
+    } else if (line.startsWith("data:")) {
+      currentData += (currentData ? "\n" : "") + line.slice(5).trim()
+    } else if (line === "" && currentData) {
+      onEvent(currentEvent, currentData)
+      currentEvent = "message"
+      currentData = ""
+    }
+  }
+
+  return remaining
+}
+
+/**
  * Shared hook that manages the SSE connection for a benchmark job.
+ * Uses fetch with auth headers instead of EventSource.
  * Writes all state to the zustand store so any component can read it.
- *
- * Mount this once (e.g. in the benchmarking page layout or job-status component).
- * Multiple mounts for the same jobId are safe — only the first connects.
  */
 export function useBenchmarkSSE(
   jobId: string | null,
   onStatusChange?: (status: string) => void
 ) {
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const fetchedLogsForRef = useRef<Set<string>>(new Set())
 
   const {
@@ -75,27 +79,13 @@ export function useBenchmarkSSE(
     clearSseState,
   } = useBenchmarkingStore()
 
-  // Fetch historical logs for a list of tools
   const fetchHistoricalLogs = useCallback(
     async (tools: string[]) => {
       if (!jobId) return
       for (const tool of tools) {
         try {
-          const url = getBenchmarkLogsUrl(jobId, tool, {
-            limit: MAX_LOG_LINES,
-          })
-          console.log(
-            `[SSE] Fetching historical logs for ${tool}:`,
-            url
-          )
-          const res = await axios.get<ToolLogsResponse>(url)
-          console.log(
-            `[SSE] Historical logs for ${tool}:`,
-            JSON.stringify({
-              total_lines: res.data?.total_lines,
-              returned: res.data?.lines?.length ?? 0,
-            })
-          )
+          const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES })
+          const res = await benchmarkApi.get<ToolLogsResponse>(url)
           if (res.data?.lines?.length) {
             const lines: LogLine[] = res.data.lines.map((l) => ({
               level: l.level,
@@ -105,26 +95,17 @@ export function useBenchmarkSSE(
             }))
             setToolLogs(tool, lines)
           }
-        } catch (err: any) {
-          console.error(
-            `[SSE] Failed to fetch logs for ${tool}:`,
-            JSON.stringify({
-              status: err?.response?.status,
-              message: err?.message,
-            })
-          )
+        } catch {
+          // Logs may not be available yet
         }
       }
     },
     [jobId, setToolLogs]
   )
 
-  // Fetch historical logs when new tools appear
   const ensureHistoricalLogs = useCallback(
     (toolNames: string[]) => {
-      const newTools = toolNames.filter(
-        (name) => !fetchedLogsForRef.current.has(name)
-      )
+      const newTools = toolNames.filter((name) => !fetchedLogsForRef.current.has(name))
       if (newTools.length === 0) return
       newTools.forEach((name) => fetchedLogsForRef.current.add(name))
       fetchHistoricalLogs(newTools)
@@ -132,15 +113,12 @@ export function useBenchmarkSSE(
     [fetchHistoricalLogs]
   )
 
-  // Process tools array from status response/event
   const processToolsArray = useCallback(
     (tools: any[], jobStatus?: string) => {
       if (!tools || !Array.isArray(tools) || tools.length === 0) return
-
       const isCompleted = (jobStatus || "").toLowerCase() === "completed"
       const states: Record<string, ToolStatusEvent> = {}
       const names: string[] = []
-
       for (const t of tools) {
         names.push(t.tool_name)
         states[t.tool_name] = {
@@ -155,62 +133,16 @@ export function useBenchmarkSSE(
           timestamp: new Date().toISOString(),
         }
       }
-
       setToolStates(states)
       ensureHistoricalLogs(names)
     },
     [setToolStates, ensureHistoricalLogs]
   )
 
-  const connect = useCallback(() => {
-    if (!jobId) return null
-
-    // Fetch current status first
-    const fetchCurrentStatus = async () => {
+  const handleSSEData = useCallback(
+    (eventType: string, rawData: string) => {
       try {
-        const response = await axios.get(getBenchmarkJobStatusUrl(jobId))
-        const data = response.data
-        if (data.status) {
-          setSseStatus(data.status)
-          onStatusChange?.(data.status)
-        }
-        console.log(
-          "[SSE] Status tools array:",
-          JSON.stringify({
-            hasTools: !!data.tools,
-            isArray: Array.isArray(data.tools),
-            length: data.tools?.length ?? 0,
-            toolNames: data.tools?.map((t: any) => t.tool_name) ?? [],
-          })
-        )
-        if (data.tools) {
-          processToolsArray(data.tools, data.status)
-        }
-        if (data.progress) {
-          setAggregateProgress(data.progress)
-        }
-      } catch (error) {
-        console.error("[SSE] Failed to fetch current job status:", error)
-      }
-    }
-
-    fetchCurrentStatus()
-
-    const es = new EventSource(getBenchmarkEventsUrl(jobId))
-
-    es.onopen = () => {
-      setSseConnected(true)
-    }
-
-    const handleSSEEvent = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data)
-        const eventType =
-          (event.type !== "message" ? event.type : null) ||
-          data.type ||
-          "message"
-
-        console.log("[SSE] event:", eventType, JSON.stringify(data))
+        const data = JSON.parse(rawData)
 
         switch (eventType) {
           case "status": {
@@ -221,40 +153,26 @@ export function useBenchmarkSSE(
             if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
               processToolsArray(data.tools, status)
             }
-
             if (data.progress) {
               setAggregateProgress(data.progress)
             }
 
-            // On completion, set all tool progress to 100%
             if (status === "completed") {
               const current = useBenchmarkingStore.getState().toolStates
               const updated: Record<string, ToolStatusEvent> = {}
               for (const name of Object.keys(current)) {
-                updated[name] = {
-                  ...current[name],
-                  status: "completed",
-                  progress_percent: 100,
-                }
+                updated[name] = { ...current[name], status: "completed", progress_percent: 100 }
               }
               setToolStates(updated)
               setAggregateProgress(
                 data.progress
                   ? { ...data.progress, percent: 100, message: "Completed" }
-                  : {
-                      stage: "completed",
-                      percent: 100,
-                      message: "Completed",
-                      timestamp: new Date().toISOString(),
-                    }
+                  : { stage: "completed", percent: 100, message: "Completed", timestamp: new Date().toISOString() }
               )
             }
 
             if (status === "completed" || status === "failed") {
-              // Fetch final historical logs for all tools
-              const toolNames = Object.keys(
-                useBenchmarkingStore.getState().toolStates
-              )
+              const toolNames = Object.keys(useBenchmarkingStore.getState().toolStates)
               fetchedLogsForRef.current.clear()
               ensureHistoricalLogs(toolNames)
             }
@@ -306,15 +224,9 @@ export function useBenchmarkSSE(
 
           case "extracting": {
             if (data.status === "start") {
-              setExtractionProgress({
-                current: 0,
-                total: data.total_files || 0,
-              })
+              setExtractionProgress({ current: 0, total: data.total_files || 0 })
             } else if (data.status === "completed") {
-              setExtractionProgress({
-                current: data.total_files || 0,
-                total: data.total_files || 0,
-              })
+              setExtractionProgress({ current: data.total_files || 0, total: data.total_files || 0 })
             }
             break
           }
@@ -325,32 +237,78 @@ export function useBenchmarkSSE(
       } catch (error) {
         console.error("Error parsing SSE data:", error)
       }
-    }
-
-    es.onmessage = handleSSEEvent
-
-    const namedEvents = [
-      "status",
-      "tool_status",
-      "progress",
-      "log",
-      "extracting",
-      "connected",
-      "keepalive",
-      "info",
-      "error",
-    ]
-    for (const name of namedEvents) {
-      es.addEventListener(name, handleSSEEvent as EventListener)
-    }
-
-    es.onerror = () => {
-      setSseConnected(false)
-    }
-
-    return es
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+    [jobId]
+  )
+
+  const connect = useCallback(
+    async (signal: AbortSignal) => {
+      if (!jobId) return
+
+      // Fetch current status first (via authenticated client)
+      try {
+        const response = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
+        const data = response.data
+        if (data.status) {
+          setSseStatus(data.status)
+          onStatusChange?.(data.status)
+        }
+        if (data.tools) {
+          processToolsArray(data.tools, data.status)
+        }
+        if (data.progress) {
+          setAggregateProgress(data.progress)
+        }
+      } catch (error) {
+        console.error("[SSE] Failed to fetch current job status:", error)
+      }
+
+      // Open SSE stream with auth header via fetch
+      const token = useBenchmarkAuthStore.getState().accessToken
+      const headers: Record<string, string> = { Accept: "text/event-stream" }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
+      try {
+        const response = await fetch(getBenchmarkEventsUrl(jobId), {
+          headers,
+          signal,
+        })
+
+        if (!response.ok) {
+          console.error("[SSE] Connection failed:", response.status)
+          setSseConnected(false)
+          return
+        }
+
+        setSseConnected(true)
+
+        const reader = response.body?.getReader()
+        if (!reader) return
+
+        const decoder = new TextDecoder()
+        let buffer = ""
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          buffer = parseSSELine(buffer, handleSSEData)
+        }
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error("[SSE] Stream error:", err)
+        }
+      } finally {
+        setSseConnected(false)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jobId, handleSSEData, processToolsArray]
+  )
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
@@ -359,22 +317,23 @@ export function useBenchmarkSSE(
     clearSseState()
     fetchedLogsForRef.current.clear()
 
-    const es = connect()
-    if (es) eventSourceRef.current = es
+    const controller = new AbortController()
+    abortRef.current = controller
+    connect(controller.signal)
 
     return () => {
-      es?.close()
+      controller.abort()
       setSseConnected(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, connect])
 
-  // Return reconnect function for manual refresh
   const reconnect = useCallback(() => {
-    eventSourceRef.current?.close()
+    abortRef.current?.abort()
     fetchedLogsForRef.current.clear()
-    const es = connect()
-    if (es) eventSourceRef.current = es
+    const controller = new AbortController()
+    abortRef.current = controller
+    connect(controller.signal)
   }, [connect])
 
   return { reconnect }

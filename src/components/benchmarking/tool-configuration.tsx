@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -3819,11 +3820,16 @@ export function ToolConfiguration({
     try {
       if (!jobId) throw new Error("No job ID found")
 
-      await axios.post(getBenchmarkConfigUrl(jobId), requestBody, {
+      const configRes = await benchmarkApi.post(getBenchmarkConfigUrl(jobId), requestBody, {
         headers: { "Content-Type": "application/json" },
       })
 
       toast.success("Configuration submitted! Starting benchmarking...")
+
+      // Show worker warning if present
+      if (configRes.data?.warning) {
+        toast(configRes.data.warning, { icon: "\u26a0\ufe0f", duration: 8000 })
+      }
 
       onNext({
         configs: sanitizedForStore,

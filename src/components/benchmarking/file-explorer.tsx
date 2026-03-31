@@ -30,7 +30,7 @@ const Draggable = ({
   }
   return <>{children(provided)}</>
 }
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { getBenchmarkUploadUrl, getBenchmarkPreviewUrl } from "@/lib/config"
 
 interface DirectoryItem {
@@ -152,7 +152,7 @@ export function FileExplorer({
 
       console.log("Fetching preview from:", previewUrl)
 
-      const response = await axios.get(previewUrl)
+      const response = await benchmarkApi.get(previewUrl)
 
       console.log("Preview response:", response.data)
 

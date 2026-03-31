@@ -1,16 +1,48 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { LogIn } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { LogIn, Loader2 } from "lucide-react"
+import { toast } from "react-hot-toast"
+import axios from "axios"
+import { getBenchmarkLoginUrl } from "@/lib/config"
+import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
+import type { TokenResponse } from "@/types/benchmarking"
 
 const SignInPage = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter()
+  const { setTokens, setUser } = useBenchmarkAuthStore()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!email || !password) return
+
+    setIsLoading(true)
+    try {
+      const res = await axios.post<TokenResponse>(getBenchmarkLoginUrl(), {
+        email,
+        password,
+      })
+
+      setTokens(res.data.access_token, res.data.refresh_token)
+      setUser(res.data.user)
+      toast.success("Signed in successfully")
+      router.push("/benchmarking")
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail || err?.message || "Sign in failed"
+      toast.error(typeof msg === "string" ? msg : "Sign in failed")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -31,37 +63,45 @@ const SignInPage = () => {
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" required />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="••••••••" required />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 <span className="flex items-center justify-center gap-2">
-                  <LogIn className="h-4 w-4" />
-                  <span>Sign in</span>
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogIn className="h-4 w-4" />
+                  )}
+                  <span>{isLoading ? "Signing in..." : "Sign in"}</span>
                 </span>
               </Button>
             </form>
 
-            <div className="my-6 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-              <span className="h-px w-10 bg-border" />
-              <span>or</span>
-              <span className="h-px w-10 bg-border" />
-            </div>
-
-            <Button variant="outline" className="w-full">
-              <span className="flex items-center justify-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/google.svg" alt="Google" className="h-4 w-4" />
-                <span>Continue with Google</span>
-              </span>
-            </Button>
-
             <div className="mt-4 text-center text-sm">
-              Don’t have an account?{" "}
-              <Link href="/benchmarking/sign-up" className="underline">Sign up</Link>
+              Don&apos;t have an account?{" "}
+              <Link href="/benchmarking/sign-up" className="underline">
+                Sign up
+              </Link>
             </div>
           </CardContent>
         </Card>

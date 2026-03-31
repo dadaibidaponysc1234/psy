@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import {
   Card,
   CardContent,
@@ -294,7 +294,7 @@ export function XpassToolConfiguration({
         const url = getBenchmarkPreviewUrl(jobId, population.sumstats_path, {
           randomPick: sumstatsFileType === "multi_chromosome",
         })
-        const response = await axios.get(url)
+        const response = await benchmarkApi.get(url)
         const preview: FilePreview = {
           filename:
             population.sumstats_path.split("/").pop() ||

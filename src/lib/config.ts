@@ -3,9 +3,29 @@ export const BENCHMARK_CONFIG = {
   BASE_URL:
     process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL ||
     "http://localhost:8000/api/v1/benchmarks",
+  AUTH_BASE_URL:
+    process.env.NEXT_PUBLIC_BENCHMARK_AUTH_URL ||
+    "http://localhost:8000/api/v1/auth",
   UPLOAD_ENDPOINT: "/upload",
   JOBS_ENDPOINT: "/jobs",
 } as const
+
+// Auth URL helpers
+export const getBenchmarkSignupUrl = () => {
+  return `${BENCHMARK_CONFIG.AUTH_BASE_URL}/signup`
+}
+
+export const getBenchmarkLoginUrl = () => {
+  return `${BENCHMARK_CONFIG.AUTH_BASE_URL}/login`
+}
+
+export const getBenchmarkRefreshUrl = () => {
+  return `${BENCHMARK_CONFIG.AUTH_BASE_URL}/refresh`
+}
+
+export const getBenchmarkMyJobsUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/jobs/mine`
+}
 
 // Helper function to get the full upload URL
 export const getBenchmarkUploadUrl = (jobId?: string) => {

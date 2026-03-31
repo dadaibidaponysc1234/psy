@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useMemo, useState, useEffect } from "react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import {
   Card,
   CardContent,
@@ -125,7 +125,7 @@ export function SdprxToolConfiguration({
         randomPick: sumstatsType === "multi_chromosome",
       })
       console.log("[SDPRX Preview] GET:", url)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       console.log("[SDPRX Preview] Response:", response?.data)
       const lines: string[] = response?.data?.preview_lines || []
       setPreviewLines(lines)
@@ -524,7 +524,7 @@ export function SdprxToolConfiguration({
       setPhenotypeError(null)
       try {
         const url = getBenchmarkPreviewUrl(jobId, phenoPath)
-        const response = await axios.get(url)
+        const response = await benchmarkApi.get(url)
         const lines: string[] = response?.data?.preview_lines || []
         const firstLine = (lines[0] || "").trim()
         const hdrs =

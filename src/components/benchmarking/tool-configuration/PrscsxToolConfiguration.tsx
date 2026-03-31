@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import {
   Card,
@@ -371,7 +371,7 @@ export function PrscsxToolConfiguration({
         randomPick: sumstatsType === "multi_chromosome",
       })
       console.log("[PRScsx Preview] GET:", url)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       console.log("[PRScsx Preview] Response:", response?.data)
       const preview: FilePreview = {
         filename:
@@ -455,7 +455,7 @@ export function PrscsxToolConfiguration({
 
     try {
       const url = getBenchmarkPreviewUrl(jobId, population.phenotype_path)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       const first = (response.data.preview_lines?.[0] || "").trim()
       const headers =
         first.length > 0

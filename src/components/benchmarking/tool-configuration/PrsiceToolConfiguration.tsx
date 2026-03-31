@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useState } from "react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import {
   Card,
@@ -217,7 +217,7 @@ export function PrsiceToolConfiguration({
       )
       // Log request URL for visibility when previewing or reloading
       console.log("[PRSice Preview] GET:", url)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       // Log response payload alongside the request URL
       console.log("[PRSice Preview] Response:", response?.data)
       const previewData: FilePreview = {
@@ -290,7 +290,7 @@ export function PrsiceToolConfiguration({
 
     try {
       const url = getBenchmarkPreviewUrl(jobId, filePath)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       const first = response.data.preview_lines?.[0] || ""
       const headers = (
         first.includes("\t") ? first.split("\t") : first.trim().split(/\s+/)

@@ -14,7 +14,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { toast } from "react-hot-toast"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { getBenchmarkConfigUrl } from "@/lib/config"
 import testConfig from "../../../reference/test-config.json"
@@ -472,7 +472,7 @@ export function DevTestingDrawer() {
       }
 
       // 3. POST to backend
-      await axios.post(getBenchmarkConfigUrl(jobId), requestBody, {
+      await benchmarkApi.post(getBenchmarkConfigUrl(jobId), requestBody, {
         headers: { "Content-Type": "application/json" },
       })
 

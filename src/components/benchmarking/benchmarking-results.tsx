@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Search,
 } from "lucide-react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { BENCHMARK_CONFIG, getBenchmarkJobStatusUrl } from "@/lib/config"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
@@ -225,7 +225,7 @@ export function BenchmarkingResults({
   const fetchPresignedUrl = useCallback(
     async (path: string): Promise<string> => {
       try {
-        const res = await axios.get(fileEndpointFromPath(path))
+        const res = await benchmarkApi.get(fileEndpointFromPath(path))
         // Split mode returns { url, filename }
         if (res.data?.url) return res.data.url
         // Full mode — the endpoint itself serves the file
@@ -286,7 +286,7 @@ export function BenchmarkingResults({
     async (log?: boolean) => {
       if (!jobId) return
       try {
-        const res = await axios.get(getBenchmarkJobStatusUrl(jobId))
+        const res = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
         const status = (res.data?.status ?? "").toString()
         if (log) console.log("[Benchmark] Status response:", JSON.stringify(res.data, null, 2))
         setBackendStatus(status)
@@ -311,7 +311,7 @@ export function BenchmarkingResults({
       setErrors({})
       fetchStatus(log)
       try {
-        const res = await axios.get<ResultsManifest>(endpoints.manifest)
+        const res = await benchmarkApi.get<ResultsManifest>(endpoints.manifest)
         if (log) console.log("[Benchmark] Manifest response:", JSON.stringify(res.data, null, 2))
         setManifest(res.data)
       } catch (e: any) {
@@ -330,7 +330,7 @@ export function BenchmarkingResults({
 
       // Fetch plots from new endpoint (falls back to manifest.plots if this fails)
       try {
-        const res = await axios.get<{ job_id: string; plots: ManifestPlot[] }>(
+        const res = await benchmarkApi.get<{ job_id: string; plots: ManifestPlot[] }>(
           endpoints.plots
         )
         if (log) console.log("[Benchmark] Plots response:", JSON.stringify(res.data, null, 2))
@@ -345,7 +345,7 @@ export function BenchmarkingResults({
       }
 
       try {
-        const res = await axios.get<PRSSummaryResponse>(endpoints.prsSummary)
+        const res = await benchmarkApi.get<PRSSummaryResponse>(endpoints.prsSummary)
         if (log) console.log("[Benchmark] PRS summary response:", JSON.stringify(res.data, null, 2))
         setPrsSummary(res.data)
       } catch (e: any) {
@@ -363,7 +363,7 @@ export function BenchmarkingResults({
       }
 
       try {
-        const res = await axios.get<EvalR2Response>(endpoints.evalR2)
+        const res = await benchmarkApi.get<EvalR2Response>(endpoints.evalR2)
         if (log) console.log("[Benchmark] R2 tables response:", JSON.stringify(res.data, null, 2))
         setEvalR2(res.data)
       } catch (e: any) {
@@ -381,7 +381,7 @@ export function BenchmarkingResults({
       }
 
       try {
-        const res = await axios.get<EvalR2Response>(endpoints.evalAUC)
+        const res = await benchmarkApi.get<EvalR2Response>(endpoints.evalAUC)
         if (log) console.log("[Benchmark] AUC tables response:", JSON.stringify(res.data, null, 2))
         setEvalAUC(res.data)
       } catch (e: any) {

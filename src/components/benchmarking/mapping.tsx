@@ -31,7 +31,7 @@ import {
 } from "lucide-react"
 import { Tooltip } from "@/components/ui/tooltip"
 import { getBenchmarkUploadUrl, getBenchmarkJobStatusUrl } from "@/lib/config"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { FileExplorer } from "./file-explorer"
 import {
@@ -1398,7 +1398,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
 
   const checkJobStatus = async (jobKey: string) => {
     try {
-      const response = await axios.get<JobStatusResponse>(
+      const response = await benchmarkApi.get<JobStatusResponse>(
         getBenchmarkJobStatusUrl(jobKey)
       )
 
@@ -1472,7 +1472,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       }
 
       console.log("[Mapping] fetchDatasetStructure:start", { jobKey })
-      const response = await axios.get<ExploreResponse>(
+      const response = await benchmarkApi.get<ExploreResponse>(
         `${getBenchmarkUploadUrl().replace("/upload", "")}/${jobKey}/explore`
       )
 

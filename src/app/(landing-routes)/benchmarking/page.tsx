@@ -414,7 +414,7 @@ const BenchmarkingPage = () => {
     <div className="container mx-auto overflow-x-hidden px-4 py-8">
       {/* Top-right auth controls (UI-only) */}
       <div className="mx-auto mb-4 flex max-w-7xl justify-end">
-        <AuthControls isAuthenticated={false} />
+        <AuthControls />
       </div>
       <div className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden" id="workflow">
         <Sidebar

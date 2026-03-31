@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useMemo, useState, useEffect } from "react"
-import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import {
   Card,
   CardHeader,
@@ -513,7 +513,7 @@ export function BridgeprsToolConfiguration({
       })
       // Log request URL and the response payload for visibility
       console.log("[BridgePRS Preview] GET:", url)
-      const response = await axios.get(url)
+      const response = await benchmarkApi.get(url)
       console.log("[BridgePRS Preview] Response:", response?.data)
       const lines: string[] = response?.data?.preview_lines || []
       setPreviewLines(lines)
@@ -576,7 +576,7 @@ export function BridgeprsToolConfiguration({
 
       try {
         const url = getBenchmarkPreviewUrl(jobId, filePath)
-        const response = await axios.get(url)
+        const response = await benchmarkApi.get(url)
         const first = (response.data.preview_lines?.[0] || "").trim()
         const headers = first
           ? first.split("\t").length > 1

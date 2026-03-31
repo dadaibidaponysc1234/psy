@@ -3,23 +3,27 @@
 import React from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { User, LogIn, UserPlus } from "lucide-react"
+import { User, LogIn, UserPlus, LogOut } from "lucide-react"
+import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
+import { toast } from "react-hot-toast"
 
-type AuthControlsProps = {
-  isAuthenticated?: boolean
-}
+export const AuthControls: React.FC = () => {
+  const { isAuthenticated, user, logout } = useBenchmarkAuthStore()
 
-export const AuthControls: React.FC<AuthControlsProps> = ({
-  isAuthenticated = false,
-}) => {
+  const handleLogout = () => {
+    logout()
+    toast.success("Signed out")
+  }
+
   if (isAuthenticated) {
     return (
       <div className="flex items-center gap-2">
-        <Button asChild variant="outline">
-          <Link href="/account" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            <span>Account</span>
-          </Link>
+        <span className="text-sm text-muted-foreground">
+          {user?.name || user?.email || "Account"}
+        </span>
+        <Button variant="outline" size="sm" onClick={handleLogout}>
+          <LogOut className="mr-1 h-4 w-4" />
+          Sign out
         </Button>
       </div>
     )

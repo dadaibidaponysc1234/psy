@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { getBenchmarkJobsUrl } from "@/lib/config"
 import axios from "axios"
+import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { useJobId, useJobStatus } from "@/stores/benchmarking-store"
@@ -103,7 +104,7 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
       console.log("🚀 Creating benchmark job...")
       console.log("📋 Selected tools:", selectedTools)
 
-      const response = await axios.post(getBenchmarkJobsUrl(), {
+      const response = await benchmarkApi.post(getBenchmarkJobsUrl(), {
         tools: selectedTools,
       })
 
