@@ -13,6 +13,7 @@ interface JobStatusProps {
   onPrevious?: () => void
   data?: any
   onReset?: () => void
+  reconnectSSE?: () => void
 }
 
 export function JobStatus({
@@ -20,6 +21,7 @@ export function JobStatus({
   onPrevious,
   data,
   onReset,
+  reconnectSSE,
 }: JobStatusProps) {
   const [showClearModal, setShowClearModal] = useState(false)
   const { jobId, clearJob: clearJobFromStore } = useBenchmarkingStore()
@@ -72,10 +74,7 @@ export function JobStatus({
           jobId={jobId}
           onClear={showClearModalHandler}
           onReset={onReset}
-          onStatusChange={(status) => {
-            // Status updates are now handled by the JobTracker component
-            console.log("Job status changed:", status)
-          }}
+          reconnectSSE={reconnectSSE}
         />
       ) : (
         <Card>

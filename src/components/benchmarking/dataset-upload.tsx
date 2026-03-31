@@ -214,7 +214,7 @@ async function uploadMultipartToS3(
     )
   } catch (err) {
     // Best-effort abort to clean up incomplete multipart upload on S3
-    axios
+    benchmarkApi
       .post(
         getBenchmarkMultipartAbortUrl(jobId),
         { upload_id, filename: file.name },

@@ -18,7 +18,6 @@ import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { BENCHMARK_CONFIG, getBenchmarkJobStatusUrl } from "@/lib/config"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
-import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Image as ImageIcon,
@@ -116,8 +115,7 @@ export function BenchmarkingResults({
   // SSE-driven tool states from zustand (replaces tool-summary endpoint)
   const toolStates = useBenchmarkingStore((s) => s.toolStates)
 
-  // Connect SSE so tool states are live even on the results page
-  useBenchmarkSSE(jobId || null)
+  // SSE tool states are read from zustand — connection is managed at page level
   const [loading, setLoading] = useState({
     manifest: true,
     summary: true,

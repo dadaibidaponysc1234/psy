@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { User, LogIn, UserPlus, LogOut } from "lucide-react"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
+import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { toast } from "react-hot-toast"
 
 export const AuthControls: React.FC = () => {
@@ -12,6 +13,7 @@ export const AuthControls: React.FC = () => {
 
   const handleLogout = () => {
     logout()
+    useBenchmarkingStore.getState().resetWorkflow()
     toast.success("Signed out")
   }
 

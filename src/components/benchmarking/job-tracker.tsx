@@ -30,21 +30,20 @@ import {
   BarChart3,
 } from "lucide-react"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
-import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
 import type { LogLevel } from "@/types/benchmarking"
 
 interface JobTrackerProps {
   jobId: string
   onClear: () => void
   onReset?: () => void
-  onStatusChange?: (status: string) => void
+  reconnectSSE?: () => void
 }
 
 export function JobTracker({
   jobId,
   onClear,
   onReset,
-  onStatusChange,
+  reconnectSSE,
 }: JobTrackerProps) {
   // Local UI state only
   const [isReconnecting, setIsReconnecting] = useState(false)
@@ -62,9 +61,6 @@ export function JobTracker({
   const toolLogs = useBenchmarkingStore((s) => s.toolLogs)
   const aggregateProgress = useBenchmarkingStore((s) => s.aggregateProgress)
   const extractionProgress = useBenchmarkingStore((s) => s.extractionProgress)
-
-  // Connect SSE via shared hook
-  const { reconnect } = useBenchmarkSSE(jobId, onStatusChange)
 
   // Tool names derived from toolStates
   const toolNames = useMemo(
@@ -124,7 +120,7 @@ export function JobTracker({
 
   const handleRefreshConnection = () => {
     setIsReconnecting(true)
-    reconnect()
+    reconnectSSE?.()
     setTimeout(() => setIsReconnecting(false), 1000)
   }
 

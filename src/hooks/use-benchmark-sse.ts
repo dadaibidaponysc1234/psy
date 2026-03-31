@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useCallback } from "react"
-import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl } from "@/lib/config"
+import axios from "axios"
+import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl, getBenchmarkRefreshUrl } from "@/lib/config"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import benchmarkApi from "@/lib/benchmark-api"
@@ -66,6 +67,8 @@ export function useBenchmarkSSE(
 ) {
   const abortRef = useRef<AbortController | null>(null)
   const fetchedLogsForRef = useRef<Set<string>>(new Set())
+  const onStatusChangeRef = useRef(onStatusChange)
+  onStatusChangeRef.current = onStatusChange
 
   const {
     setSseConnected,
@@ -148,7 +151,7 @@ export function useBenchmarkSSE(
           case "status": {
             const status = data.status || ""
             setSseStatus(status)
-            onStatusChange?.(status)
+            onStatusChangeRef.current?.(status)
 
             if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
               processToolsArray(data.tools, status)
@@ -252,7 +255,7 @@ export function useBenchmarkSSE(
         const data = response.data
         if (data.status) {
           setSseStatus(data.status)
-          onStatusChange?.(data.status)
+          onStatusChangeRef.current?.(data.status)
         }
         if (data.tools) {
           processToolsArray(data.tools, data.status)
@@ -265,20 +268,50 @@ export function useBenchmarkSSE(
       }
 
       // Open SSE stream with auth header via fetch
-      const token = useBenchmarkAuthStore.getState().accessToken
-      const headers: Record<string, string> = { Accept: "text/event-stream" }
-      if (token) {
-        headers.Authorization = `Bearer ${token}`
-      }
+      const openStream = async (): Promise<Response | null> => {
+        const tok = useBenchmarkAuthStore.getState().accessToken
+        const hdrs: Record<string, string> = { Accept: "text/event-stream" }
+        if (tok) hdrs.Authorization = `Bearer ${tok}`
 
-      try {
-        const response = await fetch(getBenchmarkEventsUrl(jobId), {
-          headers,
+        const res = await fetch(getBenchmarkEventsUrl(jobId), {
+          headers: hdrs,
           signal,
         })
 
-        if (!response.ok) {
-          console.error("[SSE] Connection failed:", response.status)
+        if (res.status === 401) {
+          // Try one token refresh and retry
+          const { refreshToken, setTokens, setUser, logout } =
+            useBenchmarkAuthStore.getState()
+          if (!refreshToken) { logout(); return null }
+          try {
+            const refreshRes = await axios.post(getBenchmarkRefreshUrl(), {
+              refresh_token: refreshToken,
+            })
+            setTokens(refreshRes.data.access_token, refreshRes.data.refresh_token)
+            setUser(refreshRes.data.user)
+
+            const retryHdrs: Record<string, string> = {
+              Accept: "text/event-stream",
+              Authorization: `Bearer ${refreshRes.data.access_token}`,
+            }
+            return fetch(getBenchmarkEventsUrl(jobId), {
+              headers: retryHdrs,
+              signal,
+            })
+          } catch {
+            logout()
+            return null
+          }
+        }
+
+        return res
+      }
+
+      try {
+        const response = await openStream()
+
+        if (!response || !response.ok) {
+          console.error("[SSE] Connection failed:", response?.status)
           setSseConnected(false)
           return
         }

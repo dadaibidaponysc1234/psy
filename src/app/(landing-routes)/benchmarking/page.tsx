@@ -49,6 +49,7 @@ import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-resu
 import { AuthControls } from "@/components/benchmarking/auth-controls"
 import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
 import { DevTestingDrawer } from "@/components/benchmarking/dev-testing-drawer"
+import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
 
 const steps = [
   {
@@ -320,6 +321,9 @@ const BenchmarkingPage = () => {
 
   const jobId = useJobId()
 
+  // Single SSE connection for the entire benchmarking page
+  const { reconnect: reconnectSSE } = useBenchmarkSSE(jobId)
+
   // Don't render until hydrated to prevent hydration mismatch
   if (!isHydrated) {
     return (
@@ -382,6 +386,7 @@ const BenchmarkingPage = () => {
             onPrevious={handleBack}
             data={stepData["job-status"]}
             onReset={resetWorkflow}
+            reconnectSSE={reconnectSSE}
           />
         )
       case "populations":
