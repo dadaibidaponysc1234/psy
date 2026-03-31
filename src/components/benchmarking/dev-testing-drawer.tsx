@@ -360,22 +360,9 @@ export function DevTestingDrawer() {
     [selectedTools]
   )
 
-  // Only render in development
-  if (process.env.NODE_ENV === "production") return null
-
-  // Only show after upload (i.e. on mapping page or beyond)
-  const isVisible =
-    activeStep === "populations" ||
-    activeStep === "configure" ||
-    activeStep === "results" ||
-    activeStep === "job-status"
-
-  if (!isVisible || !jobId) return null
-
   // Determine current active tool tab
-  const getActiveTool = (): string | null => {
+  const getActiveTool = useCallback((): string | null => {
     if (activeStep === "populations") {
-      // Read directly from current store state to avoid stale closures
       const current = useBenchmarkingStore.getState()
       const jobMapping = current.jobId ? current.mappingState[current.jobId] : undefined
       return jobMapping?.activeTool || normalizedTools[0] || null
@@ -385,7 +372,7 @@ export function DevTestingDrawer() {
       return current.configActiveTab || normalizedTools[0] || null
     }
     return null
-  }
+  }, [activeStep, normalizedTools])
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -506,6 +493,20 @@ export function DevTestingDrawer() {
   const toggleCustomTool = (toolId: string) => {
     setCustomSelection((prev) => ({ ...prev, [toolId]: !prev[toolId] }))
   }
+
+  // ─── Early exits (after all hooks) ────────────────────────────────
+
+  // Only render in development
+  if (process.env.NODE_ENV === "production") return null
+
+  // Only show after upload (i.e. on mapping page or beyond)
+  const isVisible =
+    activeStep === "populations" ||
+    activeStep === "configure" ||
+    activeStep === "results" ||
+    activeStep === "job-status"
+
+  if (!isVisible || !jobId) return null
 
   // ─── Render ───────────────────────────────────────────────────────
 

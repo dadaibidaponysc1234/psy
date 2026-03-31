@@ -80,6 +80,7 @@ export function useBenchmarkSSE(
     updateToolState,
     appendToolLogs,
     setToolLogs,
+    appendJobLogs,
     setAggregateProgress,
     setExtractionProgress,
     clearSseState,
@@ -225,6 +226,16 @@ export function useBenchmarkSSE(
             if (data.tool) {
               appendToolLogs(data.tool, [line])
             }
+            break
+          }
+
+          case "job_log": {
+            const jobLine: LogLine = {
+              level: "info",
+              line: stripAnsi(data.message || ""),
+              timestamp: data.timestamp || null,
+            }
+            appendJobLogs([jobLine])
             break
           }
 

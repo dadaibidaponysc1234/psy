@@ -2,10 +2,10 @@
 export const BENCHMARK_CONFIG = {
   BASE_URL:
     process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL ||
-    "http://localhost:8000/api/v1/benchmarks",
+    "http://localhost:7500/api/v1/benchmarks",
   AUTH_BASE_URL:
     process.env.NEXT_PUBLIC_BENCHMARK_AUTH_URL ||
-    "http://localhost:8000/api/v1/auth",
+    "http://localhost:7500/api/v1/auth",
   UPLOAD_ENDPOINT: "/upload",
   JOBS_ENDPOINT: "/jobs",
 } as const

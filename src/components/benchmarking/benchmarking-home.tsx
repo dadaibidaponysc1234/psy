@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
+import { MyJobs } from "@/components/benchmarking/my-jobs"
 
 export const BenchmarkingHome: React.FC = () => {
   const { setActiveStep } = useBenchmarkingStore()
@@ -17,15 +18,16 @@ export const BenchmarkingHome: React.FC = () => {
   return (
     <div className="mx-auto mb-10 max-w-6xl">
       <Tabs defaultValue="home" className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold"> Trances-PRS Benchmarking Framework</h1>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="mb-2 text-4xl font-bold">Trances-PRS Benchmarking Framework</h1>
             <p className="text-lg text-muted-foreground">
               A unified, visual workflow to configure, run, and compare Polygenic Risk Score tools across populations.
             </p>
           </div>
-          <TabsList>
+          <TabsList className="shrink-0">
             <TabsTrigger value="home">Home</TabsTrigger>
+            <TabsTrigger value="my-jobs">My Jobs</TabsTrigger>
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
         </div>
@@ -97,6 +99,10 @@ export const BenchmarkingHome: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="my-jobs" className="space-y-6">
+          <MyJobs />
         </TabsContent>
 
         <TabsContent value="about" className="space-y-8" id="about">

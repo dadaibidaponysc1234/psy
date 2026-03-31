@@ -151,6 +151,7 @@ export interface BenchmarkingState {
   sseStatus: string
   toolStates: Record<string, ToolStatusEvent>
   toolLogs: Record<string, LogLine[]>
+  jobLogs: LogLine[]
   aggregateProgress: AggregateProgress | null
   extractionProgress: { current: number; total: number } | null
 
@@ -192,6 +193,7 @@ export interface BenchmarkingState {
   updateToolState: (tool: string, state: ToolStatusEvent) => void
   appendToolLogs: (tool: string, lines: LogLine[]) => void
   setToolLogs: (tool: string, lines: LogLine[]) => void
+  appendJobLogs: (lines: LogLine[]) => void
   setAggregateProgress: (progress: AggregateProgress | null) => void
   setExtractionProgress: (progress: { current: number; total: number } | null) => void
   clearSseState: () => void
@@ -240,6 +242,7 @@ const initialState = {
   sseStatus: "",
   toolStates: {},
   toolLogs: {},
+  jobLogs: [],
   aggregateProgress: null,
   extractionProgress: null,
 }
@@ -305,6 +308,14 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
         }),
       setToolLogs: (tool, lines) =>
         set((s) => ({ toolLogs: { ...s.toolLogs, [tool]: lines } })),
+      appendJobLogs: (lines) =>
+        set((s) => {
+          const combined = [...s.jobLogs, ...lines]
+          const maxLines = 1500
+          return {
+            jobLogs: combined.length > maxLines ? combined.slice(-maxLines) : combined,
+          }
+        }),
       setAggregateProgress: (aggregateProgress) => set({ aggregateProgress }),
       setExtractionProgress: (extractionProgress) =>
         set({ extractionProgress }),
@@ -314,6 +325,7 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
           sseStatus: "",
           toolStates: {},
           toolLogs: {},
+          jobLogs: [],
           aggregateProgress: null,
           extractionProgress: null,
         }),
@@ -335,6 +347,7 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
           sseStatus: "",
           toolStates: {},
           toolLogs: {},
+          jobLogs: [],
           aggregateProgress: null,
           extractionProgress: null,
         }),

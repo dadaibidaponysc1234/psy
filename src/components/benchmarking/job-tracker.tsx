@@ -59,6 +59,7 @@ export function JobTracker({
   const currentStatus = useBenchmarkingStore((s) => s.sseStatus)
   const toolStates = useBenchmarkingStore((s) => s.toolStates)
   const toolLogs = useBenchmarkingStore((s) => s.toolLogs)
+  const jobLogs = useBenchmarkingStore((s) => s.jobLogs)
   const aggregateProgress = useBenchmarkingStore((s) => s.aggregateProgress)
   const extractionProgress = useBenchmarkingStore((s) => s.extractionProgress)
 
@@ -68,10 +69,10 @@ export function JobTracker({
     [toolStates]
   )
 
-  // Set first tool as active log tab when tools appear
+  // Set "Job" as default active log tab
   useEffect(() => {
-    if (!activeLogTab && toolNames.length > 0) {
-      setActiveLogTab(toolNames[0])
+    if (!activeLogTab) {
+      setActiveLogTab("__job__")
     }
   }, [toolNames, activeLogTab])
 
@@ -84,7 +85,7 @@ export function JobTracker({
         container.scrollTop = container.scrollHeight
       }
     }
-  }, [toolLogs, activeLogTab, autoScroll])
+  }, [toolLogs, jobLogs, activeLogTab, autoScroll])
 
   // Toast on terminal states — only when status *transitions*, not on mount
   const prevStatusRef = useRef<string>("")
@@ -129,12 +130,12 @@ export function JobTracker({
   // ---------------------------------------------------------------------------
 
   const filteredLogs = useMemo(() => {
-    const lines = toolLogs[activeLogTab] || []
+    const lines = activeLogTab === "__job__" ? jobLogs : (toolLogs[activeLogTab] || [])
     const levels: LogLevel[] = ["debug", "info", "warning", "error"]
     const minIdx = levels.indexOf(logLevelFilter as LogLevel)
     if (minIdx <= 0) return lines
     return lines.filter((l) => levels.indexOf(l.level) >= minIdx)
-  }, [toolLogs, activeLogTab, logLevelFilter])
+  }, [toolLogs, jobLogs, activeLogTab, logLevelFilter])
 
   return (
     <div className="space-y-4">
@@ -315,18 +316,26 @@ export function JobTracker({
           <CardContent>
             <Tabs value={activeLogTab} onValueChange={setActiveLogTab}>
               <TabsList className="mb-2">
+                <TabsTrigger key="__job__" value="__job__" className="group text-xs">
+                  Job
+                  {jobLogs.length > 0 && (
+                    <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[10px] group-data-[state=active]:border-white/50 group-data-[state=active]:text-white">
+                      {jobLogs.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
                 {toolNames.map((name) => (
-                  <TabsTrigger key={name} value={name} className="text-xs">
+                  <TabsTrigger key={name} value={name} className="group text-xs">
                     {name}
                     {(toolLogs[name]?.length ?? 0) > 0 && (
-                      <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[10px]">
+                      <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[10px] group-data-[state=active]:border-white/50 group-data-[state=active]:text-white">
                         {toolLogs[name]?.length}
                       </Badge>
                     )}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {toolNames.map((name) => (
+              {["__job__", ...toolNames].map((name) => (
                 <TabsContent key={name} value={name}>
                   <div
                     className="h-80 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs"
@@ -340,12 +349,12 @@ export function JobTracker({
                   >
                     {filteredLogs.length === 0 ? (
                       <div className="flex h-full items-center justify-center text-muted-foreground">
-                        {toolLogs[name]?.length
+                        {(name === "__job__" ? jobLogs.length : toolLogs[name]?.length)
                           ? `No logs at level "${logLevelFilter}" or above`
                           : "Waiting for log output..."}
                       </div>
                     ) : (
-                      <pre className="whitespace-pre-wrap break-words">
+                      <pre className="whitespace-pre-wrap break-words space-y-1">
                         {filteredLogs.map((l, i) => (
                           <div key={i} className={getLogLineClass(l.level)}>
                             {l.timestamp && (

@@ -1016,6 +1016,14 @@ export function BenchmarkingResults({
           <Button variant="outline" onClick={() => fetchAll(true)}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              useBenchmarkingStore.getState().resetWorkflow()
+            }}
+          >
+            Start New Job
+          </Button>
           {onBack && (
             <Button variant="ghost" onClick={onBack}>
               Back
