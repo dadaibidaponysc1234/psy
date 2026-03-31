@@ -194,6 +194,7 @@ export interface BenchmarkingState {
   appendToolLogs: (tool: string, lines: LogLine[]) => void
   setToolLogs: (tool: string, lines: LogLine[]) => void
   appendJobLogs: (lines: LogLine[]) => void
+  setJobLogs: (lines: LogLine[]) => void
   setAggregateProgress: (progress: AggregateProgress | null) => void
   setExtractionProgress: (progress: { current: number; total: number } | null) => void
   clearSseState: () => void
@@ -316,6 +317,7 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
             jobLogs: combined.length > maxLines ? combined.slice(-maxLines) : combined,
           }
         }),
+      setJobLogs: (lines) => set({ jobLogs: lines }),
       setAggregateProgress: (aggregateProgress) => set({ aggregateProgress }),
       setExtractionProgress: (extractionProgress) =>
         set({ extractionProgress }),

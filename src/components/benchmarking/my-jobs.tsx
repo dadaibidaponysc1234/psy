@@ -20,6 +20,7 @@ import { getBenchmarkMyJobsUrl } from "@/lib/config"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
+import { HistoricalJobLogs } from "@/components/benchmarking/historical-job-logs"
 import type { JobSummary } from "@/types/benchmarking"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -183,6 +184,7 @@ export function MyJobs() {
           jobId={expandedJob.job_id}
           onBack={() => setExpandedJob(null)}
         />
+        <HistoricalJobLogs jobId={expandedJob.job_id} />
       </div>
     )
   }

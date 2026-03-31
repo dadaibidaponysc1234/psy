@@ -88,6 +88,19 @@ export const getBenchmarkLogsUrl = (
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/logs/tool?${params.toString()}`
 }
 
+// Helper function to get job-level log history
+export const getBenchmarkJobLogsUrl = (
+  jobId: string,
+  opts?: { level?: string; offset?: number; limit?: number }
+) => {
+  const params = new URLSearchParams()
+  if (opts?.level) params.set("level", opts.level)
+  if (opts?.offset != null) params.set("offset", String(opts.offset))
+  if (opts?.limit != null) params.set("limit", String(opts.limit))
+  const qs = params.toString()
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/logs${qs ? `?${qs}` : ""}`
+}
+
 // Helper function to list shared datasets
 export const getBenchmarkSharedDatasetsUrl = () => {
   return `${BENCHMARK_CONFIG.BASE_URL}/datasets/shared`

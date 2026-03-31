@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react"
 import axios from "axios"
-import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl, getBenchmarkRefreshUrl } from "@/lib/config"
+import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl, getBenchmarkJobLogsUrl, getBenchmarkRefreshUrl } from "@/lib/config"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import benchmarkApi from "@/lib/benchmark-api"
@@ -70,6 +70,7 @@ export function useBenchmarkSSE(
 ) {
   const abortRef = useRef<AbortController | null>(null)
   const fetchedLogsForRef = useRef<Set<string>>(new Set())
+  const fetchedJobLogsRef = useRef(false)
   const onStatusChangeRef = useRef(onStatusChange)
   onStatusChangeRef.current = onStatusChange
 
@@ -81,6 +82,7 @@ export function useBenchmarkSSE(
     appendToolLogs,
     setToolLogs,
     appendJobLogs,
+    setJobLogs,
     setAggregateProgress,
     setExtractionProgress,
     clearSseState,
@@ -108,6 +110,30 @@ export function useBenchmarkSSE(
       }
     },
     [jobId, setToolLogs]
+  )
+
+  const fetchHistoricalJobLogs = useCallback(
+    async () => {
+      if (!jobId || fetchedJobLogsRef.current) return
+      fetchedJobLogsRef.current = true
+      try {
+        const url = getBenchmarkJobLogsUrl(jobId, { limit: MAX_LOG_LINES })
+        const res = await benchmarkApi.get(url)
+        const lines: any[] = res.data?.lines ?? []
+        if (lines.length) {
+          setJobLogs(
+            lines.map((l: any) => ({
+              level: l.level || "info",
+              line: stripAnsi(l.line || ""),
+              timestamp: l.timestamp || null,
+            }))
+          )
+        }
+      } catch {
+        // Job logs may not be available yet
+      }
+    },
+    [jobId, setJobLogs]
   )
 
   const ensureHistoricalLogs = useCallback(
@@ -181,7 +207,9 @@ export function useBenchmarkSSE(
             if (status === "completed" || status === "failed") {
               const toolNames = Object.keys(useBenchmarkingStore.getState().toolStates)
               fetchedLogsForRef.current.clear()
+              fetchedJobLogsRef.current = false
               ensureHistoricalLogs(toolNames)
+              fetchHistoricalJobLogs()
             }
             break
           }
@@ -277,6 +305,8 @@ export function useBenchmarkSSE(
         if (data.progress) {
           setAggregateProgress(data.progress)
         }
+        // Fetch historical job logs on connect (covers reconnect & completed jobs)
+        fetchHistoricalJobLogs()
       } catch (error) {
         console.error("[SSE] Failed to fetch current job status:", error)
       }
@@ -367,6 +397,7 @@ export function useBenchmarkSSE(
 
     clearSseState()
     fetchedLogsForRef.current.clear()
+    fetchedJobLogsRef.current = false
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -382,6 +413,7 @@ export function useBenchmarkSSE(
   const reconnect = useCallback(() => {
     abortRef.current?.abort()
     fetchedLogsForRef.current.clear()
+    fetchedJobLogsRef.current = false
     const controller = new AbortController()
     abortRef.current = controller
     connect(controller.signal)
