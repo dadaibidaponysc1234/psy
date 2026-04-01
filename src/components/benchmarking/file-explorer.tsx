@@ -959,21 +959,11 @@ export function FileExplorer({
                             : []
                           const dataLines = headerCells.length > 0 ? lines.slice(1) : lines
 
-                          // Decide layout based on column count
-                          const columnCount = headerCells.length
-                          const useWideLayout = columnCount > 10
-                          const tableClass = useWideLayout
-                            ? "min-w-max table-auto text-xs"
-                            : "w-full table-fixed text-xs"
-                          const thClass = useWideLayout
-                            ? "min-w-[120px] px-3 py-1.5 text-left font-semibold text-gray-900 border-r last:border-r-0"
-                            : "px-3 py-1.5 text-left font-semibold text-gray-900 border-r last:border-r-0"
-                          const tdClass = useWideLayout
-                            ? "min-w-[120px] px-3 py-1.5 text-left border-r last:border-r-0"
-                            : "px-3 py-1.5 text-left border-r last:border-r-0"
-                          const spanClass = useWideLayout
-                            ? "inline-block max-w-[200px] truncate align-middle"
-                            : "inline-block truncate align-middle"
+                          // Always use auto-sizing with horizontal scroll
+                          const tableClass = "min-w-max table-auto text-xs"
+                          const thClass = "min-w-[100px] max-w-[250px] whitespace-nowrap px-3 py-1.5 text-left font-semibold text-gray-900 border-r last:border-r-0"
+                          const tdClass = "min-w-[100px] max-w-[250px] whitespace-nowrap px-3 py-1.5 text-left border-r last:border-r-0"
+                          const spanClass = "inline-block max-w-[250px] truncate align-middle"
 
                           return (
                             <table className={tableClass}>

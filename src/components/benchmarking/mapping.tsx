@@ -1798,6 +1798,7 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       const eligibleFiles = getEligibleFilesForField(field)
       const eligibleDirectories = getEligibleDirectoriesForField(tool, field)
 
+
       // Build display label with population names inline for XPASS
       const toolKey = tool.toLowerCase()
       let displayLabel = field.label
@@ -1841,8 +1842,11 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
                   variant="outline"
                   className="border-orange-300 bg-orange-50 text-orange-700"
                 >
-                  Supported: {field.acceptedTypes.join(", ")}
-                  {(field.fieldType === "genotype_directory" || (field.fieldType === "sumstats_path" && eligibleDirectories.length > 0)) ? " + directories" : ""}
+                  {field.fieldType === "genotype_directory"
+                    ? "Directories"
+                    : (field.fieldType === "sumstats_path" && eligibleDirectories.length > 0)
+                      ? "Files or Directories"
+                      : "Files"}
                 </Badge>
               </div>
             </div>
@@ -2123,20 +2127,33 @@ export function Mapping({ onNext, onPrevious, data, toolsData }: MappingProps) {
       </div>
     )
   }
+  // Disallowed extensions — executables and binary formats that should never be mapped
+  const DISALLOWED_EXTENSIONS = new Set([
+    "exe", "dll", "so", "dylib", "bin", "bat", "cmd", "sh", "com",
+    "msi", "app", "dmg", "deb", "rpm", "jar", "class", "pyc", "pyo",
+    "o", "obj", "lib", "a", "wasm",
+  ])
+
   const isValidFileForField = (file: FileInfo, field: MappingField) => {
-    // Allow any file format for phenotype or covariate fields
-    if (
-      field.fieldType === "phenotype_path" ||
-      field.fieldType === "covariate_path"
-    ) {
-      return true
-    }
     // For genotype directories, we need to check if the file is in a directory
     if (field.fieldType === "genotype_directory") {
       return false // Files cannot be mapped to genotype directory fields
     }
+    // Block executables and binary formats
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || ""
-    return field.acceptedTypes.includes(`.${fileExtension}`)
+    if (DISALLOWED_EXTENSIONS.has(fileExtension)) {
+      return false
+    }
+    // Allow any other file — strict extension filtering commented out for flexibility
+    // with diverse datasets. Uncomment to re-enable per-field type restrictions:
+    // if (
+    //   field.fieldType === "phenotype_path" ||
+    //   field.fieldType === "covariate_path"
+    // ) {
+    //   return true
+    // }
+    // return field.acceptedTypes.includes(`.${fileExtension}`)
+    return true
   }
 
   const isValidDirectoryForField = (
