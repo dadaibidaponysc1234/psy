@@ -1,0 +1,611 @@
+{
+  "tools_to_run": ["xpass", "xpass+", "prscsx", "sdprx", "bridgeprs", "prsice"],
+  "sdprx": {
+    "processing": {
+      "binary": {
+        "n1": "10000",
+        "n2": "80000",
+        "rho": "0.8",
+        "ss1": "results/preprocessed_data/preprocessed_sdprx_output/sumstats/EUR/",
+        "ss2": "results/preprocessed_data/preprocessed_sdprx_output/sumstats/AFR/",
+        "chrom": "22",
+        "pheno": "results/preprocessed_data/preprocessed_sdprx_output/phenotypes/pheno_bin_AFR.txt",
+        "valid": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/",
+        "load_ld": "/Users/cable/Downloads/Work/prs-backend/dataset/chr_22.gz",
+        "log_dir": "results/log_files_binary/sdprx_log",
+        "output_dir": "results/prs_results_binary/sdprx",
+        "score_file": "results_2.txt",
+        "force_shared": true,
+        "plink_output_prefix": "results/prs_results_binary/sdprx_plink/AFR_test_AFR_result",
+        "sdprx_genotype_file": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/",
+        "plink_genotype_prefix": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/"
+      },
+      "quantitative": {
+        "n1": "10000",
+        "n2": "80000",
+        "rho": "0.8",
+        "ss1": "results/preprocessed_data/preprocessed_sdprx_output/sumstats/EUR/",
+        "ss2": "results/preprocessed_data/preprocessed_sdprx_output/sumstats/AFR/",
+        "chrom": "22",
+        "pheno": "results/preprocessed_data/preprocessed_sdprx_output/phenotypes/pheno_quant_AFR.txt",
+        "valid": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/",
+        "load_ld": "/Users/cable/Downloads/Work/prs-backend/dataset/chr_22.gz",
+        "log_dir": "results/log_files/sdprx_log",
+        "output_dir": "results/prs_results/sdprx",
+        "score_file": "results_2.txt",
+        "force_shared": true,
+        "plink_output_prefix": "results/prs_results/sdprx_plink/AFR_test_AFR_result",
+        "sdprx_genotype_file": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/",
+        "plink_genotype_prefix": "results/preprocessed_data/preprocessed_sdprx_output/genotypes/AFR/"
+      }
+    },
+    "pre_processing": {
+      "pop1": {
+        "name": "AFR",
+        "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat"
+      },
+      "pop2": {
+        "name": "EUR",
+        "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat"
+      },
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "fixed_N1": "",
+      "fixed_N2": "",
+      "output_dir": "results/preprocessed_data/preprocessed_sdprx_output",
+      "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+      "column_mappings": {
+        "N": "OBS_CT",
+        "A1": "A1",
+        "A2": "REF",
+        "SNP": "ID"
+      },
+      "genotype_config": {
+        "chrom": [22],
+        "file_type": "multi_chromosome",
+        "file_patterns": {
+          "bed": "*.bed",
+          "bim": "*.bim",
+          "fam": "*.fam"
+        },
+        "population_reference": "pop1"
+      },
+      "phenotype_config": {
+        "pop1": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        },
+        "pop2": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        }
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  },
+  "prscsx": {
+    "processing": {
+      "binary": {
+        "phi": "1e-2",
+        "chrom": "22",
+        "pheno": "results/preprocessed_data/preprocessed_prscsx_output/phenotypes/pheno_bin_{target_pop}.txt",
+        "n_gwas": "10000,80000",
+        "log_dir": "results/log_files_binary/prscsx_log",
+        "out_name": "{base_pop}_{target_pop}",
+        "sst_files": [
+          "results/preprocessed_data/preprocessed_prscsx_output/sumstats/{base_pop}/",
+          "results/preprocessed_data/preprocessed_prscsx_output/sumstats/{target_pop}/"
+        ],
+        "bim_prefix": "results/preprocessed_data/preprocessed_prscsx_output/genotypes/{target_pop}/",
+        "output_dir": "results/prs_results_binary/prscsx",
+        "populations": "{base_pop},{target_pop}",
+        "ldref_folder": "/Users/cable/Downloads/Work/prs-backend/ld_ref",
+        "score_choice": "base",
+        "population_order": ["AFR", "EUR"],
+        "pheno_column_name": "y.binary",
+        "scoring_population": "AFR",
+        "plink_output_prefix": "results/prs_results_binary/prscsx_plink/{base_pop}_test_{target_pop}_result",
+        "plink_genotype_prefix": "results/preprocessed_data/preprocessed_prscsx_output/genotypes/{target_pop}/",
+        "scoring_population_type": "target"
+      },
+      "quantitative": {
+        "phi": "1e-2",
+        "chrom": "22",
+        "pheno": "results/preprocessed_data/preprocessed_prscsx_output/phenotypes/pheno_quant_{target_pop}.txt",
+        "n_gwas": "10000,80000",
+        "log_dir": "results/log_files/prscsx_log",
+        "out_name": "{base_pop}_{target_pop}",
+        "sst_files": [
+          "results/preprocessed_data/preprocessed_prscsx_output/sumstats/{base_pop}/",
+          "results/preprocessed_data/preprocessed_prscsx_output/sumstats/{target_pop}/"
+        ],
+        "bim_prefix": "results/preprocessed_data/preprocessed_prscsx_output/genotypes/{target_pop}/",
+        "output_dir": "results/prs_results/prscsx",
+        "populations": "{base_pop},{target_pop}",
+        "ldref_folder": "/Users/cable/Downloads/Work/prs-backend/ld_ref",
+        "score_choice": "base",
+        "population_order": ["AFR", "EUR"],
+        "pheno_column_name": "y",
+        "scoring_population": "AFR",
+        "plink_output_prefix": "results/prs_results/prscsx_plink/{target_pop}_test_{target_pop}_result",
+        "plink_genotype_prefix": "results/preprocessed_data/preprocessed_prscsx_output/genotypes/{target_pop}/",
+        "scoring_population_type": "target"
+      }
+    },
+    "pre_processing": {
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "output_dir": "results/preprocessed_data/preprocessed_prscsx_output",
+      "populations": [
+        {
+          "name": "AFR",
+          "type": "target",
+          "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+          "covariate_path": "",
+          "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat"
+        },
+        {
+          "name": "EUR",
+          "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+          "covariate_path": "",
+          "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat"
+        }
+      ],
+      "column_mappings": {
+        "by_population": {
+          "AFR": {
+            "P": "P",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID",
+            "BETA": "BETA"
+          },
+          "EUR": {
+            "P": "P",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID",
+            "BETA": "BETA"
+          }
+        }
+      },
+      "genotype_config": {
+        "chrom": [22],
+        "file_type": "multi_chromosome"
+      },
+      "phenotype_config": {
+        "by_population": {
+          "AFR": {
+            "binary_traits": ["y.binary"],
+            "quantitative_traits": ["y"]
+          },
+          "EUR": {
+            "binary_traits": ["y.binary"],
+            "quantitative_traits": ["y"]
+          }
+        },
+        "covariate_id_mapping": {}
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  },
+  "prsice": {
+    "processing": {
+      "binary": {
+        "stat": "BETA",
+        "pheno": "results/preprocessed_data/preprocessed_prsice_output/phenotypes/pheno_bin_AFR.txt",
+        "log_dir": "results/log_files_binary/prsice_log",
+        "threads": 1,
+        "sumstats": "results/preprocessed_data/preprocessed_prsice_output/sumstats/AFR/",
+        "output_dir": "results/prs_results_binary/prsice",
+        "target_data": "results/preprocessed_data/preprocessed_prsice_output/genotypes/AFR/",
+        "binary_target": "T",
+        "input_prsice_data": "results/preprocessed_data/preprocessed_prsice_output"
+      },
+      "quantitative": {
+        "stat": "BETA",
+        "pheno": "results/preprocessed_data/preprocessed_prsice_output/phenotypes/pheno_quant_AFR.txt",
+        "log_dir": "results/log_files/prsice_log",
+        "threads": 1,
+        "sumstats": "results/preprocessed_data/preprocessed_prsice_output/sumstats/AFR/",
+        "output_dir": "results/prs_results/prsice",
+        "target_data": "results/preprocessed_data/preprocessed_prsice_output/genotypes/AFR/",
+        "binary_target": "F",
+        "input_prsice_data": "results/preprocessed_data/preprocessed_prsice_output"
+      }
+    },
+    "pre_processing": {
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "output_dir": "results/preprocessed_data/preprocessed_prsice_output",
+      "column_mappings": {
+        "P": "P",
+        "A1": "A1",
+        "A2": "REF",
+        "BP": "POS",
+        "CHR": "#CHROM",
+        "SNP": "ID",
+        "BETA": "BETA"
+      },
+      "genotype_config": {
+        "chrom": ["22"],
+        "file_type": "multi_chromosome",
+        "file_patterns": {
+          "bed": "*.bed",
+          "bim": "*.bim",
+          "fam": "*.fam"
+        },
+        "population_reference": "target_population"
+      },
+      "phenotype_config": {
+        "source_population": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        },
+        "target_population": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        }
+      },
+      "source_population": {
+        "name": "EUR",
+        "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat"
+      },
+      "target_population": {
+        "name": "AFR",
+        "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat"
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  },
+  "bridgeprs": {
+    "processing": {
+      "binary": {
+        "fst": "0.1",
+        "log_dir": "results/log_files_binary/bridgeprs_log",
+        "ldref_bridgeprs": "/Users/cable/Downloads/Work/prs-backend/dataset/h3gwas_data/1000G_5P",
+        "sumstats_size_AFR": "10000",
+        "sumstats_size_EUR": "80000",
+        "phenotype_file_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/phenotypes/pheno_bin_AFR.txt",
+        "phenotype_file_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/phenotypes/pheno_bin_EUR.txt",
+        "bridgeprs_phenotype": "y.binary",
+        "genotype_prefix_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/genotypes/AFR/",
+        "genotype_prefix_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/genotypes/EUR/",
+        "preprocessed_inputs": "results/preprocessed_data/preprocessed_bridgeprs_output",
+        "sumstats_prefix_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/sumstats/AFR/",
+        "sumstats_prefix_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/sumstats/EUR/",
+        "bridgeprs_output_dir": "results/prs_results_binary/bridgeprs",
+        "input_bridgeprs_data": "results/prs_results_binary/bridgeprs/config_files"
+      },
+      "quantitative": {
+        "fst": "0.1",
+        "log_dir": "results/log_files/bridgeprs_log",
+        "ldref_bridgeprs": "/Users/cable/Downloads/Work/prs-backend/dataset/h3gwas_data/1000G_5P",
+        "sumstats_size_AFR": "10000",
+        "sumstats_size_EUR": "80000",
+        "phenotype_file_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/phenotypes/pheno_quant_AFR.txt",
+        "phenotype_file_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/phenotypes/pheno_quant_EUR.txt",
+        "bridgeprs_phenotype": "y",
+        "genotype_prefix_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/genotypes/AFR/",
+        "genotype_prefix_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/genotypes/EUR/",
+        "preprocessed_inputs": "results/preprocessed_data/preprocessed_bridgeprs_output",
+        "sumstats_prefix_AFR": "results/preprocessed_data/preprocessed_bridgeprs_output/sumstats/AFR/",
+        "sumstats_prefix_EUR": "results/preprocessed_data/preprocessed_bridgeprs_output/sumstats/EUR/",
+        "bridgeprs_output_dir": "results/prs_results/bridgeprs",
+        "input_bridgeprs_data": "results/prs_results/bridgeprs/config_files"
+      }
+    },
+    "pre_processing": {
+      "pop1": {
+        "name": "AFR",
+        "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat"
+      },
+      "pop2": {
+        "name": "EUR",
+        "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+        "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+        "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat"
+      },
+      "fixed_N": null,
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "output_dir": "results/preprocessed_data/preprocessed_bridgeprs_output",
+      "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+      "column_mappings": {
+        "N": "OBS_CT",
+        "P": "P",
+        "A1": "A1",
+        "ID": "ID",
+        "PS": "POS",
+        "SE": "SE",
+        "CHR": "#CHROM",
+        "REF": "REF",
+        "BETA": "BETA"
+      },
+      "genotype_config": {
+        "file_type": "multi_chromosome",
+        "file_patterns": {
+          "bed": "*.bed",
+          "bim": "*.bim",
+          "fam": "*.fam"
+        },
+        "population_reference": "pop1"
+      },
+      "phenotype_config": {
+        "pop1": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        },
+        "pop2": {
+          "binary_traits": ["y.binary"],
+          "quantitative_traits": ["y"]
+        }
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  },
+  "xpass": {
+    "processing": {
+      "quantitative": {
+        "compPRS": "T",
+        "log_dir": "results/log_files/xpass",
+        "ref_pop1": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "ref_pop2": "results/preprocessed_data/preprocessed_xpass_output/genotypes/EUR/",
+        "sd_method": "LD_block",
+        "test_data": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "outputName": "xpass",
+        "output_dir": "results/prs_results/xpass",
+        "xpass_pop1": "AFR",
+        "compPosMean": "T",
+        "target_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/AFR/",
+        "auxillary_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/EUR/"
+      },
+      "binary": {
+        "compPRS": "T",
+        "log_dir": "results/log_files_binary/xpass",
+        "ref_pop1": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "ref_pop2": "results/preprocessed_data/preprocessed_xpass_output/genotypes/EUR/",
+        "sd_method": "LD_block",
+        "test_data": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "outputName": "xpass",
+        "output_dir": "results/prs_results_binary/xpass",
+        "xpass_pop1": "AFR",
+        "compPosMean": "T",
+        "target_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/AFR/",
+        "auxillary_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/EUR/"
+      }
+    },
+    "pre_processing": {
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "output_dir": "results/preprocessed_data/preprocessed_xpass_output",
+      "populations": [
+        {
+          "name": "AFR",
+          "type": "target",
+          "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats"
+        },
+        {
+          "name": "EUR",
+          "type": "auxiliary",
+          "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats"
+        },
+        {
+          "name": "EAS",
+          "type": "validation",
+          "genotype_path": "perchrom-data-with-eas/pop_EAS/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_EAS/sumstats"
+        }
+      ],
+      "column_mappings": {
+        "by_population": {
+          "AFR": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          },
+          "EAS": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          },
+          "EUR": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          }
+        }
+      },
+      "genotype_config": {
+        "chrom": [22],
+        "file_type": "multi_chromosome",
+        "file_patterns": {
+          "bed": "*.bed",
+          "bim": "*.bim",
+          "fam": "*.fam"
+        }
+      },
+      "covariate_config": {
+        "target_population": "AFR",
+        "auxiliary_population": "EUR",
+        "validation_population": "EAS"
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  },
+  "xpass+": {
+    "processing": {
+      "quantitative": {
+        "target_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/AFR/",
+        "auxillary_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/EUR/",
+        "ref_pop1": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "ref_pop2": "results/preprocessed_data/preprocessed_xpass_output/genotypes/EUR/",
+        "test_data": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "clump_params": {
+          "pop1": {
+            "kb": 1000,
+            "r2": 0.1,
+            "p": 0.05
+          },
+          "pop2": {
+            "kb": 1000,
+            "r2": 0.1,
+            "p": 0.05
+          }
+        },
+        "use_pop1_snps": true,
+        "use_pop2_snps": true,
+        "compPRS": "T",
+        "sd_method": "LD_block",
+        "compPosMean": "T",
+        "outputName": "xpass_plus",
+        "xpass_pop1": "AFR",
+        "output_dir": "results/prs_results/xpass+",
+        "log_dir": "results/log_files/xpass+"
+      },
+      "binary": {
+        "target_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/AFR/",
+        "auxillary_data": "results/preprocessed_data/preprocessed_xpass_output/sumstats/EUR/",
+        "ref_pop1": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "ref_pop2": "results/preprocessed_data/preprocessed_xpass_output/genotypes/EUR/",
+        "test_data": "results/preprocessed_data/preprocessed_xpass_output/genotypes/AFR/",
+        "clump_params": {
+          "pop1": {
+            "kb": 1000,
+            "r2": 0.1,
+            "p": 0.05
+          },
+          "pop2": {
+            "kb": 1000,
+            "r2": 0.1,
+            "p": 0.05
+          }
+        },
+        "use_pop1_snps": true,
+        "use_pop2_snps": true,
+        "compPRS": "T",
+        "sd_method": "LD_block",
+        "compPosMean": "T",
+        "outputName": "xpass_plus",
+        "xpass_pop1": "AFR",
+        "output_dir": "results/prs_results_binary/xpass+",
+        "log_dir": "results/log_files_binary/xpass+"
+      }
+    },
+    "pre_processing": {
+      "options": {
+        "evaluation_type": "both",
+        "overwrite_existing": false,
+        "skip_missing_columns": false,
+        "sumstats_strict_single": false,
+        "process_binary_phenotypes": true,
+        "process_quantitative_phenotypes": true
+      },
+      "output_dir": "results/preprocessed_data/preprocessed_xpass_output",
+      "populations": [
+        {
+          "name": "AFR",
+          "type": "target",
+          "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats"
+        },
+        {
+          "name": "EUR",
+          "type": "auxiliary",
+          "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats"
+        },
+        {
+          "name": "EAS",
+          "type": "validation",
+          "genotype_path": "perchrom-data-with-eas/pop_EAS/genotypes",
+          "sumstats_path": "perchrom-data-with-eas/pop_EAS/sumstats"
+        }
+      ],
+      "column_mappings": {
+        "by_population": {
+          "AFR": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          },
+          "EAS": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          },
+          "EUR": {
+            "N": "OBS_CT",
+            "A1": "A1",
+            "A2": "REF",
+            "SNP": "ID"
+          }
+        }
+      },
+      "genotype_config": {
+        "chrom": [22],
+        "file_type": "multi_chromosome",
+        "file_patterns": {
+          "bed": "*.bed",
+          "bim": "*.bim",
+          "fam": "*.fam"
+        }
+      },
+      "covariate_config": {
+        "target_population": "AFR",
+        "auxiliary_population": "EUR",
+        "validation_population": "EAS"
+      },
+      "sumstats_file_type": "multi_chromosome"
+    }
+  }
+}

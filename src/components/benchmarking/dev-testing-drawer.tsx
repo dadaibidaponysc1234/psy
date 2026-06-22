@@ -17,7 +17,7 @@ import { toast } from "react-hot-toast"
 import benchmarkApi from "@/lib/benchmark-api"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { getBenchmarkConfigUrl } from "@/lib/config"
-import testConfig from "../../../reference/test-config.json"
+import testConfig from "./dev-testing-drawer.config.json"
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
