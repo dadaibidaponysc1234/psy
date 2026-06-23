@@ -92,6 +92,9 @@ describe("buildPrscsxProcessingPayload", () => {
     expect(payload).toBeDefined()
 
     // Verify all 15+ required fields are present
+    // KNOWN-FAILING (intentional): ldref_folder is now sent as "" because the
+    // backend resolves LD refs server-side. The field is kept for the future
+    // "upload your own LD ref" feature — see REFERENCE_PATHS in src/lib/config.ts.
     expect(payload?.ldref_folder).toBe("ld_ref")
     expect(payload?.bim_prefix).toBeDefined()
     expect(payload?.sst_files).toBeDefined()

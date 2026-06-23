@@ -5,6 +5,9 @@ export const BENCHMARK_CONFIG = {
     "http://localhost:7500/api/v1/benchmarks",
   AUTH_BASE_URL:
     process.env.NEXT_PUBLIC_BENCHMARK_AUTH_URL ||
+    // Fall back to the benchmarks base URL with /benchmarks swapped for /auth,
+    // so setting only NEXT_PUBLIC_BENCHMARK_BASE_URL keeps both endpoints in sync.
+    process.env.NEXT_PUBLIC_BENCHMARK_BASE_URL?.replace(/\/benchmarks\/?$/, "/auth") ||
     "http://localhost:7500/api/v1/auth",
   UPLOAD_ENDPOINT: "/upload",
   JOBS_ENDPOINT: "/jobs",
@@ -27,10 +30,43 @@ export const getBenchmarkMyJobsUrl = () => {
   return `${BENCHMARK_CONFIG.BASE_URL}/jobs/mine`
 }
 
-// Helper function to get the full upload URL
+// Backend health/mode endpoint. Lives at the server ROOT (not under
+// /api/v1/benchmarks), same origin as the API, unauthenticated.
+// Returns { status, mode: "full" | "api" | "worker" }.
+export const getBenchmarkHealthUrl = () => {
+  try {
+    return `${new URL(BENCHMARK_CONFIG.BASE_URL).origin}/health`
+  } catch {
+    return "/health"
+  }
+}
+
+/**
+ * @deprecated The single-shot `POST /upload` route was removed from the backend
+ * (now returns 405). Full mode uses the resumable chunked upload helpers below;
+ * split mode uses the presign/multipart helpers. Kept only because callers still
+ * derive the backend base URL from it.
+ */
 export const getBenchmarkUploadUrl = (jobId?: string) => {
   const baseUrl = `${BENCHMARK_CONFIG.BASE_URL}${BENCHMARK_CONFIG.UPLOAD_ENDPOINT}`
   return jobId ? `${baseUrl}?job_id=${jobId}` : baseUrl
+}
+
+// ── Full-mode resumable chunked upload ──────────────────────────────────────
+// One chunk per request; assembly is automatic once all parts arrive.
+export const getBenchmarkChunkedUploadUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/upload-chunked`
+}
+
+// Cross-session resume: returns { received_parts, received_count, assembling, status }.
+export const getBenchmarkChunkedStatusUrl = (jobId: string, filename: string) => {
+  const params = new URLSearchParams({ job_id: jobId, filename })
+  return `${BENCHMARK_CONFIG.BASE_URL}/upload-chunked/status?${params.toString()}`
+}
+
+// Explicit user cancel: body { job_id, filename? }. Deletes partial chunks server-side.
+export const getBenchmarkChunkedCancelUrl = () => {
+  return `${BENCHMARK_CONFIG.BASE_URL}/upload-chunked/cancel`
 }
 
 // Helper function to get the presigned upload URL
@@ -124,9 +160,17 @@ export const getBenchmarkMultipartAbortUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/upload/multipart/abort`
 }
 
-// Reference data paths — backend handles these via env vars now.
-// Values are sent as empty strings so the payload shape is preserved
-// but the backend ignores/overrides them.
+// Reference (LD-ref) data paths.
+//
+// The backend currently resolves these server-side from env vars and overrides
+// whatever the client sends, so we send empty strings — the payload shape is
+// preserved but the values are ignored. We deliberately KEEP these fields (rather
+// than dropping them) because the plan is to let users upload their own LD
+// references later, at which point these become real client-supplied paths again.
+//
+// NOTE: payload-builder tests still assert the old hardcoded values (e.g.
+// `ldref_folder === "ld_ref"`) and so fail until either the upload-your-own-ldref
+// feature lands or the tests are updated to expect "". Left intentionally.
 export const REFERENCE_PATHS = {
   SDPRX_LD_REF: "",
   BRIDGEPRS_LD_REF: "",

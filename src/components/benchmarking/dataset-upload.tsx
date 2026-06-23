@@ -27,9 +27,17 @@ import {
   getBenchmarkMultipartInitiateUrl,
   getBenchmarkMultipartCompleteUrl,
   getBenchmarkMultipartAbortUrl,
+  getBenchmarkChunkedUploadUrl,
+  getBenchmarkChunkedStatusUrl,
+  getBenchmarkChunkedCancelUrl,
 } from "@/lib/config"
 import axios from "axios"
 import benchmarkApi from "@/lib/benchmark-api"
+import {
+  useBenchmarkMode,
+  resolveBenchmarkMode,
+} from "@/hooks/use-benchmark-mode"
+import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import { toast } from "react-hot-toast"
 import { toastInfo } from "@/hooks/use-toast"
 import {
@@ -226,6 +234,122 @@ async function uploadMultipartToS3(
   }
 }
 
+// Chunk size for full-mode chunked upload. Backend recommends 50–100 MB —
+// large enough to keep request overhead low, small enough that a retry is cheap.
+const CHUNK_UPLOAD_SIZE = 75 * 1024 * 1024 // 75 MB
+
+/**
+ * Full-mode upload: send a file to POST /upload-chunked one chunk per request,
+ * resuming across sessions via GET /upload-chunked/status. Auth + 401-refresh are
+ * handled by benchmarkApi; the browser sets the multipart boundary for FormData.
+ * Assembly is automatic server-side once every chunk has arrived.
+ */
+async function uploadChunkedWithResume(
+  jobId: string,
+  file: File,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const chunkSize = CHUNK_UPLOAD_SIZE
+  const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
+
+  // Resume: ask which chunks the server already has. Branch on `status`, not just
+  // received_parts — after assembly the server deletes the chunks, so empty parts
+  // can mean either "upload everything" (status created) or "already done".
+  let have = new Set<number>()
+  try {
+    const statusRes = await benchmarkApi.get(
+      getBenchmarkChunkedStatusUrl(jobId, file.name)
+    )
+    const status = String(statusRes.data?.status || "").toLowerCase()
+    if ((status && status !== "created") || statusRes.data?.assembling) {
+      // Already assembled / extracting / uploaded — nothing to send for this file.
+      if (onProgress) onProgress(file.size, file.size)
+      return
+    }
+    if (Array.isArray(statusRes.data?.received_parts)) {
+      have = new Set<number>(statusRes.data.received_parts as number[])
+    }
+  } catch {
+    // No prior status (fresh upload) — send everything.
+  }
+
+  let uploaded = 0
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * chunkSize
+    const end = Math.min(start + chunkSize, file.size)
+
+    if (have.has(i)) {
+      uploaded += end - start
+      if (onProgress) onProgress(uploaded, file.size)
+      continue
+    }
+    if (signal?.aborted) throw new Error("Upload aborted")
+
+    const form = new FormData()
+    form.append("job_id", jobId)
+    form.append("chunk_index", String(i))
+    form.append("total_chunks", String(totalChunks))
+    form.append("filename", file.name)
+    form.append("chunk", file.slice(start, end), `${file.name}.part${i}`)
+
+    const maxRetries = 3
+    let attempt = 0
+    while (true) {
+      try {
+        // Use fetch, NOT benchmarkApi: the axios instance's default
+        // `Content-Type: application/json` sticks to a FormData body and the
+        // backend rejects the multipart upload (422). With fetch + no explicit
+        // Content-Type, the browser sets `multipart/form-data` with the boundary.
+        // Token is attached manually (mirrors the SSE hook).
+        const token = useBenchmarkAuthStore.getState().accessToken
+        const res = await fetch(getBenchmarkChunkedUploadUrl(), {
+          method: "POST",
+          body: form,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal,
+        })
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "")
+          throw new Error(`chunk ${i} → HTTP ${res.status} ${detail.slice(0, 200)}`)
+        }
+        break
+      } catch (err) {
+        if (signal?.aborted) throw new Error("Upload aborted")
+        attempt += 1
+        if (attempt > maxRetries) throw err
+        await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt - 1)))
+      }
+    }
+
+    uploaded += end - start
+    if (onProgress) onProgress(uploaded, file.size)
+  }
+}
+
+/**
+ * After full-mode chunks land, the server assembles automatically and moves the job
+ * out of "created". Poll until it does (or briefly into "extracting"), so the caller
+ * can then reuse waitForExtraction. Bounded so a stuck assembly can't hang the UI.
+ */
+async function waitForAssembly(
+  jobId: string,
+  signal?: AbortSignal
+): Promise<string> {
+  const pollInterval = 2000
+  const maxWaitMs = 120000
+  let waited = 0
+  while (true) {
+    if (signal?.aborted) throw new Error("Upload aborted")
+    const res = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
+    const status = String(res.data?.status || "").toLowerCase()
+    if (status !== "created") return status
+    if (waited >= maxWaitMs) return status
+    await new Promise((r) => setTimeout(r, pollInterval))
+    waited += pollInterval
+  }
+}
+
 interface DatasetUploadProps {
   onNext: (data: any) => void
   onPrevious?: () => void
@@ -241,6 +365,11 @@ export function DatasetUpload({
   const [showSupportedTypes, setShowSupportedTypes] = useState(false)
   const [isExtracting, setIsExtracting] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Backend deployment mode. Full mode uploads via resumable chunks and has no
+  // shared-dataset feature; split mode uploads direct to S3 via presigned URLs.
+  const { mode: backendMode } = useBenchmarkMode()
+  const isFullMode = backendMode === "full"
 
   // Shared dataset state
   const [sharedDatasets, setSharedDatasets] = useState<SharedDataset[]>([])
@@ -266,6 +395,11 @@ export function DatasetUpload({
     removeUploadedFile,
     setJobId,
   } = useBenchmarkingStore()
+
+  // Full mode has no shared datasets — never leave the user stranded on that tab.
+  useEffect(() => {
+    if (isFullMode && mode === "shared") setMode("upload")
+  }, [isFullMode, mode])
 
   // Check if there's already an active job and restore uploaded state
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when jobId changes
@@ -466,84 +600,104 @@ export function DatasetUpload({
         0
       )
       const fileProgress: Record<string, number> = {}
+      const reportProgress = (name: string, loaded: number) => {
+        fileProgress[name] = loaded
+        const totalLoaded = Object.values(fileProgress).reduce((a, b) => a + b, 0)
+        setUploadProgress(Math.round((totalLoaded * 100) / totalBytes))
+      }
 
-      // Split files by size threshold
-      const smallFiles = validFiles.filter(
-        (f: any) => (f.file?.size || 0) < MULTIPART_THRESHOLD
-      )
-      const largeFiles = validFiles.filter(
-        (f: any) => (f.file?.size || 0) >= MULTIPART_THRESHOLD
-      )
+      // Resolve the deployment mode before branching. Awaiting guarantees the
+      // right path even if the initial /health probe hasn't landed yet.
+      const resolvedMode = await resolveBenchmarkMode()
 
-      // Upload small files via presigned PUT
-      if (smallFiles.length > 0) {
-        const filenames = smallFiles.map((f: any) => f.name)
-        const presignRes = await benchmarkApi.post<PresignResponse>(
-          getBenchmarkPresignUrl(jobId),
-          { filenames },
-          { headers: { "Content-Type": "application/json" } }
-        )
-        const { urls } = presignRes.data
-
-        for (const f of smallFiles) {
+      if (resolvedMode === "full") {
+        // Full mode: resumable chunked upload straight to the backend.
+        for (const f of validFiles) {
           const fileObj: File = f.file as File
-          const presigned = urls[fileObj.name]
-          if (!presigned) {
-            throw new Error(`No presigned URL returned for ${fileObj.name}`)
-          }
-
           fileProgress[fileObj.name] = 0
-
-          await uploadToS3WithProgress(
-            presigned.url,
+          await uploadChunkedWithResume(
+            jobId,
             fileObj,
-            presigned.content_type,
-            (loaded) => {
-              fileProgress[fileObj.name] = loaded
-              const totalLoaded = Object.values(fileProgress).reduce(
-                (a, b) => a + b,
-                0
-              )
-              setUploadProgress(Math.round((totalLoaded * 100) / totalBytes))
-            },
+            (loaded) => reportProgress(fileObj.name, loaded),
             signal
           )
         }
-      }
 
-      // Upload large files via multipart
-      for (const f of largeFiles) {
-        const fileObj: File = f.file as File
-        fileProgress[fileObj.name] = 0
+        setUploadedFileIds(validFiles.map((f: any) => f.id))
 
-        await uploadMultipartToS3(
-          jobId,
-          fileObj,
-          (loaded) => {
-            fileProgress[fileObj.name] = loaded
-            const totalLoaded = Object.values(fileProgress).reduce(
-              (a, b) => a + b,
-              0
-            )
-            setUploadProgress(Math.round((totalLoaded * 100) / totalBytes))
-          },
-          signal
+        // Assembly is automatic — wait for the job to leave "created", then handle
+        // any archive extraction the same way split mode does.
+        const assembledStatus = await waitForAssembly(jobId, signal)
+        if (assembledStatus === "extracting") {
+          setIsExtracting(true)
+          toast("Extracting uploaded archives...", { icon: "📦" })
+          await waitForExtraction(jobId, signal)
+          setIsExtracting(false)
+        }
+      } else {
+        // Split mode: direct-to-S3 via presigned URLs (multipart for >= 5GB).
+        const smallFiles = validFiles.filter(
+          (f: any) => (f.file?.size || 0) < MULTIPART_THRESHOLD
         )
-      }
+        const largeFiles = validFiles.filter(
+          (f: any) => (f.file?.size || 0) >= MULTIPART_THRESHOLD
+        )
 
-      // Step 3: Confirm upload
-      const completeRes = await benchmarkApi.post<UploadCompleteResponse>(
-        getBenchmarkUploadCompleteUrl(jobId)
-      )
+        // Upload small files via presigned PUT
+        if (smallFiles.length > 0) {
+          const filenames = smallFiles.map((f: any) => f.name)
+          const presignRes = await benchmarkApi.post<PresignResponse>(
+            getBenchmarkPresignUrl(jobId),
+            { filenames },
+            { headers: { "Content-Type": "application/json" } }
+          )
+          const { urls } = presignRes.data
 
-      setUploadedFileIds(validFiles.map((f: any) => f.id))
+          for (const f of smallFiles) {
+            const fileObj: File = f.file as File
+            const presigned = urls[fileObj.name]
+            if (!presigned) {
+              throw new Error(`No presigned URL returned for ${fileObj.name}`)
+            }
 
-      // Step 4: If extracting, poll until uploaded
-      if (completeRes.data.status === "extracting") {
-        setIsExtracting(true)
-        toast("Extracting uploaded archives...", { icon: "📦" })
-        await waitForExtraction(jobId, signal)
-        setIsExtracting(false)
+            fileProgress[fileObj.name] = 0
+
+            await uploadToS3WithProgress(
+              presigned.url,
+              fileObj,
+              presigned.content_type,
+              (loaded) => reportProgress(fileObj.name, loaded),
+              signal
+            )
+          }
+        }
+
+        // Upload large files via multipart
+        for (const f of largeFiles) {
+          const fileObj: File = f.file as File
+          fileProgress[fileObj.name] = 0
+
+          await uploadMultipartToS3(
+            jobId,
+            fileObj,
+            (loaded) => reportProgress(fileObj.name, loaded),
+            signal
+          )
+        }
+
+        // Confirm upload; backend may return extracting.
+        const completeRes = await benchmarkApi.post<UploadCompleteResponse>(
+          getBenchmarkUploadCompleteUrl(jobId)
+        )
+
+        setUploadedFileIds(validFiles.map((f: any) => f.id))
+
+        if (completeRes.data.status === "extracting") {
+          setIsExtracting(true)
+          toast("Extracting uploaded archives...", { icon: "📦" })
+          await waitForExtraction(jobId, signal)
+          setIsExtracting(false)
+        }
       }
 
       toast.success("Files uploaded successfully!")
@@ -570,6 +724,20 @@ export function DatasetUpload({
   const cancelUpload = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
+    }
+    // Full mode keeps partial chunks server-side; ask the backend to clean them up.
+    // (Split mode's multipart abort is handled inside uploadMultipartToS3 on abort.)
+    if (isFullMode && jobId) {
+      uploadedFiles.forEach((f) => {
+        if (f.file) {
+          benchmarkApi
+            .post(getBenchmarkChunkedCancelUrl(), {
+              job_id: jobId,
+              filename: f.name,
+            })
+            .catch(() => {})
+        }
+      })
     }
   }
 
@@ -614,27 +782,29 @@ export function DatasetUpload({
         </p>
       </div>
 
-      {/* Mode selector */}
-      <div className="flex gap-3">
-        <Button
-          variant={mode === "upload" ? "default" : "outline"}
-          onClick={() => setMode("upload")}
-          className="flex-1"
-          disabled={isUploading || isSelectingShared}
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          Upload my own dataset
-        </Button>
-        <Button
-          variant={mode === "shared" ? "default" : "outline"}
-          onClick={() => setMode("shared")}
-          className="flex-1"
-          disabled={isUploading || isSelectingShared}
-        >
-          <Database className="mr-2 h-4 w-4" />
-          Use shared dataset
-        </Button>
-      </div>
+      {/* Mode selector — shared datasets only exist in split mode */}
+      {!isFullMode && (
+        <div className="flex gap-3">
+          <Button
+            variant={mode === "upload" ? "default" : "outline"}
+            onClick={() => setMode("upload")}
+            className="flex-1"
+            disabled={isUploading || isSelectingShared}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Upload my own dataset
+          </Button>
+          <Button
+            variant={mode === "shared" ? "default" : "outline"}
+            onClick={() => setMode("shared")}
+            className="flex-1"
+            disabled={isUploading || isSelectingShared}
+          >
+            <Database className="mr-2 h-4 w-4" />
+            Use shared dataset
+          </Button>
+        </div>
+      )}
 
       {/* Upload Status Indicator */}
       {isUploading && (
@@ -644,7 +814,7 @@ export function DatasetUpload({
             <span className="text-sm font-medium text-blue-800">
               {isExtracting
                 ? "Extracting uploaded archives..."
-                : `Uploading to cloud... ${uploadProgress}%`}
+                : `Uploading${isFullMode ? "" : " to cloud"}... ${uploadProgress}%`}
             </span>
             {!isExtracting && (
               <Button
@@ -660,7 +830,9 @@ export function DatasetUpload({
           <p className="mt-1 text-xs text-blue-600">
             {isExtracting
               ? "Please wait while your archives are being extracted on the server."
-              : "Uploading files directly to cloud storage."}
+              : isFullMode
+                ? "Uploading files to the server in resumable chunks."
+                : "Uploading files directly to cloud storage."}
           </p>
         </div>
       )}
@@ -863,9 +1035,9 @@ export function DatasetUpload({
       )}
 
       {/* ================================================================== */}
-      {/* MODE: Shared dataset                                                */}
+      {/* MODE: Shared dataset (split mode only)                              */}
       {/* ================================================================== */}
-      {mode === "shared" && (
+      {mode === "shared" && !isFullMode && (
         <Card>
           <CardHeader>
             <CardTitle>Shared Datasets</CardTitle>
