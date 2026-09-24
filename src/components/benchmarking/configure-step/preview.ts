@@ -1,5 +1,9 @@
 import { COMMON_COLUMN_ALIASES } from "@/components/benchmarking/configure-step/column-aliases"
-import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
+import {
+  sumstatsSelection,
+  type DatasetStructure,
+} from "@/components/benchmarking/mapping-step/dataset"
+import type { FileLayout } from "@/components/benchmarking/job-config/types"
 
 /** A preview line's cells: split on tabs when there are any, otherwise on whitespace. */
 export function splitLine(line: string): string[] {
@@ -35,6 +39,22 @@ export function previewFiles(
   return (direct.length > 0 ? direct : inside)
     .map((file) => file.path)
     .sort(naturally)
+}
+
+/**
+ * The files a mapped summary-statistics path is previewed through: its dataset's files in
+ * chromosome order (a picked file with a chromosome tag stands for its dataset), or the
+ * file itself. Empty when the listing doesn't know the path.
+ */
+export function sumstatsPreviewFiles(
+  structure: DatasetStructure | null,
+  path: string,
+  layout: FileLayout
+): string[] {
+  const selection = sumstatsSelection(structure, path, layout)
+  if (!selection) return []
+  const dataset = selection.chosen ?? selection.datasets[0]
+  return dataset ? dataset.files.map((file) => file.path) : []
 }
 
 /**

@@ -47,6 +47,10 @@ import {
   withIncluded,
 } from "@/components/benchmarking/mapping-step/mapping-fields"
 import { NamesPanel } from "@/components/benchmarking/mapping-step/names-panel"
+import {
+  checkPath,
+  pathIssues,
+} from "@/components/benchmarking/mapping-step/path-checks"
 import { PrscsxPopulations } from "@/components/benchmarking/mapping-step/prscsx-populations"
 import { useDatasetStructure } from "@/components/benchmarking/mapping-step/use-dataset-structure"
 import { getToolDefinition } from "@/components/benchmarking/tools"
@@ -160,10 +164,15 @@ function setGenotypeLayout(draft: ToolDraft, fileType: FileLayout): ToolDraft {
 function mappingIssues(
   definition: ToolDefinition,
   draft: ToolDraft,
-  coreIssues: string[]
+  coreIssues: string[],
+  structure: DatasetStructure | null
 ): string[] {
   const unsaved = !usesConfigurePanel(definition) && !draft.names_saved
-  return unsaved ? ["Save the population names", ...coreIssues] : coreIssues
+  return [
+    ...(unsaved ? ["Save the population names"] : []),
+    ...coreIssues,
+    ...pathIssues(definition, draft, structure),
+  ]
 }
 
 interface ToolMappingProps {
@@ -295,7 +304,11 @@ export function ToolMapping({
             return (
               <MappingCard
                 key={`${field.populationId}-${field.key}`}
-                pathKey={field.key}
+                check={
+                  population
+                    ? checkPath(structure, draft, population, field.key)
+                    : undefined
+                }
                 title={field.title}
                 description={field.description}
                 optional={field.optional}
@@ -411,11 +424,12 @@ export function MappingStep({
       all[draft.tool] = mappingIssues(
         getToolDefinition(draft.tool),
         draft,
-        core[draft.tool] ?? []
+        core[draft.tool] ?? [],
+        structure
       )
     }
     return all
-  }, [job])
+  }, [job, structure])
 
   if (loading) {
     return (

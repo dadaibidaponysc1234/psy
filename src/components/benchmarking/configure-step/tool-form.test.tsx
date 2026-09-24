@@ -109,7 +109,7 @@ describe("ToolForm", () => {
         }}
       />
     )
-    expect(screen.getByText(/This folder holds 3 files/)).toBeInTheDocument()
+    expect(screen.getByText(/This dataset has 3 files/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /Preview File/ }))
     await waitFor(() => expect(requested).toEqual(["sumstats/AFR/chr1.tsv"]))

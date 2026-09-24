@@ -1,6 +1,6 @@
 "use client"
 
-import { File, Folder, X } from "lucide-react"
+import { AlertTriangle, File, Folder, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,14 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { SearchableSelect } from "@/components/ui/searchable-select"
-import type { PathKey } from "@/components/benchmarking/job-config"
 import type {
   DirectoryItem,
   FileInfo,
 } from "@/components/benchmarking/mapping-step/dataset"
+import type { PathCheck } from "@/components/benchmarking/mapping-step/path-checks"
 
 interface MappingCardProps {
-  pathKey: PathKey
   title: string
   description: string
   optional: boolean
@@ -27,11 +26,12 @@ interface MappingCardProps {
   directories: DirectoryItem[]
   onSelect: (path: string, name: string) => void
   onClear: () => void
+  /** What the mapped path stands for, or why it can't be used as it is. */
+  check?: PathCheck
 }
 
 /** One file a population provides: pick it from the dataset listing, or clear it. */
 export function MappingCard({
-  pathKey,
   title,
   description,
   optional,
@@ -40,9 +40,10 @@ export function MappingCard({
   directories,
   onSelect,
   onClear,
+  check,
 }: MappingCardProps) {
   const mapped = Boolean(value)
-  const directoryOnly = pathKey === "genotype_path"
+  const directoryOnly = files.length === 0 && directories.length > 0
   const mappedDirectory = directories.find(
     (directory) => directory.path === value
   )
@@ -109,6 +110,17 @@ export function MappingCard({
                   >
                     {value}
                   </div>
+                  {check?.note && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {check.note}
+                    </div>
+                  )}
+                  {check?.problem && (
+                    <div className="mt-1 flex items-start gap-1 text-xs text-orange-700">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {check.problem}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">

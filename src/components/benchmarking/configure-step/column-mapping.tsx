@@ -42,8 +42,8 @@ import {
   aliasesFor,
   autoMap,
   headerOptions,
-  previewFiles,
   splitLine,
+  sumstatsPreviewFiles,
 } from "@/components/benchmarking/configure-step/preview"
 import {
   previewKey,
@@ -183,7 +183,11 @@ function PopulationColumns({
   const mapping = population.column_mapping
 
   const source = population.sumstats_path.trim()
-  const files = previewFiles(structure, source)
+  const files = sumstatsPreviewFiles(
+    structure,
+    source,
+    draft.sumstats_file_type
+  )
   const cursorKey = previewKey(jobId, source)
   const index = Math.min(cursors[cursorKey] ?? 0, Math.max(files.length - 1, 0))
   // Unknown to the listing: preview the path itself, letting the backend pick in a folder.
@@ -260,7 +264,7 @@ function PopulationColumns({
           {files.length > 1 && (
             <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5 text-orange-500" />
-              This folder holds {files.length} files. Step through them with the
+              This dataset has {files.length} files. Step through them with the
               arrows; their headers should match.
             </p>
           )}
