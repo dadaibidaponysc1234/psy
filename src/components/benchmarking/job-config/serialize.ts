@@ -101,7 +101,6 @@ export function buildPreProcessing(
     },
     options: {
       evaluation_type: evaluationType,
-      ...draft.options,
       overwrite_existing: true,
     },
   }

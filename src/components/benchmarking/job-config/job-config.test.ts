@@ -213,7 +213,6 @@ describe("the wire shape", () => {
         phenotype_config: { covariate_id_mapping: { fid: "FID", iid: "IID" } },
         options: {
           evaluation_type: "both",
-          skip_missing_columns: false,
           overwrite_existing: true,
         },
       },
@@ -296,12 +295,11 @@ describe("the wire shape", () => {
     expect(Object.keys(config.prsice!.processing)).toEqual(["binary"])
     expect(config.sdprx!.pre_processing.options).toEqual({
       evaluation_type: "binary",
-      skip_missing_columns: false,
       overwrite_existing: true,
     })
   })
 
-  it("overwrite_existing is always true: it's not a draft option", () => {
+  it("overwrite_existing is always true, and there are no user options", () => {
     const { config } = build(
       TOOL_DEFINITIONS.map((definition) => filledDraft(definition.id))
     )
@@ -310,9 +308,9 @@ describe("the wire shape", () => {
         config[definition.id]!.pre_processing.options.overwrite_existing
     )
     expect(values).toEqual(TOOL_DEFINITIONS.map(() => true))
-    expect(defaultDraft(getToolDefinition("prsice")).options).toEqual({
-      skip_missing_columns: false,
-    })
+    expect(defaultDraft(getToolDefinition("prsice"))).not.toHaveProperty(
+      "options"
+    )
   })
 
   it("prsice: a target and a base, each with summary statistics, genotypes and phenotypes", () => {

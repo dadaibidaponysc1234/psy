@@ -184,6 +184,6 @@ describe("ToolForm", () => {
   it("sections show what's left to fix", () => {
     render(<Harness tool="sdprx" />)
     expect(screen.getAllByText(/to fix$/).length).toBeGreaterThan(0)
-    expect(screen.getByText("Preprocessing Options")).toBeInTheDocument()
+    expect(screen.queryByText("Preprocessing Options")).not.toBeInTheDocument()
   })
 })

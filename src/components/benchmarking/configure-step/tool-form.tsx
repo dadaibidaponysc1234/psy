@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { ChromosomeMultiSelect } from "@/components/ui/chromosome-multi-select"
 import { Label } from "@/components/ui/label"
 import { normalizeChromosomes } from "@/components/benchmarking/job-config"
@@ -82,7 +81,6 @@ export function ToolForm(props: ToolFormProps) {
     phenotype:
       "Preview phenotype headers and select traits for each population",
     genotype: "Configure genotype file options",
-    options: `Configure preprocessing behaviour for ${label}`,
     processing: `Configure ${label} scoring inputs for the selected evaluation type.`,
   }
 
@@ -122,30 +120,6 @@ export function ToolForm(props: ToolFormProps) {
           {label} always runs on every chromosome.
         </p>
       ),
-    options: () => (
-      <label className="flex items-start gap-3 rounded-lg border p-3">
-        <Checkbox
-          checked={draft.options.skip_missing_columns}
-          onCheckedChange={(checked) =>
-            update((current) => ({
-              ...current,
-              options: {
-                ...current.options,
-                skip_missing_columns: Boolean(checked),
-              },
-            }))
-          }
-        />
-        <span className="space-y-1">
-          <span className="block text-sm font-medium">
-            Skip missing columns
-          </span>
-          <span className="block text-xs text-muted-foreground">
-            Ignore rows where required columns are missing
-          </span>
-        </span>
-      </label>
-    ),
     processing: () => (
       <Processing
         {...props}

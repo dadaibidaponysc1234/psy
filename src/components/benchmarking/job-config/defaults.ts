@@ -94,7 +94,6 @@ export function defaultDraft(
     names_saved: false,
     sumstats_file_type: "merged",
     genotype: { file_type: "merged", chrom: [] },
-    options: { skip_missing_columns: false },
     covariates: { columns: [], id_mapping: { fid: "FID", iid: "IID" } },
     params: {
       binary: defaultParams(definition),

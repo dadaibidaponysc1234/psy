@@ -148,10 +148,6 @@ export type ParamValue =
 
 export type ParamValues = Record<string, ParamValue>
 
-export interface ToolOptions {
-  skip_missing_columns: boolean
-}
-
 export interface GenotypeConfig {
   file_type: FileLayout
   /** Sorted autosomes; `[]` means genome-wide. */
@@ -173,7 +169,6 @@ export interface ToolDraft {
   names_saved: boolean
   sumstats_file_type: FileLayout
   genotype: GenotypeConfig
-  options: ToolOptions
   covariates: { columns: string[]; id_mapping: IdMapping }
   params: Record<TraitKind, ParamValues>
 }
@@ -226,7 +221,7 @@ export interface WirePreProcessing {
    * `overwrite_existing` is always true: the backend retries preprocessing in the same job
    * folder on its own, and a retry must not reuse files a failed attempt left half-written.
    */
-  options: ToolOptions & {
+  options: {
     evaluation_type: EvaluationType
     overwrite_existing: true
   }

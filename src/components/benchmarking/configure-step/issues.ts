@@ -5,18 +5,12 @@ import type {
 } from "@/components/benchmarking/job-config/types"
 
 /** The collapsible sections of a tool's form, in page order. */
-export type SectionId =
-  | "columns"
-  | "phenotype"
-  | "genotype"
-  | "options"
-  | "processing"
+export type SectionId = "columns" | "phenotype" | "genotype" | "processing"
 
 export const SECTION_ORDER: SectionId[] = [
   "columns",
   "phenotype",
   "genotype",
-  "options",
   "processing",
 ]
 
@@ -24,7 +18,6 @@ export const SECTION_TITLES: Record<SectionId, string> = {
   columns: "Column Mapping",
   phenotype: "Phenotype Configuration",
   genotype: "Genotype Configuration",
-  options: "Preprocessing Options",
   processing: "Processing Configuration",
 }
 
@@ -51,8 +44,6 @@ export function locateIssue(issue: Issue): IssueLocation | null {
       return { section: "phenotype" }
     case "params":
       return { section: "processing", kind: parts[1] as TraitKind }
-    case "options":
-      return { section: "options" }
     default:
       return { section: "genotype" }
   }
