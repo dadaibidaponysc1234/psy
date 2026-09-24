@@ -2,7 +2,7 @@ import type { ToolDefinition } from "@/components/benchmarking/job-config/types"
 import { CLUMP_FIELDS } from "@/components/benchmarking/tools/shared"
 import {
   XPASS_COLUMNS,
-  XPASS_POPULATIONS,
+  xpassPopulations,
 } from "@/components/benchmarking/tools/xpass/definition"
 
 const CLUMPED_ROLES = ["target", "auxiliary"] as const
@@ -11,7 +11,7 @@ export const xpassPlus: ToolDefinition = {
   id: "xpass+",
   label: "XPASS+",
   status: "live",
-  populations: XPASS_POPULATIONS,
+  populations: xpassPopulations("XPASS+"),
   columns: XPASS_COLUMNS,
   hasTraits: false,
   layouts: ["merged", "multi_chromosome"],

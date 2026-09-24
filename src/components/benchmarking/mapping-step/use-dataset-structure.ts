@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import benchmarkApi from "@/lib/benchmark-api"
 import { getBenchmarkJobStatusUrl, getBenchmarkUploadUrl } from "@/lib/config"
 import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
@@ -32,13 +32,15 @@ async function fetchStructure(jobId: string): Promise<DatasetStructure> {
 
 /**
  * The job's dataset listing: waits out extraction, then fetches `/explore`. While the job
- * isn't ready yet it checks again every 10 seconds.
+ * isn't ready yet it checks again every 10 seconds, in the background: `loading` is only
+ * set for the first check and a manual refresh, so the page doesn't flash to a spinner.
  */
 export function useDatasetStructure(jobId: string | null) {
   const [structure, setStructure] = useState<DatasetStructure | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const background = useRef(false)
 
   const refresh = useCallback(() => setAttempt((count) => count + 1), [])
 
@@ -47,7 +49,8 @@ export function useDatasetStructure(jobId: string | null) {
     let cancelled = false
 
     const load = async () => {
-      setLoading(true)
+      if (!background.current) setLoading(true)
+      background.current = false
       setError(null)
       try {
         let status = await fetchStatus(jobId)
@@ -61,8 +64,12 @@ export function useDatasetStructure(jobId: string | null) {
           if (!cancelled) setStructure(next)
           return
         }
+        setLoading(false)
         await sleep(WAITING_POLL_MS)
-        if (!cancelled) refresh()
+        if (!cancelled) {
+          background.current = true
+          refresh()
+        }
       } catch (reason) {
         if (!cancelled)
           setError(

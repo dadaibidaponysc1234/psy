@@ -10,20 +10,19 @@ export const prscsx: ToolDefinition = {
   label: "PRScsx",
   status: "live",
   populations: [
-    roleRule(
-      "target",
-      "Target",
-      EXACTLY_ONE,
-      ["sumstats_path", "genotype_path", "phenotype_path"],
-      ["covariate_path"]
-    ),
+    roleRule("target", "Target", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      optional: ["covariate_path"],
+    }),
     // Every non-target population goes into the fit; the backend runs the ones its LD panels cover.
     roleRule(
       "base",
       "Base",
       { min: 1, max: Infinity },
-      ["sumstats_path"],
-      ["genotype_path", "phenotype_path", "covariate_path"]
+      {
+        required: ["sumstats_path"],
+        optional: ["genotype_path", "phenotype_path", "covariate_path"],
+      }
     ),
   ],
   columns: { required: ["SNP", "A1", "A2", "BETA", "P"], optional: [] },

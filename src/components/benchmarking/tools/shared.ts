@@ -6,15 +6,21 @@ import type {
   RoleRule,
 } from "@/components/benchmarking/job-config/types"
 
-/** A role a tool takes: how many, and which files each population of that role needs. */
+/** A role a tool takes: how many, which files each population of that role needs, and its help text. */
 export function roleRule(
   role: Role,
   label: string,
   count: { min: number; max: number },
-  requiredPaths: PathKey[],
-  optionalPaths: PathKey[] = []
+  files: { required: PathKey[]; optional?: PathKey[]; help?: string }
 ): RoleRule {
-  return { role, label, ...count, requiredPaths, optionalPaths }
+  return {
+    role,
+    label,
+    ...count,
+    requiredPaths: files.required,
+    optionalPaths: files.optional ?? [],
+    help: files.help,
+  }
 }
 
 export const EXACTLY_ONE = { min: 1, max: 1 }

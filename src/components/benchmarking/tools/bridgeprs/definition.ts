@@ -5,15 +5,19 @@ import {
   TRAIT_PARAM,
 } from "@/components/benchmarking/tools/shared"
 
-const ALL_PATHS = ["sumstats_path", "genotype_path", "phenotype_path"] as const
-
 export const bridgeprs: ToolDefinition = {
   id: "bridgeprs",
   label: "BridgePRS",
   status: "live",
   populations: [
-    roleRule("target", "Target", EXACTLY_ONE, [...ALL_PATHS]),
-    roleRule("base", "Base", EXACTLY_ONE, [...ALL_PATHS]),
+    roleRule("target", "Target", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      help: "The population you want to evaluate within BridgePRS",
+    }),
+    roleRule("base", "Base", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      help: "Provide the cohort used to support BridgePRS model training",
+    }),
   ],
   columns: {
     required: ["CHR", "ID", "PS", "A1", "REF", "BETA", "SE", "P", "N"],

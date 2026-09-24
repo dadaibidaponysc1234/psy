@@ -10,18 +10,15 @@ export const prsice: ToolDefinition = {
   label: "PRSice",
   status: "live",
   populations: [
-    roleRule(
-      "target",
-      "Target",
-      EXACTLY_ONE,
-      ["sumstats_path", "genotype_path", "phenotype_path"],
-      ["covariate_path"]
-    ),
-    roleRule("base", "Base", EXACTLY_ONE, [
-      "sumstats_path",
-      "genotype_path",
-      "phenotype_path",
-    ]),
+    roleRule("target", "Target", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      optional: ["covariate_path"],
+      help: "The population you want to predict risk for",
+    }),
+    roleRule("base", "Base", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      help: "The population used to train the risk model",
+    }),
   ],
   columns: {
     required: ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"],

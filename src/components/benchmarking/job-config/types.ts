@@ -42,6 +42,8 @@ export interface RoleRule {
   max: number
   requiredPaths: PathKey[]
   optionalPaths: PathKey[]
+  /** Shown under the population's name input on the mapping page. */
+  help?: string
 }
 
 interface FieldBase {
@@ -151,6 +153,11 @@ export interface IdMapping {
 export interface ToolDraft {
   tool: ToolId
   populations: PopulationDraft[]
+  /**
+   * The user saved the population names on the mapping page. Files can't be mapped until
+   * they have; editing a name clears it. Never sent.
+   */
+  names_saved: boolean
   sumstats_file_type: FileLayout
   genotype: GenotypeConfig
   options: ToolOptions

@@ -5,15 +5,19 @@ import {
   TRAIT_PARAM,
 } from "@/components/benchmarking/tools/shared"
 
-const ALL_PATHS = ["sumstats_path", "genotype_path", "phenotype_path"] as const
-
 export const sdprx: ToolDefinition = {
   id: "sdprx",
   label: "SDPRX",
   status: "live",
   populations: [
-    roleRule("target", "Target", EXACTLY_ONE, [...ALL_PATHS]),
-    roleRule("base", "Base", EXACTLY_ONE, [...ALL_PATHS]),
+    roleRule("target", "Target", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      help: "The population you want to evaluate with SDPRX",
+    }),
+    roleRule("base", "Base", EXACTLY_ONE, {
+      required: ["sumstats_path", "genotype_path", "phenotype_path"],
+      help: "Provide the cohort used as the base population for SDPRX",
+    }),
   ],
   columns: { required: ["SNP", "A1", "A2", "N"], optional: [] },
   hasTraits: true,

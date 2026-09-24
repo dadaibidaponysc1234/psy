@@ -91,6 +91,7 @@ export function defaultDraft(
     populations: definition.populations.flatMap((rule) =>
       Array.from({ length: rule.min }, () => newPopulation(rule.role, newId))
     ),
+    names_saved: false,
     sumstats_file_type: "merged",
     genotype: { file_type: "merged", chrom: [] },
     options: { skip_missing_columns: false },
