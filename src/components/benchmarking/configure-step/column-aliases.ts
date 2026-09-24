@@ -45,9 +45,3 @@ export const COMMON_COLUMN_ALIASES: Record<string, string[]> = {
   // Z-score
   Z: ["Z", "Z_SCORE", "ZSCORE"],
 }
-
-export function aliasMatches(field: string, header: string): boolean {
-  const aliases = COMMON_COLUMN_ALIASES[field] || []
-  const lower = aliases.map((a) => a.toLowerCase())
-  return lower.includes(header.toLowerCase())
-}

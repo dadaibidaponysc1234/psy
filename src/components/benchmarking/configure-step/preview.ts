@@ -1,7 +1,4 @@
-import {
-  aliasMatches,
-  COMMON_COLUMN_ALIASES,
-} from "@/components/benchmarking/configure-step/column-aliases"
+import { COMMON_COLUMN_ALIASES } from "@/components/benchmarking/configure-step/column-aliases"
 import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
 
 /** A preview line's cells: split on tabs when there are any, otherwise on whitespace. */
@@ -41,8 +38,9 @@ export function previewFiles(
 }
 
 /**
- * Fills each unmapped column with the first header matching one of its aliases that no
- * column uses yet. Columns already mapped are never changed.
+ * Fills each unmapped column with a header no column uses yet, trying the column's aliases
+ * in order, so an exact name wins over a looser alias (A1 over ALT). Columns already mapped
+ * are never changed.
  */
 export function autoMap(
   columns: string[],
@@ -55,9 +53,14 @@ export function autoMap(
     .filter(Boolean)
   for (const column of columns) {
     if (next[column]?.trim()) continue
-    const match = headers.find(
-      (header) => !used.includes(header) && aliasMatches(column, header)
-    )
+    const free = headers.filter((header) => !used.includes(header))
+    let match: string | undefined
+    for (const alias of aliasesFor(column)) {
+      match = free.find(
+        (header) => header.toLowerCase() === alias.toLowerCase()
+      )
+      if (match) break
+    }
     if (match) {
       next[column] = match
       used.push(match)

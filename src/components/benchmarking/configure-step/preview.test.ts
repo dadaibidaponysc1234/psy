@@ -75,6 +75,14 @@ describe("autoMap", () => {
       })
     ).toEqual({ SNP: "my_id", A1: "REF", BETA: "beta" })
   })
+
+  it("prefers a column's own name over a looser alias that comes first in the file", () => {
+    // plink2 .glm files list ALT before A1.
+    expect(autoMap(["A1", "A2"], ["#CHROM", "REF", "ALT", "A1"], {})).toEqual({
+      A1: "A1",
+      A2: "REF",
+    })
+  })
 })
 
 describe("headerOptions", () => {
