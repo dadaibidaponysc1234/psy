@@ -45,6 +45,7 @@ import {
 } from "@/stores/benchmarking-store"
 import { useHydration } from "@/hooks/use-hydration"
 import { ConfigureStep } from "@/components/benchmarking/configure-step/configure-step"
+import { DevDrawer } from "@/components/benchmarking/dev/dev-drawer"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
 import { AuthControls } from "@/components/benchmarking/auth-controls"
 import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
@@ -431,6 +432,7 @@ const BenchmarkingPage = () => {
         </main>
       </div>
       <Toaster />
+      {process.env.NODE_ENV !== "production" && <DevDrawer />}
     </div>
   )
 }

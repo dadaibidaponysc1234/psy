@@ -81,6 +81,8 @@ export interface BenchmarkingState {
     tool: ToolId,
     update: (draft: ToolDraft) => ToolDraft
   ) => void
+  /** Replaces a job's drafts wholesale; the dev drawer loads dumps with it. */
+  replaceJobDraft: (jobId: string, job: JobDraft) => void
 
   // SSE actions
   setSseConnected: (connected: boolean) => void
@@ -304,6 +306,11 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
                   evaluationType
                 ),
               },
+            })),
+
+          replaceJobDraft: (jobId, job) =>
+            set((state) => ({
+              jobDrafts: { ...state.jobDrafts, [jobId]: job },
             })),
 
           updateToolDraft: (jobId, tool, update) =>
