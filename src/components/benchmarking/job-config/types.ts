@@ -115,6 +115,11 @@ export interface PopulationDraft {
   genotype_path: string
   phenotype_path: string
   covariate_path: string
+  /**
+   * The role's optional files the user chose to provide. Only these get a slot, and once
+   * included they are required, as the old forms' "include" checkboxes worked.
+   */
+  included_paths: PathKey[]
   column_mapping: Record<string, string>
   traits: Record<TraitKind, string[]>
 }

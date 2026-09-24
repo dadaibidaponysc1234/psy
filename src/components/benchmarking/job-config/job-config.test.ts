@@ -226,6 +226,7 @@ describe("the wire shape", () => {
 
   it("prsice: covariates go on the target entry and in phenotype_config", () => {
     const draft = filledDraft("prsice")
+    draft.populations[0].included_paths = ["covariate_path"]
     draft.populations[0].covariate_path = "data/covariates/AFR.tsv"
     draft.covariates.columns = ["PC1", " PC2 ", ""]
 
@@ -433,8 +434,10 @@ describe("validation", () => {
     expect(validate(draft, "binary")).toEqual([])
   })
 
-  it("prscsx bases take genotypes, phenotypes and covariates only if given; traits only with phenotypes", () => {
+  it("optional files are sent only when included, and traits only with a phenotype file", () => {
     const draft = withPopulation(filledDraft("prscsx"), "base", "EAS")
+    draft.populations[1].included_paths = ["genotype_path", "phenotype_path"]
+    // Set but not included: left out.
     draft.populations[2].covariate_path = "data/covariates/EAS.tsv"
     const [, eur, eas] = build([draft]).config.prscsx!.pre_processing
       .populations
@@ -444,13 +447,20 @@ describe("validation", () => {
       phenotype_path: "data/phenotypes/EUR.tsv",
     })
     expect(eur.traits).toBeDefined()
-    expect(eas).toMatchObject({ covariate_path: "data/covariates/EAS.tsv" })
+    expect(eas).not.toHaveProperty("covariate_path")
     expect(eas).not.toHaveProperty("genotype_path")
     expect(eas).not.toHaveProperty("traits")
   })
 
+  it("an included optional file is required", () => {
+    const draft = filledDraft("prscsx")
+    draft.populations[1].included_paths = ["covariate_path"]
+    expect(messages(draft)).toEqual(["EUR: choose its covariates"])
+  })
+
   it("a covariate file needs the FID and IID columns named", () => {
     const draft = filledDraft("prscsx")
+    draft.populations[0].included_paths = ["covariate_path"]
     draft.populations[0].covariate_path = "data/covariates/AFR.tsv"
     draft.covariates.id_mapping = { fid: "FID", iid: "" }
     expect(messages(draft)).toEqual([

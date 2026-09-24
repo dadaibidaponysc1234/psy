@@ -56,7 +56,7 @@ describe("PopulationsEditor", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("names are edited in place and optional files are marked optional", () => {
+  it("names are edited in place; optional files appear only once ticked, and unticking clears them", () => {
     render(<Harness tool="prscsx" />)
 
     fireEvent.change(screen.getByLabelText("Target name"), {
@@ -64,9 +64,26 @@ describe("PopulationsEditor", () => {
     })
     expect(latest.populations[0].name).toBe("AFR")
 
-    // Target: 3 required + covariates optional; base: sumstats required + 3 optional.
+    // Target: 3 required slots and a Covariates checkbox; base: sumstats and 3 checkboxes.
     expect(screen.getAllByText("Required")).toHaveLength(4)
-    expect(screen.getAllByText("Optional")).toHaveLength(4)
+    expect(screen.queryByText("Optional")).not.toBeInTheDocument()
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4)
+
+    const baseId = latest.populations[1].id
+    const genotypes = () =>
+      screen.getByRole("checkbox", {
+        name: "Genotypes",
+      })
+    fireEvent.click(genotypes())
+    expect(latest.populations[1].included_paths).toEqual(["genotype_path"])
+    expect(screen.getAllByText("Required")).toHaveLength(5)
+
+    fireEvent.click(genotypes())
+    expect(latest.populations.find((p) => p.id === baseId)).toMatchObject({
+      included_paths: [],
+      genotype_path: "",
+    })
+    expect(screen.getAllByText("Required")).toHaveLength(4)
   })
 
   it("sdprx: exactly one base, so there's nothing to add or remove", () => {

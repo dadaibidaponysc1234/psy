@@ -19,12 +19,17 @@ import type {
 } from "@/components/benchmarking/job-config/types"
 import { getToolDefinition } from "@/components/benchmarking/tools"
 
-export function allowedPaths(
+/** The files a population provides: its role's required ones plus the optional ones the user included. */
+export function providedPaths(
   definition: ToolDefinition,
   population: PopulationDraft
 ): PathKey[] {
   const rule = ruleFor(definition, population.role)
-  return [...(rule?.requiredPaths ?? []), ...(rule?.optionalPaths ?? [])]
+  if (!rule) return []
+  return [
+    ...rule.requiredPaths,
+    ...rule.optionalPaths.filter((key) => population.included_paths.includes(key)),
+  ]
 }
 
 /** Whether any population of the tool can take a covariate file. */
@@ -39,7 +44,7 @@ function buildPopulation(
   evaluationType: EvaluationType,
   population: PopulationDraft
 ): WirePopulation {
-  const paths = allowedPaths(definition, population)
+  const paths = providedPaths(definition, population)
   const wire: WirePopulation = {
     name: population.name.trim(),
     role: population.role,

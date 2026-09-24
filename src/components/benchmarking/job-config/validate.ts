@@ -5,6 +5,7 @@ import {
 } from "@/components/benchmarking/job-config/defaults"
 import {
   buildPreProcessing,
+  providedPaths,
   takesCovariates,
 } from "@/components/benchmarking/job-config/serialize"
 import type {
@@ -82,7 +83,7 @@ function checkPopulations(
       report("mapping", `${at}.name`, `Two populations are named ${name}`)
     seen.add(name.toLowerCase())
 
-    for (const key of rule.requiredPaths) {
+    for (const key of providedPaths(definition, population)) {
       if (!population[key].trim())
         report(
           "mapping",

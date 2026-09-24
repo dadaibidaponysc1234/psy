@@ -12,18 +12,16 @@ import type {
 interface PathSlotProps {
   label: string
   description: string
-  required: boolean
   value: string
   files: FileInfo[]
   directories: DirectoryItem[]
   onChange: (path: string) => void
 }
 
-/** One path a population needs: pick it from the dataset listing, or clear it. */
+/** One file a population needs: pick it from the dataset listing, or clear it. */
 export function PathSlot({
   label,
   description,
-  required,
   value,
   files,
   directories,
@@ -54,12 +52,10 @@ export function PathSlot({
           >
             Mapped
           </Badge>
-        ) : required ? (
+        ) : (
           <Badge className="border-red-300 bg-red-50 text-red-700">
             Required
           </Badge>
-        ) : (
-          <Badge variant="outline">Optional</Badge>
         )}
       </div>
       {mapped ? (

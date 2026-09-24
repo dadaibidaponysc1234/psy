@@ -69,6 +69,7 @@ export function newPopulation(
     genotype_path: "",
     phenotype_path: "",
     covariate_path: "",
+    included_paths: [],
     column_mapping: {},
     traits: { binary: [], quantitative: [] },
   }

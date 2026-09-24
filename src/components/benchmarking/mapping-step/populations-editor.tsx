@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { newPopulation } from "@/components/benchmarking/job-config"
@@ -71,6 +72,19 @@ export function PopulationsEditor({
       populations: [...current.populations, newPopulation(rule.role)],
     }))
 
+  // Unticking an optional file also clears it, as the old include checkboxes did.
+  const setIncluded = (
+    population: PopulationDraft,
+    key: PathKey,
+    included: boolean
+  ) =>
+    editPopulation(population.id, {
+      included_paths: included
+        ? [...population.included_paths, key]
+        : population.included_paths.filter((path) => path !== key),
+      ...(included ? {} : { [key]: "" }),
+    })
+
   const removePopulation = (id: string) =>
     onUpdate((current) => ({
       ...current,
@@ -85,10 +99,6 @@ export function PopulationsEditor({
         const populations = draft.populations.filter(
           (population) => population.role === rule.role
         )
-        const paths = [
-          ...rule.requiredPaths.map((key) => ({ key, required: true })),
-          ...rule.optionalPaths.map((key) => ({ key, required: false })),
-        ]
         return (
           <section key={rule.role} className="space-y-3">
             <div className="flex items-center justify-between">
@@ -144,24 +154,54 @@ export function PopulationsEditor({
                     {population.name || rule.label}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {paths.map(({ key, required }) => (
-                    <PathSlot
-                      key={key}
-                      label={PATHS[key].label}
-                      description={PATHS[key].description}
-                      required={required}
-                      value={population[key]}
-                      {...eligibleEntries(
-                        structure,
-                        key,
-                        draft.sumstats_file_type
-                      )}
-                      onChange={(path) =>
-                        editPopulation(population.id, { [key]: path })
-                      }
-                    />
-                  ))}
+                <CardContent className="space-y-3">
+                  {rule.optionalPaths.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      <span className="text-muted-foreground">
+                        Also provide:
+                      </span>
+                      {rule.optionalPaths.map((key) => {
+                        const id = `${draft.tool}-${population.id}-include-${key}`
+                        return (
+                          <div key={key} className="flex items-center gap-2">
+                            <Checkbox
+                              id={id}
+                              checked={population.included_paths.includes(key)}
+                              onCheckedChange={(checked) =>
+                                setIncluded(population, key, checked === true)
+                              }
+                            />
+                            <Label htmlFor={id} className="font-normal">
+                              {PATHS[key].label}
+                            </Label>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {[
+                      ...rule.requiredPaths,
+                      ...rule.optionalPaths.filter((key) =>
+                        population.included_paths.includes(key)
+                      ),
+                    ].map((key) => (
+                      <PathSlot
+                        key={key}
+                        label={PATHS[key].label}
+                        description={PATHS[key].description}
+                        value={population[key]}
+                        {...eligibleEntries(
+                          structure,
+                          key,
+                          draft.sumstats_file_type
+                        )}
+                        onChange={(path) =>
+                          editPopulation(population.id, { [key]: path })
+                        }
+                      />
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             ))}
