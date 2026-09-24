@@ -10,6 +10,17 @@ import type {
   LogLine,
   AggregateProgress,
 } from "@/types/benchmarking"
+import {
+  emptyJobDraft,
+  syncJobDraft,
+  updateToolInJob,
+} from "@/components/benchmarking/job-config"
+import type {
+  EvaluationType,
+  JobDraft,
+  ToolDraft,
+  ToolId,
+} from "@/components/benchmarking/job-config"
 
 // Types for the benchmarking workflow
 export interface ToolPopulationState {
@@ -146,6 +157,9 @@ export interface BenchmarkingState {
   // Mapping state
   mappingState: Record<string, MappingJobState>
 
+  /** Every tool's draft config, by job id. What the mapping and configure pages edit. */
+  jobDrafts: Record<string, JobDraft>
+
   // SSE-driven state (not persisted)
   sseConnected: boolean
   sseStatus: string
@@ -185,6 +199,16 @@ export interface BenchmarkingState {
   ) => void
   removePrscsxBasePopulation: (baseId: string) => void
   resetMappingForJob: (jobId: string) => void
+
+  // Job draft actions
+  /** Keeps the job's drafts in step with the selected tools. */
+  syncJobTools: (jobId: string, tools: string[]) => void
+  setJobEvaluationType: (jobId: string, evaluationType: EvaluationType) => void
+  updateToolDraft: (
+    jobId: string,
+    tool: ToolId,
+    update: (draft: ToolDraft) => ToolDraft
+  ) => void
 
   // SSE actions
   setSseConnected: (connected: boolean) => void
@@ -239,6 +263,7 @@ const initialState = {
   isSidebarCollapsed: false,
   configActiveTab: null,
   mappingState: {},
+  jobDrafts: {},
   sseConnected: false,
   sseStatus: "",
   toolStates: {},
@@ -246,6 +271,35 @@ const initialState = {
   jobLogs: [],
   aggregateProgress: null,
   extractionProgress: null,
+}
+
+export const BENCHMARKING_STORAGE_VERSION = 1
+
+/**
+ * Version 1 moved tool configs into `jobDrafts`. Drafts saved in the old per-tool shapes
+ * (pop1/pop2, scoring selectors, n1/n2, ...) are dropped rather than converted; the job,
+ * its uploads, tool selection and submission record are kept.
+ */
+export function migrateBenchmarkingState(
+  persisted: unknown,
+  version: number
+): Partial<BenchmarkingState> {
+  const state = { ...((persisted ?? {}) as Partial<BenchmarkingState>) }
+  if (version < 1) {
+    state.mappingState = {}
+    const stepData = { ...(state.stepData ?? {}) }
+    for (const key of Object.keys(stepData)) {
+      if (
+        key === "populations" ||
+        key.startsWith("tool_config_") ||
+        key.startsWith("tool_processing_config_")
+      ) {
+        delete stepData[key]
+      }
+    }
+    state.stepData = stepData
+  }
+  return state
 }
 
 export const useBenchmarkingStore = create<BenchmarkingState>()(
@@ -345,6 +399,7 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
           isUploading: false,
           uploadProgress: 0,
           mappingState: {},
+          jobDrafts: {},
           sseConnected: false,
           sseStatus: "",
           toolStates: {},
@@ -880,14 +935,48 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
 
       resetMappingForJob: (jobId) =>
         set((state) => {
-          if (!jobId || !state.mappingState[jobId]) {
+          if (!jobId) {
             return {}
           }
 
           const nextMappingState = { ...state.mappingState }
           delete nextMappingState[jobId]
+          const nextJobDrafts = { ...state.jobDrafts }
+          delete nextJobDrafts[jobId]
 
-          return { mappingState: nextMappingState }
+          return { mappingState: nextMappingState, jobDrafts: nextJobDrafts }
+        }),
+
+      // Job draft actions
+      syncJobTools: (jobId, tools) =>
+        set((state) => ({
+          jobDrafts: {
+            ...state.jobDrafts,
+            [jobId]: syncJobDraft(state.jobDrafts[jobId], tools),
+          },
+        })),
+
+      setJobEvaluationType: (jobId, evaluationType) =>
+        set((state) => ({
+          jobDrafts: {
+            ...state.jobDrafts,
+            [jobId]: {
+              ...(state.jobDrafts[jobId] ?? emptyJobDraft()),
+              evaluation_type: evaluationType,
+            },
+          },
+        })),
+
+      updateToolDraft: (jobId, tool, update) =>
+        set((state) => {
+          const job = state.jobDrafts[jobId]
+          if (!job) return {}
+          return {
+            jobDrafts: {
+              ...state.jobDrafts,
+              [jobId]: updateToolInJob(job, tool, update),
+            },
+          }
         }),
 
       // Upload actions
@@ -919,6 +1008,8 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
       {
         name: "benchmarking-storage",
         storage: createJSONStorage(() => localStorage),
+        version: BENCHMARKING_STORAGE_VERSION,
+        migrate: migrateBenchmarkingState,
         // Only persist certain fields, exclude sensitive data
         partialize: (state) => ({
           jobId: state.jobId,
@@ -933,6 +1024,7 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
           uploadProgress: state.uploadProgress,
           isSidebarCollapsed: state.isSidebarCollapsed,
           mappingState: state.mappingState,
+          jobDrafts: state.jobDrafts,
         }),
         // Validate data on load
         onRehydrateStorage: () => (state) => {
@@ -970,6 +1062,9 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
               state.mappingState === null
             ) {
               state.mappingState = {}
+            }
+            if (typeof state.jobDrafts !== "object" || state.jobDrafts === null) {
+              state.jobDrafts = {}
             }
           }
         },
@@ -1010,3 +1105,13 @@ export const useUploadState = () =>
     isUploading: state.isUploading,
     uploadProgress: state.uploadProgress,
   }))
+
+// Job draft selectors
+export const useJobDraft = (jobId: string | null) =>
+  useBenchmarkingStore((state) => (jobId ? state.jobDrafts[jobId] : undefined))
+export const useToolDraft = (jobId: string | null, tool: ToolId) =>
+  useBenchmarkingStore((state) =>
+    jobId
+      ? state.jobDrafts[jobId]?.tools.find((draft) => draft.tool === tool)
+      : undefined
+  )
