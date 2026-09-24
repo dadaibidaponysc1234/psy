@@ -1,8 +1,10 @@
 import {
   defaultDraft,
+  runKinds,
   type IdFactory,
 } from "@/components/benchmarking/job-config/defaults"
 import type {
+  EvaluationType,
   JobDraft,
   ToolDraft,
   ToolId,
@@ -74,6 +76,38 @@ export function updateToolInJob(
       if (partner && draft.tool === partner.tool)
         return { ...draft, ...preProcessingOf(next) }
       return draft
+    }),
+  }
+}
+
+/**
+ * Switches the job's evaluation type. As on the old page, traits of a kind that no longer
+ * runs are unticked everywhere, along with the trait chosen to score for that kind.
+ */
+export function withEvaluationType(
+  job: JobDraft,
+  evaluationType: EvaluationType
+): JobDraft {
+  const running = runKinds(evaluationType)
+  const dropped = runKinds("both").filter((kind) => !running.includes(kind))
+  return {
+    evaluation_type: evaluationType,
+    tools: job.tools.map((draft) => {
+      if (dropped.length === 0) return draft
+      const next = {
+        ...draft,
+        populations: draft.populations.map((population) => ({
+          ...population,
+          traits: { ...population.traits },
+        })),
+        params: { ...draft.params },
+      }
+      for (const kind of dropped) {
+        for (const population of next.populations) population.traits[kind] = []
+        if ("trait" in next.params[kind])
+          next.params[kind] = { ...next.params[kind], trait: "" }
+      }
+      return next
     }),
   }
 }

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { PrscsxTargetPopulation } from "@/stores/benchmarking-store"
+import type { PrscsxTargetPopulation } from "@/components/benchmarking/mapping-step/prscsx-types"
 
 interface PrscsxTargetModalProps {
   open: boolean

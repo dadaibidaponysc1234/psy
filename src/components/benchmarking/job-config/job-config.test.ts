@@ -347,7 +347,7 @@ describe("the wire shape", () => {
 
     const draft = filledDraft("prsice")
     draft.populations[1].phenotype_path = ""
-    expect(messages(draft)).toEqual(["EUR: choose its phenotypes"])
+    expect(messages(draft)).toEqual(["Base (EUR): choose its phenotypes"])
   })
 
   it("empty paths and mappings are left out; stray columns aren't sent", () => {
@@ -401,7 +401,7 @@ describe("validation", () => {
     const draft = filledDraft("prscsx")
     draft.params.binary.trait = "height"
     expect(messages(draft)).toEqual([
-      "height is not one of AFR's binary traits",
+      "Binary run: height isn't one of Target (AFR)'s ticked binary traits",
     ])
   })
 
@@ -414,22 +414,31 @@ describe("validation", () => {
     expect(
       validate(draft, "quantitative").map((issue) => issue.message)
     ).toEqual([
-      "Clumping, target r² (quantitative): must be above 0",
-      "Clumping, auxiliary p-value (quantitative): must be at most 1",
+      "Clump params (Target) LD r2 must be above 0",
+      "Clump params (Auxiliary) P-value must be at most 1",
+    ])
+  })
+
+  it("the trait to score isn't asked for until traits of its kind are ticked", () => {
+    const draft = filledDraft("prsice")
+    draft.populations[0].traits.binary = []
+    draft.params.binary.trait = ""
+    expect(messages(draft)).toEqual([
+      "Target (AFR): tick at least one binary trait",
     ])
   })
 
   it("a number with no default must be entered", () => {
     const draft = filledDraft("sdprx")
     draft.params.binary.rho = null
-    expect(messages(draft)).toEqual(["Rho (binary): enter a number"])
+    expect(messages(draft)).toEqual(["Binary run: Rho needs a number"])
   })
 
   it("every population with a phenotype file picks traits of each evaluated kind", () => {
     const draft = filledDraft("bridgeprs")
     draft.populations[1].traits = { binary: ["case"], quantitative: [] }
     expect(messages(draft)).toEqual([
-      "EUR: choose at least one quantitative trait",
+      "Base (EUR): tick at least one quantitative trait",
     ])
     expect(validate(draft, "binary")).toEqual([])
   })
@@ -455,7 +464,7 @@ describe("validation", () => {
   it("an included optional file is required", () => {
     const draft = filledDraft("prscsx")
     draft.populations[1].included_paths = ["covariate_path"]
-    expect(messages(draft)).toEqual(["EUR: choose its covariates"])
+    expect(messages(draft)).toEqual(["Base (EUR): choose its covariates"])
   })
 
   it("a covariate file needs the FID and IID columns named", () => {
@@ -464,7 +473,7 @@ describe("validation", () => {
     draft.populations[0].covariate_path = "data/covariates/AFR.tsv"
     draft.covariates.id_mapping = { fid: "FID", iid: "" }
     expect(messages(draft)).toEqual([
-      "Name the FID and IID columns of the covariate file",
+      "Covariates: name the FID and IID columns",
     ])
   })
 
@@ -484,12 +493,63 @@ describe("validation", () => {
 
   it("required columns are the ones each form required; optional ones may be left unmapped", () => {
     const sdprx = filledDraft("sdprx")
-    delete sdprx.populations[1].column_mapping.N
-    expect(messages(sdprx)).toEqual(["EUR: map the N column"])
+    delete sdprx.populations[1].column_mapping.A2
+    expect(messages(sdprx)).toEqual(["Base (EUR): map the A2 column"])
 
     const xpass = filledDraft("xpass")
     delete xpass.populations[0].column_mapping.Z
     expect(validate(xpass)).toEqual([])
+  })
+
+  it("a tool that takes a typed N needs it from every population, and then N needn't be mapped", () => {
+    const draft = filledDraft("sdprx")
+    delete draft.populations[1].column_mapping.N
+    expect(validate(draft)).toEqual([])
+
+    draft.populations[1].gwas_n = null
+    expect(messages(draft)).toEqual(["Base (EUR): enter the GWAS sample size"])
+  })
+
+  it("xpass needs the N column or the GWAS sample size", () => {
+    const draft = filledDraft("xpass")
+    draft.populations[0].gwas_n = null
+    expect(validate(draft)).toEqual([])
+
+    delete draft.populations[0].column_mapping.N
+    expect(messages(draft)).toEqual([
+      "Target (AFR): map the N column or enter the GWAS sample size",
+    ])
+
+    draft.populations[0].gwas_n = 20000
+    expect(validate(draft)).toEqual([])
+  })
+
+  it("prsice's GWAS sample size is optional, and sent only when given", () => {
+    const draft = filledDraft("prsice")
+    draft.populations[1].gwas_n = null
+    expect(validate(draft)).toEqual([])
+    const [target, base] = build([draft]).config.prsice!.pre_processing
+      .populations
+    expect(target.gwas_n).toBe(20000)
+    expect(base).not.toHaveProperty("gwas_n")
+
+    draft.populations[1].gwas_n = 0
+    expect(messages(draft)).toEqual([
+      "Base (EUR): the GWAS sample size must be a whole number above 0",
+    ])
+  })
+
+  it("parameters shared across runs are reported once, without a run prefix", () => {
+    const draft = filledDraft("xpass+")
+    const clump = {
+      target: { kb: 0, r2: 0.1, p: 0.05 },
+      auxiliary: { kb: 1000, r2: 0.1, p: 0.05 },
+    }
+    draft.params.binary.clump_params = clump
+    draft.params.quantitative.clump_params = clump
+    expect(messages(draft)).toEqual([
+      "Clump params (Target) Window (kb) must be at least 1",
+    ])
   })
 
   it("xpass and xpass+ must send identical preprocessing", () => {

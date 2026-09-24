@@ -22,7 +22,6 @@ describe("migrateBenchmarkingState", () => {
     expect(migrateBenchmarkingState(old, 0)).toEqual({
       jobId: "job-1",
       uploadedFileIds: ["f1"],
-      mappingState: {},
       stepData: {
         tools: { selectedTools: ["prscsx"] },
         configure: { submitted: true },
@@ -30,9 +29,22 @@ describe("migrateBenchmarkingState", () => {
     })
   })
 
+  it("version 1 drops the old mapping page's state and keeps the drafts", () => {
+    const v1 = {
+      jobId: "job-1",
+      mappingState: { x: 1 },
+      configActiveTab: "prscsx",
+      jobDrafts: { "job-1": { evaluation_type: "both", tools: [] } },
+    }
+    expect(migrateBenchmarkingState(v1, 1)).toEqual({
+      jobId: "job-1",
+      jobDrafts: { "job-1": { evaluation_type: "both", tools: [] } },
+    })
+  })
+
   it("leaves current-version state alone", () => {
-    const current = { jobId: "job-1", mappingState: { x: 1 } }
-    expect(migrateBenchmarkingState(current, 1)).toEqual(current)
+    const current = { jobId: "job-1", stepData: { x: 1 } }
+    expect(migrateBenchmarkingState(current, 2)).toEqual(current)
   })
 })
 
@@ -57,7 +69,7 @@ describe("job draft actions", () => {
     ])
     expect(job.tools[2].genotype.chrom).toEqual([22])
 
-    useBenchmarkingStore.getState().resetMappingForJob("job-1")
+    useBenchmarkingStore.getState().clearJob()
     expect(useBenchmarkingStore.getState().jobDrafts).toEqual({})
   })
 

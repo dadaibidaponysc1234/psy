@@ -24,6 +24,7 @@ export const prsice: ToolDefinition = {
     required: ["SNP", "CHR", "BP", "A1", "A2", "BETA", "P"],
     optional: [],
   },
+  gwasN: "optional",
   hasTraits: true,
   layouts: ["merged", "multi_chromosome"],
   chromosomeSelection: true,

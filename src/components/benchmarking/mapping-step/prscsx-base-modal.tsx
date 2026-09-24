@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { PrscsxBasePopulation } from "@/stores/benchmarking-store"
+import type { PrscsxBasePopulation } from "@/components/benchmarking/mapping-step/prscsx-types"
 
 export interface PrscsxBaseModalValues {
   name: string

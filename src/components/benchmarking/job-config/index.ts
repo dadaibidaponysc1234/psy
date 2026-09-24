@@ -17,7 +17,14 @@ export {
   isToolId,
   syncJobDraft,
   updateToolInJob,
+  withEvaluationType,
 } from "@/components/benchmarking/job-config/job-draft"
+export {
+  describePopulation,
+  isColumnRequired,
+  isGwasNRequired,
+  N_COLUMN,
+} from "@/components/benchmarking/job-config/requirements"
 export {
   validateDraft,
   validateJob,

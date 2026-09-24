@@ -28,7 +28,9 @@ export function providedPaths(
   if (!rule) return []
   return [
     ...rule.requiredPaths,
-    ...rule.optionalPaths.filter((key) => population.included_paths.includes(key)),
+    ...rule.optionalPaths.filter((key) =>
+      population.included_paths.includes(key)
+    ),
   ]
 }
 
@@ -48,8 +50,8 @@ function buildPopulation(
   const wire: WirePopulation = {
     name: population.name.trim(),
     role: population.role,
-    gwas_n: population.gwas_n,
   }
+  if (population.gwas_n !== null) wire.gwas_n = population.gwas_n
 
   for (const key of paths) {
     const value = population[key].trim()

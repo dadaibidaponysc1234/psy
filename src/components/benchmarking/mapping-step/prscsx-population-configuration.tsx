@@ -13,7 +13,7 @@ import type {
   PrscsxPopulationState,
   PrscsxTargetPopulation,
   PrscsxBasePopulation,
-} from "@/stores/benchmarking-store"
+} from "@/components/benchmarking/mapping-step/prscsx-types"
 import {
   Collapsible,
   CollapsibleContent,

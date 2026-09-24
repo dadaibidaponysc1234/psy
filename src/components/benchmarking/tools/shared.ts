@@ -27,9 +27,9 @@ export const EXACTLY_ONE = { min: 1, max: 1 }
 
 export const TRAIT_PARAM: ParamSpec = {
   key: "trait",
-  label: "Trait to score",
+  label: "Phenotype Column",
   kind: "trait",
-  help: "A column from the target's phenotype file, of this block's kind.",
+  help: "The trait scored: one of the target's ticked traits of this run's kind.",
 }
 
 export const CLUMP_FIELDS: FieldSpec[] = [
@@ -40,12 +40,22 @@ export const CLUMP_FIELDS: FieldSpec[] = [
     default: 1000,
     min: 1,
     integer: true,
+    placeholder: "kb",
   },
-  { key: "r2", label: "r²", kind: "number", default: 0.1, above: 0, max: 1 },
+  {
+    key: "r2",
+    label: "LD r2",
+    kind: "number",
+    default: 0.1,
+    above: 0,
+    max: 1,
+    placeholder: "r2",
+  },
   {
     key: "p",
-    label: "p-value",
+    label: "P-value",
     kind: "number",
+    placeholder: "p",
     default: 0.05,
     above: 0,
     max: 1,

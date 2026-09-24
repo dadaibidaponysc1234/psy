@@ -6,7 +6,6 @@ import NavBar from "@/components/nav"
 import Footer from "@/components/footer"
 import Providers from "@/components/Providers"
 import { APP_NAME } from "@/static"
-import GlobalDebugDrawer from "@/components/dev/GlobalDebugDrawer"
 
 const syne = Syne({ subsets: ["latin"] })
 
@@ -46,11 +45,7 @@ export default function RootLayout({
       <body
         className={cn("flex min-h-dvh flex-col antialiased", syne.className)}
       >
-        <Providers>
-          {children}
-          {/* Dev-only global debug drawer (env gated) */}
-          <GlobalDebugDrawer />
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

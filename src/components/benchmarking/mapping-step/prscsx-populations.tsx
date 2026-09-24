@@ -9,14 +9,14 @@ import type {
   PopulationDraft,
   ToolDraft,
 } from "@/components/benchmarking/job-config"
-import { PrscsxPopulationConfiguration } from "@/components/benchmarking/mapping/tools/prscsx-population-configuration"
-import { PrscsxBaseModal } from "@/components/benchmarking/prscsx/PrscsxBaseModal"
-import type { PrscsxBaseModalValues } from "@/components/benchmarking/prscsx/PrscsxBaseModal"
-import { PrscsxTargetModal } from "@/components/benchmarking/prscsx/PrscsxTargetModal"
+import { PrscsxPopulationConfiguration } from "@/components/benchmarking/mapping-step/prscsx-population-configuration"
+import { PrscsxBaseModal } from "@/components/benchmarking/mapping-step/prscsx-base-modal"
+import type { PrscsxBaseModalValues } from "@/components/benchmarking/mapping-step/prscsx-base-modal"
+import { PrscsxTargetModal } from "@/components/benchmarking/mapping-step/prscsx-target-modal"
 import type {
   PrscsxBasePopulation,
   PrscsxTargetPopulation,
-} from "@/stores/benchmarking-store"
+} from "@/components/benchmarking/mapping-step/prscsx-types"
 
 // The panel and dialogs predate the drafts; these adapt a population to the shapes they take.
 const includes = (population: PopulationDraft, key: PathKey) =>

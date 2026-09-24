@@ -20,18 +20,20 @@ export const sdprx: ToolDefinition = {
     }),
   ],
   columns: { required: ["SNP", "A1", "A2", "N"], optional: [] },
+  gwasN: "required",
   hasTraits: true,
   layouts: ["merged", "multi_chromosome"],
   chromosomeSelection: true,
   hasCovariateColumns: false,
   params: [
     TRAIT_PARAM,
-    { key: "rho", label: "Rho", kind: "number" },
+    { key: "rho", label: "Rho", kind: "number", placeholder: "e.g. 0.8" },
     {
       key: "force_shared",
-      label: "Force shared",
+      label: "Force shared LD",
       kind: "boolean",
       default: false,
+      help: "Treat LD structure as shared between populations",
     },
   ],
 }

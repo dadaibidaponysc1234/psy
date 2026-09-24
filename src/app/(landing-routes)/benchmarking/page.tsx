@@ -32,7 +32,7 @@ import { Toaster } from "react-hot-toast"
 import { ToolSelection } from "@/components/benchmarking/tool-selection"
 import { DatasetUpload } from "@/components/benchmarking/dataset-upload"
 import { JobStatus } from "@/components/benchmarking/job-status"
-import { Mapping } from "@/components/benchmarking/mapping"
+import { MappingStep } from "@/components/benchmarking/mapping-step/mapping-step"
 import {
   useBenchmarkingStore,
   useActiveStep,
@@ -44,11 +44,10 @@ import {
   useUploadProgress,
 } from "@/stores/benchmarking-store"
 import { useHydration } from "@/hooks/use-hydration"
-import { ToolConfiguration } from "@/components/benchmarking/tool-configuration"
+import { ConfigureStep } from "@/components/benchmarking/configure-step/configure-step"
 import { BenchmarkingResults } from "@/components/benchmarking/benchmarking-results"
 import { AuthControls } from "@/components/benchmarking/auth-controls"
 import { BenchmarkingHome } from "@/components/benchmarking/benchmarking-home"
-import { DevTestingDrawer } from "@/components/benchmarking/dev-testing-drawer"
 import { useBenchmarkSSE } from "@/hooks/use-benchmark-sse"
 
 const steps = [
@@ -165,10 +164,10 @@ const Sidebar = ({
               </button>
             </li>
           )}
-          
+
           {/* Separator */}
           <li className="my-2 border-t border-border" />
-          
+
           {/* Workflow steps */}
           {steps.map((step, idx) => {
             const isActive = activeStep === step.id
@@ -391,21 +390,18 @@ const BenchmarkingPage = () => {
         )
       case "populations":
         return (
-          <Mapping
+          <MappingStep
             onNext={(data) => handleStepComplete("populations", data)}
             onPrevious={handleBack}
-            data={stepData["populations"]}
             toolsData={stepData["tools"]}
           />
         )
       case "configure":
         return (
-          <ToolConfiguration
+          <ConfigureStep
             onNext={(data) => handleStepComplete("configure", data)}
             onPrevious={handleBack}
-            data={stepData["configure"]}
             toolsData={stepData["tools"]}
-            mappingData={stepData["populations"]}
           />
         )
       case "results":
@@ -421,7 +417,10 @@ const BenchmarkingPage = () => {
       <div className="mx-auto mb-4 flex max-w-7xl justify-end">
         <AuthControls />
       </div>
-      <div className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden" id="workflow">
+      <div
+        className="mx-auto flex min-w-0 max-w-7xl gap-8 overflow-x-hidden"
+        id="workflow"
+      >
         <Sidebar
           steps={steps}
           isCollapsed={isSidebarCollapsed}
@@ -432,7 +431,6 @@ const BenchmarkingPage = () => {
         </main>
       </div>
       <Toaster />
-      {process.env.NODE_ENV !== "production" && <DevTestingDrawer />}
     </div>
   )
 }

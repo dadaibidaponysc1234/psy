@@ -4,6 +4,11 @@ import {
   runKinds,
 } from "@/components/benchmarking/job-config/defaults"
 import {
+  describePopulation,
+  isColumnRequired,
+  N_COLUMN,
+} from "@/components/benchmarking/job-config/requirements"
+import {
   buildPreProcessing,
   providedPaths,
   takesCovariates,
@@ -15,7 +20,6 @@ import type {
   JobDraft,
   NumberField,
   ParamSpec,
-  PopulationDraft,
   Step,
   ToolDefinition,
   ToolDraft,
@@ -32,9 +36,14 @@ const PATH_LABELS = {
 
 type Report = (step: Step, path: string, message: string) => void
 
-function populationLabel(population: PopulationDraft): string {
-  return population.name.trim() || `The ${population.role} population`
+/** "Binary run: ", or nothing when the tool's parameters are the same for every run. */
+function runPrefix(definition: ToolDefinition, kind: TraitKind): string {
+  if (definition.paramsSharedAcrossRuns) return ""
+  return `${kind === "binary" ? "Binary" : "Quantitative"} run: `
 }
+
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1)
 
 function checkPopulations(
   definition: ToolDefinition,
@@ -65,7 +74,7 @@ function checkPopulations(
   const seen = new Set<string>()
   for (const population of draft.populations) {
     const at = `populations.${population.id}`
-    const label = populationLabel(population)
+    const label = describePopulation(definition, population)
     const rule = ruleFor(definition, population.role)
     if (!rule) {
       report(
@@ -93,15 +102,33 @@ function checkPopulations(
     }
 
     const n = population.gwas_n
-    if (n === null || !Number.isInteger(n) || n <= 0) {
+    const nMapped = Boolean(population.column_mapping[N_COLUMN]?.trim())
+    if (n !== null) {
+      if (!Number.isInteger(n) || n <= 0)
+        report(
+          "configure",
+          `${at}.gwas_n`,
+          `${label}: the GWAS sample size must be a whole number above 0`
+        )
+    } else if (definition.gwasN === "required") {
       report(
         "configure",
         `${at}.gwas_n`,
-        `${label}: enter its GWAS sample size as a whole number`
+        `${label}: enter the GWAS sample size`
+      )
+    } else if (definition.gwasN === "unless_n_column" && !nMapped) {
+      report(
+        "configure",
+        `${at}.gwas_n`,
+        `${label}: map the N column or enter the GWAS sample size`
       )
     }
 
     for (const column of definition.columns.required) {
+      if (!isColumnRequired(definition, population, column)) continue
+      // Reported above, with the GWAS sample size that can stand in for it.
+      if (column === N_COLUMN && definition.gwasN === "unless_n_column")
+        continue
       if (!population.column_mapping[column]?.trim()) {
         report(
           "configure",
@@ -118,7 +145,7 @@ function checkPopulations(
           report(
             "configure",
             `${at}.traits.${kind}`,
-            `${label}: choose at least one ${kind} trait`
+            `${label}: tick at least one ${kind} trait`
           )
         }
       }
@@ -126,51 +153,42 @@ function checkPopulations(
   }
 }
 
+/** Reports "<prefix><subject> <problem>", e.g. "Binary run: Phi must be above 0". */
+type Say = (path: string, problem: string) => void
+
 function checkNumber(
   field: NumberField,
   value: unknown,
   path: string,
-  label: string,
-  report: Report
+  say: Say
 ) {
   if (typeof value !== "number" || !Number.isFinite(value))
-    return report("configure", path, `${label}: enter a number`)
+    return say(path, "needs a number")
   if (field.integer && !Number.isInteger(value))
-    report("configure", path, `${label}: enter a whole number`)
+    say(path, "must be a whole number")
   if (field.min !== undefined && value < field.min)
-    report("configure", path, `${label}: must be at least ${field.min}`)
+    say(path, `must be at least ${field.min}`)
   if (field.above !== undefined && value <= field.above)
-    report("configure", path, `${label}: must be above ${field.above}`)
+    say(path, `must be above ${field.above}`)
   if (field.max !== undefined && value > field.max)
-    report("configure", path, `${label}: must be at most ${field.max}`)
+    say(path, `must be at most ${field.max}`)
 }
 
-function checkField(
-  field: FieldSpec,
-  value: unknown,
-  path: string,
-  label: string,
-  report: Report
-) {
+function checkField(field: FieldSpec, value: unknown, path: string, say: Say) {
   switch (field.kind) {
     case "number":
-      return checkNumber(field, value, path, label, report)
+      return checkNumber(field, value, path, say)
     case "boolean":
-      if (typeof value !== "boolean")
-        report("configure", path, `${label}: choose yes or no`)
+      if (typeof value !== "boolean") say(path, "needs a yes or no")
       return
     case "select":
-      if (typeof value !== "string" || !field.options.includes(value)) {
-        report(
-          "configure",
-          path,
-          `${label}: choose one of ${field.options.join(", ")}`
-        )
-      }
+      if (typeof value !== "string" || !field.options.includes(value))
+        say(path, `must be one of ${field.options.join(", ")}`)
   }
 }
 
 function checkParam(
+  definition: ToolDefinition,
   spec: ParamSpec,
   value: unknown,
   kind: TraitKind,
@@ -178,18 +196,34 @@ function checkParam(
   report: Report
 ) {
   const path = `params.${kind}.${spec.key}`
+  const prefix = runPrefix(definition, kind)
+  const sayAbout =
+    (subject: string): Say =>
+    (at, problem) =>
+      report("configure", at, capitalize(`${prefix}${subject} ${problem}`))
 
   if (spec.kind === "trait") {
     const target = draft.populations.find(
       (population) => population.role === "target"
     )
     const trait = typeof value === "string" ? value.trim() : ""
-    if (!trait) report("configure", path, `Choose the ${kind} trait to score`)
+    // With no traits of this kind ticked, "tick at least one" already says what to do.
+    const nothingTicked =
+      target?.phenotype_path.trim() && target.traits[kind].length === 0
+    if (!trait && nothingTicked) return
+    if (!trait)
+      report(
+        "configure",
+        path,
+        capitalize(`${prefix}choose the trait to score`)
+      )
     else if (target && !target.traits[kind].includes(trait)) {
       report(
         "configure",
         path,
-        `${trait} is not one of ${populationLabel(target)}'s ${kind} traits`
+        capitalize(
+          `${prefix}${trait} isn't one of ${describePopulation(definition, target)}'s ticked ${kind} traits`
+        )
       )
     }
     return
@@ -199,6 +233,7 @@ function checkParam(
     const byRole = (value ?? {}) as Record<string, unknown>
     for (const role of spec.roles) {
       const roleValue = byRole[role]
+      const roleLabel = ruleFor(definition, role)?.label ?? role
       if (Array.isArray(spec.of)) {
         const fields = (roleValue ?? {}) as Record<string, unknown>
         for (const field of spec.of) {
@@ -206,8 +241,7 @@ function checkParam(
             field,
             fields[field.key],
             `${path}.${role}.${field.key}`,
-            `${spec.label}, ${role} ${field.label} (${kind})`,
-            report
+            sayAbout(`${spec.label} (${roleLabel}) ${field.label}`)
           )
         }
       } else {
@@ -215,15 +249,14 @@ function checkParam(
           spec.of,
           roleValue,
           `${path}.${role}`,
-          `${spec.label}, ${role} (${kind})`,
-          report
+          sayAbout(`${spec.label} (${roleLabel})`)
         )
       }
     }
     return
   }
 
-  checkField(spec, value, path, `${spec.label} (${kind})`, report)
+  checkField(spec, value, path, sayAbout(spec.label))
 }
 
 export function validateDraft(
@@ -243,9 +276,10 @@ export function validateDraft(
     ["genotype.file_type", draft.genotype.file_type],
   ] as const
   for (const [key, layout] of layouts) {
+    // The layouts are chosen on the mapping page.
     if (!definition.layouts.includes(layout))
       report(
-        "configure",
+        "mapping",
         key,
         `${definition.label} doesn't support ${layout} files`
       )
@@ -268,7 +302,14 @@ export function validateDraft(
 
   for (const kind of kinds) {
     for (const spec of definition.params)
-      checkParam(spec, draft.params[kind]?.[spec.key], kind, draft, report)
+      checkParam(
+        definition,
+        spec,
+        draft.params[kind]?.[spec.key],
+        kind,
+        draft,
+        report
+      )
   }
 
   if (
@@ -280,12 +321,16 @@ export function validateDraft(
       report(
         "configure",
         "covariates.id_mapping",
-        "Name the FID and IID columns of the covariate file"
+        "Covariates: name the FID and IID columns"
       )
     }
   }
 
-  return issues
+  // Shared parameters are checked per run kind but read the same everywhere.
+  return issues.filter(
+    (issue, index) =>
+      issues.findIndex((other) => other.message === issue.message) === index
+  )
 }
 
 /** Every tool's issues, plus rules that span tools. */

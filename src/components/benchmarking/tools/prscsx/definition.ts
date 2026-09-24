@@ -26,12 +26,19 @@ export const prscsx: ToolDefinition = {
     ),
   ],
   columns: { required: ["SNP", "A1", "A2", "BETA", "P"], optional: [] },
+  gwasN: "required",
   hasTraits: true,
   layouts: ["merged", "multi_chromosome"],
   chromosomeSelection: true,
   hasCovariateColumns: false,
   params: [
     TRAIT_PARAM,
-    { key: "phi", label: "Phi", kind: "number", default: 0.01 },
+    {
+      key: "phi",
+      label: "Phi",
+      kind: "number",
+      default: 0.01,
+      placeholder: "1e-2",
+    },
   ],
 }

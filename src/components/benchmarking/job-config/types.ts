@@ -50,6 +50,7 @@ interface FieldBase {
   key: string
   label: string
   help?: string
+  placeholder?: string
   /** Shown under an "advanced" toggle in the form. */
   advanced?: boolean
 }
@@ -84,12 +85,22 @@ export type ParamSpec =
       of: FieldSpec | FieldSpec[]
     })
 
+/**
+ * Whether a population must give its GWAS sample size (`gwas_n`):
+ * - `required`: the tool takes a typed N per population.
+ * - `unless_n_column`: the tool reads N from the summary statistics, so it's needed only when N isn't mapped.
+ * - `optional`: the tool doesn't use it; it's sent when given.
+ */
+export type GwasNRule = "required" | "unless_n_column" | "optional"
+
 export interface ToolDefinition {
   id: ToolId
   label: string
   status: "live" | "disabled"
   populations: RoleRule[]
+  /** A required `N` column may be left unmapped when the population gives its GWAS sample size. */
   columns: { required: string[]; optional: string[] }
+  gwasN: GwasNRule
   /** Whether populations with a phenotype file carry traits, and the target a trait to score. */
   hasTraits: boolean
   layouts: FileLayout[]
@@ -98,6 +109,8 @@ export interface ToolDefinition {
   /** Whether the user lists covariate columns. The ID mapping is asked for whenever a population takes a covariate file. */
   hasCovariateColumns: boolean
   params: ParamSpec[]
+  /** The parameters are the same for every run kind, so the form edits them once. */
+  paramsSharedAcrossRuns?: boolean
   /** Tools the backend preprocesses once between them; their pre_processing must match. */
   sharesPreprocessingWith?: ToolId
 }
@@ -193,8 +206,8 @@ export interface Issue {
 export interface WirePopulation {
   name: string
   role: Role
-  /** Null only in a preview of an invalid draft; submit requires no issues. */
-  gwas_n: number | null
+  /** Sent when given; see `GwasNRule` for when it's required. */
+  gwas_n?: number
   sumstats_path?: string
   sumstats_prefix?: string
   genotype_path?: string

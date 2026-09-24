@@ -37,6 +37,7 @@ export const xpass: ToolDefinition = {
   status: "live",
   populations: xpassPopulations("XPASS"),
   columns: XPASS_COLUMNS,
+  gwasN: "unless_n_column",
   // No phenotype file, so no traits and no trait to score.
   hasTraits: false,
   layouts: ["merged", "multi_chromosome"],

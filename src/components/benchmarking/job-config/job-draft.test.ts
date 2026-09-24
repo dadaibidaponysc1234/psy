@@ -3,6 +3,7 @@ import {
   emptyJobDraft,
   syncJobDraft,
   updateToolInJob,
+  withEvaluationType,
 } from "@/components/benchmarking/job-config"
 import type { JobDraft } from "@/components/benchmarking/job-config"
 
@@ -88,5 +89,32 @@ describe("updateToolInJob", () => {
   it("ignores a tool that isn't in the job", () => {
     const job = syncJobDraft(undefined, ["prsice"], counterIds())
     expect(updateToolInJob(job, "sdprx", rename("AFR"))).toBe(job)
+  })
+})
+
+describe("withEvaluationType", () => {
+  it("unticks traits of a kind that no longer runs, and the trait chosen to score it", () => {
+    const job = syncJobDraft(undefined, ["prscsx"], counterIds())
+    job.tools[0].populations[0].traits = {
+      binary: ["case"],
+      quantitative: ["height"],
+    }
+    job.tools[0].params.binary.trait = "case"
+    job.tools[0].params.quantitative.trait = "height"
+
+    const next = withEvaluationType(job, "quantitative")
+    expect(next.evaluation_type).toBe("quantitative")
+    expect(next.tools[0].populations[0].traits).toEqual({
+      binary: [],
+      quantitative: ["height"],
+    })
+    expect(next.tools[0].params.binary.trait).toBe("")
+    expect(next.tools[0].params.quantitative.trait).toBe("height")
+    // The job passed in is untouched.
+    expect(job.tools[0].populations[0].traits.binary).toEqual(["case"])
+
+    expect(
+      withEvaluationType(next, "both").tools[0].populations[0].traits
+    ).toEqual({ binary: [], quantitative: ["height"] })
   })
 })

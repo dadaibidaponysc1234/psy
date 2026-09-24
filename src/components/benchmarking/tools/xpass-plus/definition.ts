@@ -13,6 +13,7 @@ export const xpassPlus: ToolDefinition = {
   status: "live",
   populations: xpassPopulations("XPASS+"),
   columns: XPASS_COLUMNS,
+  gwasN: "unless_n_column",
   hasTraits: false,
   layouts: ["merged", "multi_chromosome"],
   chromosomeSelection: true,
@@ -23,6 +24,7 @@ export const xpassPlus: ToolDefinition = {
       label: "Compute posterior mean",
       kind: "boolean",
       default: true,
+      help: "Use the posterior mean of the SNP effects.",
     },
     {
       key: "use_snps",
@@ -33,11 +35,13 @@ export const xpassPlus: ToolDefinition = {
     },
     {
       key: "clump_params",
-      label: "Clumping",
+      label: "Clump params",
       kind: "per_role",
       roles: [...CLUMPED_ROLES],
       of: CLUMP_FIELDS,
     },
   ],
+  // The old form edited these once; every run uses the same values.
+  paramsSharedAcrossRuns: true,
   sharesPreprocessingWith: "xpass",
 }
