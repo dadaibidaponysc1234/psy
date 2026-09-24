@@ -1,0 +1,115 @@
+import type {
+  EvaluationType,
+  FieldSpec,
+  ParamSpec,
+  ParamValue,
+  ParamValues,
+  PopulationDraft,
+  Role,
+  RoleRule,
+  ToolDefinition,
+  ToolDraft,
+  TraitKind,
+} from "@/components/benchmarking/job-config/types"
+
+export type IdFactory = () => string
+
+// crypto.randomUUID is missing outside secure contexts (a dev server opened over http://<LAN ip>).
+const randomId: IdFactory = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
+const fieldDefault = (field: FieldSpec) => field.default ?? null
+
+export function defaultParamValue(spec: ParamSpec): ParamValue {
+  switch (spec.kind) {
+    case "trait":
+      return ""
+    case "per_role":
+      return Object.fromEntries(
+        spec.roles.map((role) => [
+          role,
+          Array.isArray(spec.of)
+            ? Object.fromEntries(
+                spec.of.map((field) => [field.key, fieldDefault(field)])
+              )
+            : fieldDefault(spec.of),
+        ])
+      )
+    default:
+      return fieldDefault(spec)
+  }
+}
+
+export function defaultParams(definition: ToolDefinition): ParamValues {
+  return Object.fromEntries(
+    definition.params.map((spec) => [spec.key, defaultParamValue(spec)])
+  )
+}
+
+export function ruleFor(
+  definition: ToolDefinition,
+  role: Role
+): RoleRule | undefined {
+  return definition.populations.find((rule) => rule.role === role)
+}
+
+export function newPopulation(
+  role: Role,
+  newId: IdFactory = randomId
+): PopulationDraft {
+  return {
+    id: newId(),
+    name: "",
+    role,
+    gwas_n: null,
+    sumstats_path: "",
+    sumstats_prefix: "",
+    genotype_path: "",
+    phenotype_path: "",
+    covariate_path: "",
+    column_mapping: {},
+    traits: { binary: [], quantitative: [] },
+  }
+}
+
+/** The processing blocks each tool produces for the job's evaluation type. */
+export function runKinds(evaluationType: EvaluationType): TraitKind[] {
+  return evaluationType === "both"
+    ? ["binary", "quantitative"]
+    : [evaluationType]
+}
+
+export function defaultDraft(
+  definition: ToolDefinition,
+  newId: IdFactory = randomId
+): ToolDraft {
+  return {
+    tool: definition.id,
+    populations: definition.populations.flatMap((rule) =>
+      Array.from({ length: rule.min }, () => newPopulation(rule.role, newId))
+    ),
+    sumstats_file_type: "merged",
+    genotype: { file_type: "merged", chrom: [] },
+    options: { skip_missing_columns: false },
+    covariates: { columns: [], id_mapping: { fid: "FID", iid: "IID" } },
+    params: {
+      binary: defaultParams(definition),
+      quantitative: defaultParams(definition),
+    },
+  }
+}
+
+/** Sorted, de-duplicated autosomes. `[]` means genome-wide. */
+export function normalizeChromosomes(chromosomes: readonly number[]): number[] {
+  return chromosomes
+    .filter(
+      (c, index) =>
+        Number.isInteger(c) &&
+        c >= 1 &&
+        c <= 22 &&
+        chromosomes.indexOf(c) === index
+    )
+    .sort((a, b) => a - b)
+}

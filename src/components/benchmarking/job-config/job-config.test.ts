@@ -1,0 +1,501 @@
+import { describe, expect, it } from "vitest"
+import {
+  buildJobConfig,
+  defaultDraft,
+  newPopulation,
+  validateDraft,
+} from "@/components/benchmarking/job-config"
+import type {
+  EvaluationType,
+  Role,
+  ToolDraft,
+  ToolId,
+} from "@/components/benchmarking/job-config"
+import {
+  getToolDefinition,
+  TOOL_DEFINITIONS,
+} from "@/components/benchmarking/tools"
+
+const NAMES: Record<Role, string[]> = {
+  target: ["AFR"],
+  base: ["EUR", "EAS"],
+  auxiliary: ["EUR"],
+  validation: ["EAS"],
+}
+const GWAS_N: Record<string, number> = { AFR: 20000, EUR: 80000, EAS: 50000 }
+
+function counterIds() {
+  let next = 0
+  return () => `p${++next}`
+}
+
+/** A complete, valid draft for a tool: what a preset fills in. */
+function filledDraft(tool: ToolId): ToolDraft {
+  const definition = getToolDefinition(tool)
+  const draft = defaultDraft(definition, counterIds())
+  const used: Partial<Record<Role, number>> = {}
+  const columns = [
+    ...definition.columns.required,
+    ...definition.columns.optional,
+  ]
+
+  draft.populations = draft.populations.map((population) => {
+    const index = used[population.role] ?? 0
+    used[population.role] = index + 1
+    const name = NAMES[population.role][index]
+    return {
+      ...population,
+      name,
+      gwas_n: GWAS_N[name],
+      sumstats_path: `data/sumstats/${name}`,
+      genotype_path: `data/genotypes/${name}`,
+      phenotype_path: `data/phenotypes/${name}.tsv`,
+      column_mapping: Object.fromEntries(
+        columns.map((column) => [column, column.toLowerCase()])
+      ),
+      traits: { binary: ["case"], quantitative: ["height", "bmi"] },
+    }
+  })
+  if (definition.params.some((spec) => spec.kind === "trait")) {
+    draft.params.binary.trait = "case"
+    draft.params.quantitative.trait = "height"
+  }
+  if (tool === "sdprx") {
+    draft.params.binary.rho = 0.8
+    draft.params.quantitative.rho = 0.8
+  }
+  return draft
+}
+
+function withPopulation(draft: ToolDraft, role: Role, name: string): ToolDraft {
+  const population = {
+    ...newPopulation(role, () => `extra-${name}`),
+    name,
+    gwas_n: GWAS_N[name] ?? 1000,
+  }
+  population.sumstats_path = `data/sumstats/${name}`
+  population.column_mapping = { ...draft.populations[0].column_mapping }
+  return { ...draft, populations: [...draft.populations, population] }
+}
+
+function build(tools: ToolDraft[], evaluation_type: EvaluationType = "both") {
+  return buildJobConfig({ evaluation_type, tools })
+}
+
+function validate(draft: ToolDraft, evaluationType: EvaluationType = "both") {
+  return validateDraft(draft, evaluationType)
+}
+
+function messages(draft: ToolDraft): string[] {
+  return validate(draft).map((issue) => issue.message)
+}
+
+/** Every key anywhere in a JSON value. */
+function allKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(allKeys)
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([key, child]) => [
+      key,
+      ...allKeys(child),
+    ])
+  }
+  return []
+}
+
+describe("every tool", () => {
+  it.each(TOOL_DEFINITIONS.map((definition) => definition.id))(
+    "%s: a filled draft is valid",
+    (tool) => {
+      expect(validate(filledDraft(tool))).toEqual([])
+    }
+  )
+
+  it.each(TOOL_DEFINITIONS.map((definition) => definition.id))(
+    "%s: nothing identified by position or by name, no scoring fields, no generated paths",
+    (tool) => {
+      const { config } = build([filledDraft(tool)])
+      const keys = allKeys(config[tool])
+      const forbidden =
+        /^(pop\d|ss\d|n\d|N\d|fixed_N\d?|n_gwas|population_order|populations_string|score_choice|scoring_population(_type)?|sumstats_size_.*|by_population|target_population|source_population|base_population|ldref.*|load_ld|output_dir|log_dir|pheno|sst_files|bim_prefix|.*_prefix_.*|ref_pop\d|xpass_pop\d|use_pop\d_snps|population_reference|fill_second_allele|map_to_rsid)$/
+      expect(keys.filter((key) => forbidden.test(key))).toEqual([])
+      expect(keys.filter((key) => ["AFR", "EUR", "EAS"].includes(key))).toEqual(
+        []
+      )
+    }
+  )
+
+  it("a default draft lists what's missing on each page", () => {
+    const issues = validate(
+      defaultDraft(getToolDefinition("prscsx"), counterIds())
+    )
+    const byStep = (step: string) =>
+      issues.filter((issue) => issue.step === step).map((issue) => issue.path)
+    expect(byStep("mapping")).toEqual(
+      expect.arrayContaining([
+        "populations.p1.name",
+        "populations.p1.genotype_path",
+        "populations.p2.sumstats_path",
+      ])
+    )
+    expect(byStep("configure")).toEqual(
+      expect.arrayContaining([
+        "populations.p1.gwas_n",
+        "populations.p2.column_mapping.SNP",
+        "params.binary.trait",
+      ])
+    )
+  })
+})
+
+describe("the wire shape", () => {
+  it("prscsx: one entry per population with its own N, mapping and traits; processing holds method params only", () => {
+    const draft = withPopulation(filledDraft("prscsx"), "base", "EAS")
+    draft.populations[1] = {
+      ...draft.populations[1],
+      genotype_path: "",
+      phenotype_path: "",
+    }
+    draft.genotype = { file_type: "multi_chromosome", chrom: [22, 21] }
+    draft.sumstats_file_type = "merged"
+
+    const { config, issues } = build([draft])
+
+    expect(issues).toEqual([])
+    expect(config.tools_to_run).toEqual(["prscsx"])
+    expect(config.prscsx).toEqual({
+      pre_processing: {
+        populations: [
+          {
+            name: "AFR",
+            role: "target",
+            gwas_n: 20000,
+            sumstats_path: "data/sumstats/AFR",
+            genotype_path: "data/genotypes/AFR",
+            phenotype_path: "data/phenotypes/AFR.tsv",
+            column_mapping: {
+              SNP: "snp",
+              A1: "a1",
+              A2: "a2",
+              BETA: "beta",
+              P: "p",
+            },
+            traits: { binary: ["case"], quantitative: ["height", "bmi"] },
+          },
+          {
+            name: "EUR",
+            role: "base",
+            gwas_n: 80000,
+            sumstats_path: "data/sumstats/EUR",
+            column_mapping: {
+              SNP: "snp",
+              A1: "a1",
+              A2: "a2",
+              BETA: "beta",
+              P: "p",
+            },
+          },
+          {
+            name: "EAS",
+            role: "base",
+            gwas_n: 50000,
+            sumstats_path: "data/sumstats/EAS",
+            column_mapping: {
+              SNP: "snp",
+              A1: "a1",
+              A2: "a2",
+              BETA: "beta",
+              P: "p",
+            },
+          },
+        ],
+        sumstats_file_type: "merged",
+        genotype_config: { file_type: "multi_chromosome", chrom: [21, 22] },
+        phenotype_config: { covariate_id_mapping: { fid: "FID", iid: "IID" } },
+        options: {
+          evaluation_type: "both",
+          skip_missing_columns: false,
+          overwrite_existing: true,
+        },
+      },
+      processing: {
+        binary: { trait: "case", phi: 0.01 },
+        quantitative: { trait: "height", phi: 0.01 },
+      },
+    })
+  })
+
+  it("prsice: covariates go on the target entry and in phenotype_config", () => {
+    const draft = filledDraft("prsice")
+    draft.populations[0].covariate_path = "data/covariates/AFR.tsv"
+    draft.covariates.columns = ["PC1", " PC2 ", ""]
+
+    const block = build([draft]).config.prsice!
+
+    expect(block.pre_processing.populations[0].covariate_path).toBe(
+      "data/covariates/AFR.tsv"
+    )
+    expect(block.pre_processing.phenotype_config).toEqual({
+      covariates: ["PC1", "PC2"],
+      covariate_id_mapping: { fid: "FID", iid: "IID" },
+    })
+  })
+
+  it("tools without covariates send no phenotype_config", () => {
+    expect(
+      build([filledDraft("sdprx")]).config.sdprx!.pre_processing
+        .phenotype_config
+    ).toBeUndefined()
+  })
+
+  it("bridgeprs: genome-wide only, so chrom is always []", () => {
+    const draft = filledDraft("bridgeprs")
+    expect(
+      build([draft]).config.bridgeprs!.pre_processing.genotype_config.chrom
+    ).toEqual([])
+
+    draft.genotype.chrom = [21]
+    expect(messages(draft)).toContain("BridgePRS runs genome-wide only")
+  })
+
+  it("xpass+: per-population settings are keyed by role", () => {
+    const processing = build([filledDraft("xpass+")], "quantitative").config[
+      "xpass+"
+    ]!.processing
+    expect(processing).toEqual({
+      quantitative: {
+        compPosMean: true,
+        use_snps: { target: true, auxiliary: true },
+        clump_params: {
+          target: { kb: 1000, r2: 0.1, p: 0.05 },
+          auxiliary: { kb: 1000, r2: 0.1, p: 0.05 },
+        },
+      },
+    })
+  })
+
+  it("xpass: follows the job's evaluation type like every tool, with no traits", () => {
+    const block = build([filledDraft("xpass")]).config.xpass!
+
+    expect(block.processing).toEqual({ binary: {}, quantitative: {} })
+    expect(
+      block.pre_processing.populations.every(
+        (population) => population.traits === undefined
+      )
+    ).toBe(true)
+    expect(
+      block.pre_processing.populations.map((population) => population.role)
+    ).toEqual(["target", "auxiliary", "validation"])
+  })
+
+  it("the job's evaluation type decides the blocks sent and is copied into every tool's options", () => {
+    const { config } = build(
+      [filledDraft("prsice"), filledDraft("sdprx")],
+      "binary"
+    )
+    expect(Object.keys(config.prsice!.processing)).toEqual(["binary"])
+    expect(config.sdprx!.pre_processing.options).toEqual({
+      evaluation_type: "binary",
+      skip_missing_columns: false,
+      overwrite_existing: true,
+    })
+  })
+
+  it("overwrite_existing is always true: it's not a draft option", () => {
+    const { config } = build(
+      TOOL_DEFINITIONS.map((definition) => filledDraft(definition.id))
+    )
+    const values = TOOL_DEFINITIONS.map(
+      (definition) =>
+        config[definition.id]!.pre_processing.options.overwrite_existing
+    )
+    expect(values).toEqual(TOOL_DEFINITIONS.map(() => true))
+    expect(defaultDraft(getToolDefinition("prsice")).options).toEqual({
+      skip_missing_columns: false,
+    })
+  })
+
+  it("prsice: a target and a base, each with summary statistics, genotypes and phenotypes", () => {
+    const populations = build([filledDraft("prsice")]).config.prsice!
+      .pre_processing.populations
+    expect(
+      populations.map(
+        ({ name, role, sumstats_path, genotype_path, phenotype_path }) => ({
+          name,
+          role,
+          sumstats_path,
+          genotype_path,
+          phenotype_path,
+        })
+      )
+    ).toEqual([
+      {
+        name: "AFR",
+        role: "target",
+        sumstats_path: "data/sumstats/AFR",
+        genotype_path: "data/genotypes/AFR",
+        phenotype_path: "data/phenotypes/AFR.tsv",
+      },
+      {
+        name: "EUR",
+        role: "base",
+        sumstats_path: "data/sumstats/EUR",
+        genotype_path: "data/genotypes/EUR",
+        phenotype_path: "data/phenotypes/EUR.tsv",
+      },
+    ])
+
+    const draft = filledDraft("prsice")
+    draft.populations[1].phenotype_path = ""
+    expect(messages(draft)).toEqual(["EUR: choose its phenotypes"])
+  })
+
+  it("empty paths and mappings are left out; stray columns aren't sent", () => {
+    const draft = filledDraft("sdprx")
+    draft.populations[0].column_mapping = {
+      ...draft.populations[0].column_mapping,
+      A2: "  ",
+      EXTRA: "x",
+    }
+    const target = build([draft]).config.sdprx!.pre_processing.populations[0]
+
+    expect(target.column_mapping).not.toHaveProperty("A2")
+    expect(target.column_mapping).not.toHaveProperty("EXTRA")
+    expect(target).not.toHaveProperty("covariate_path")
+  })
+})
+
+describe("validation", () => {
+  it("prscsx takes any number of bases; sdprx exactly one", () => {
+    expect(
+      validate(withPopulation(filledDraft("prscsx"), "base", "EAS"))
+    ).toEqual([])
+    expect(
+      messages(withPopulation(filledDraft("sdprx"), "base", "EAS"))
+    ).toContain("SDPRX takes at most 1 base population")
+  })
+
+  it("a role the tool doesn't have is rejected", () => {
+    expect(
+      messages(withPopulation(filledDraft("sdprx"), "auxiliary", "EAS"))
+    ).toContain("SDPRX has no auxiliary population")
+  })
+
+  it("population names must be distinct", () => {
+    const draft = filledDraft("bridgeprs")
+    draft.populations[1].name = "afr"
+    expect(messages(draft)).toContain("Two populations are named afr")
+  })
+
+  it("gwas_n must be a positive whole number", () => {
+    const draft = filledDraft("sdprx")
+    draft.populations[0].gwas_n = 1.5
+    draft.populations[1].gwas_n = null
+    expect(validate(draft).map((issue) => issue.path)).toEqual([
+      "populations.p1.gwas_n",
+      "populations.p2.gwas_n",
+    ])
+  })
+
+  it("the scored trait must be one of the target's traits of that kind", () => {
+    const draft = filledDraft("prscsx")
+    draft.params.binary.trait = "height"
+    expect(messages(draft)).toEqual([
+      "height is not one of AFR's binary traits",
+    ])
+  })
+
+  it("parameter bounds come from the definition: clump r2 and p must be above 0", () => {
+    const draft = filledDraft("xpass+")
+    draft.params.quantitative.clump_params = {
+      target: { kb: 1000, r2: 0, p: 0.05 },
+      auxiliary: { kb: 1000, r2: 0.1, p: 1.5 },
+    }
+    expect(
+      validate(draft, "quantitative").map((issue) => issue.message)
+    ).toEqual([
+      "Clumping, target r² (quantitative): must be above 0",
+      "Clumping, auxiliary p-value (quantitative): must be at most 1",
+    ])
+  })
+
+  it("a number with no default must be entered", () => {
+    const draft = filledDraft("sdprx")
+    draft.params.binary.rho = null
+    expect(messages(draft)).toEqual(["Rho (binary): enter a number"])
+  })
+
+  it("every population with a phenotype file picks traits of each evaluated kind", () => {
+    const draft = filledDraft("bridgeprs")
+    draft.populations[1].traits = { binary: ["case"], quantitative: [] }
+    expect(messages(draft)).toEqual([
+      "EUR: choose at least one quantitative trait",
+    ])
+    expect(validate(draft, "binary")).toEqual([])
+  })
+
+  it("prscsx bases take genotypes, phenotypes and covariates only if given; traits only with phenotypes", () => {
+    const draft = withPopulation(filledDraft("prscsx"), "base", "EAS")
+    draft.populations[2].covariate_path = "data/covariates/EAS.tsv"
+    const [, eur, eas] = build([draft]).config.prscsx!.pre_processing
+      .populations
+
+    expect(eur).toMatchObject({
+      genotype_path: "data/genotypes/EUR",
+      phenotype_path: "data/phenotypes/EUR.tsv",
+    })
+    expect(eur.traits).toBeDefined()
+    expect(eas).toMatchObject({ covariate_path: "data/covariates/EAS.tsv" })
+    expect(eas).not.toHaveProperty("genotype_path")
+    expect(eas).not.toHaveProperty("traits")
+  })
+
+  it("a covariate file needs the FID and IID columns named", () => {
+    const draft = filledDraft("prscsx")
+    draft.populations[0].covariate_path = "data/covariates/AFR.tsv"
+    draft.covariates.id_mapping = { fid: "FID", iid: "" }
+    expect(messages(draft)).toEqual([
+      "Name the FID and IID columns of the covariate file",
+    ])
+  })
+
+  it("chromosomes are sorted on the way out; duplicates and non-autosomes are flagged", () => {
+    const draft = filledDraft("prsice")
+    draft.genotype.chrom = [22, 1]
+    expect(validate(draft)).toEqual([])
+    expect(
+      build([draft]).config.prsice!.pre_processing.genotype_config.chrom
+    ).toEqual([1, 22])
+
+    draft.genotype.chrom = [22, 22, 23]
+    expect(messages(draft)).toEqual([
+      "Chromosomes must be distinct whole numbers from 1 to 22",
+    ])
+  })
+
+  it("required columns are the ones each form required; optional ones may be left unmapped", () => {
+    const sdprx = filledDraft("sdprx")
+    delete sdprx.populations[1].column_mapping.N
+    expect(messages(sdprx)).toEqual(["EUR: map the N column"])
+
+    const xpass = filledDraft("xpass")
+    delete xpass.populations[0].column_mapping.Z
+    expect(validate(xpass)).toEqual([])
+  })
+
+  it("xpass and xpass+ must send identical preprocessing", () => {
+    const xpass = filledDraft("xpass")
+    const xpassPlus = { ...filledDraft("xpass+") }
+    expect(build([xpass, xpassPlus]).issues).toEqual([])
+
+    xpassPlus.populations = xpassPlus.populations.map((population) =>
+      population.role === "auxiliary"
+        ? { ...population, sumstats_path: "data/sumstats/other" }
+        : population
+    )
+    expect(
+      build([xpass, xpassPlus]).issues.map((issue) => issue.message)
+    ).toEqual([
+      "xpass+ and xpass are preprocessed together, so their populations and inputs must match",
+    ])
+  })
+})
