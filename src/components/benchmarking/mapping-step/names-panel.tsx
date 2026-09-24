@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type {
+  PathKey,
   PopulationDraft,
   Role,
   ToolDefinition,
@@ -21,6 +23,13 @@ const PLACEHOLDERS: Record<Role, string> = {
   base: "e.g., EUR, AFR, AMR",
   auxiliary: "e.g., EUR, AFR, AMR",
   validation: "e.g., AFR, EUR",
+}
+
+const FILE_NAMES: Record<PathKey, string> = {
+  sumstats_path: "summary statistics",
+  genotype_path: "genotype",
+  phenotype_path: "phenotype",
+  covariate_path: "covariate",
 }
 
 const GRID_COLUMNS: Record<number, string> = {
@@ -35,6 +44,11 @@ interface NamesPanelProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   onNameChange: (populationId: string, name: string) => void
+  onIncludeChange: (
+    populationId: string,
+    key: PathKey,
+    included: boolean
+  ) => void
   onSave: () => void
   isCompleted: boolean
 }
@@ -46,6 +60,7 @@ export function NamesPanel({
   isOpen,
   onOpenChange,
   onNameChange,
+  onIncludeChange,
   onSave,
   isCompleted,
 }: NamesPanelProps) {
@@ -96,6 +111,43 @@ export function NamesPanel({
                             {rule.help}
                           </p>
                         )}
+                        {rule.optionalPaths.map((key) => {
+                          const includeId = `${id}-include-${key}`
+                          return (
+                            // The same checkbox as PRS-CSx's target dialog.
+                            <div
+                              key={key}
+                              className="flex items-start gap-3 rounded-md border border-muted bg-muted/20 p-3"
+                            >
+                              <Checkbox
+                                id={includeId}
+                                checked={population.included_paths.includes(
+                                  key
+                                )}
+                                onCheckedChange={(checked) =>
+                                  onIncludeChange(
+                                    population.id,
+                                    key,
+                                    Boolean(checked)
+                                  )
+                                }
+                              />
+                              <div className="space-y-1">
+                                <Label
+                                  htmlFor={includeId}
+                                  className="font-medium"
+                                >
+                                  Include {FILE_NAMES[key]} mapping
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                  When enabled, the mapping surface will expose
+                                  a {FILE_NAMES[key]} path slot for the{" "}
+                                  {rule.label.toLowerCase()} population.
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     )
                   })

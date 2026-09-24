@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { toast } from "react-hot-toast"
 import { newPopulation } from "@/components/benchmarking/job-config"
+import { withIncluded } from "@/components/benchmarking/mapping-step/mapping-fields"
 import type {
   PathKey,
   PopulationDraft,
@@ -54,23 +55,6 @@ const pathSummary = (population: PopulationDraft) => ({
   phenotypePath: population.phenotype_path,
   covariatePath: population.covariate_path,
 })
-
-/** Sets which optional files a population provides; files no longer included are cleared. */
-function withIncluded(
-  population: PopulationDraft,
-  wanted: Partial<Record<PathKey, boolean>>
-): PopulationDraft {
-  const next = { ...population }
-  for (const [key, include] of Object.entries(wanted) as [PathKey, boolean][]) {
-    if (include && !next.included_paths.includes(key)) {
-      next.included_paths = [...next.included_paths, key]
-    } else if (!include && next.included_paths.includes(key)) {
-      next.included_paths = next.included_paths.filter((path) => path !== key)
-      next[key] = ""
-    }
-  }
-  return next
-}
 
 interface PrscsxPopulationsProps {
   draft: ToolDraft

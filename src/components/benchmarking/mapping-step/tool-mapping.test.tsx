@@ -109,4 +109,29 @@ describe("ToolMapping", () => {
       screen.getByText("Population configuration required")
     ).toBeInTheDocument()
   })
+
+  it("prsice: the target's covariate file is opt-in", () => {
+    render(<Harness tool="prsice" />)
+    type("Target Population Name", "AFR")
+    type("Base Population Name", "EUR")
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save Population Names" })
+    )
+    const covariateCard = () =>
+      screen.queryByText("Target - AFR - Covariate File")
+    expect(covariateCard()).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/PRSice Population Configuration/))
+    const include = screen.getByRole("checkbox", {
+      name: "Include covariate mapping",
+    })
+    fireEvent.click(include)
+    expect(latest.populations[0].included_paths).toEqual(["covariate_path"])
+    expect(latest.names_saved).toBe(true)
+    expect(covariateCard()).toBeInTheDocument()
+
+    fireEvent.click(include)
+    expect(latest.populations[0].included_paths).toEqual([])
+    expect(covariateCard()).not.toBeInTheDocument()
+  })
 })

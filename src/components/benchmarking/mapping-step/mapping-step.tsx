@@ -44,6 +44,7 @@ import {
   namesReady,
   populationSummary,
   usesConfigurePanel,
+  withIncluded,
 } from "@/components/benchmarking/mapping-step/mapping-fields"
 import { NamesPanel } from "@/components/benchmarking/mapping-step/names-panel"
 import { PrscsxPopulations } from "@/components/benchmarking/mapping-step/prscsx-populations"
@@ -339,6 +340,16 @@ export function ToolMapping({
           isOpen={panelOpen}
           onOpenChange={setPanelOpen}
           onNameChange={editPopulation}
+          onIncludeChange={(id, key, included) =>
+            update((current) => ({
+              ...current,
+              populations: current.populations.map((population) =>
+                population.id === id
+                  ? withIncluded(population, { [key]: included })
+                  : population
+              ),
+            }))
+          }
           onSave={saveNames}
           isCompleted={draft.names_saved}
         />

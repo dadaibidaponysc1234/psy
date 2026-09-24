@@ -1,6 +1,7 @@
 import { providedPaths } from "@/components/benchmarking/job-config/serialize"
 import type {
   PathKey,
+  PopulationDraft,
   ToolDefinition,
   ToolDraft,
 } from "@/components/benchmarking/job-config/types"
@@ -114,4 +115,21 @@ export function populationSummary(
   const names = draft.populations.map((population) => population.name.trim())
   if (names.length === 1) return `${target} population`
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} populations`
+}
+
+/** Sets which optional files a population provides; files no longer included are cleared. */
+export function withIncluded(
+  population: PopulationDraft,
+  wanted: Partial<Record<PathKey, boolean>>
+): PopulationDraft {
+  const next = { ...population }
+  for (const [key, include] of Object.entries(wanted) as [PathKey, boolean][]) {
+    if (include && !next.included_paths.includes(key)) {
+      next.included_paths = [...next.included_paths, key]
+    } else if (!include && next.included_paths.includes(key)) {
+      next.included_paths = next.included_paths.filter((path) => path !== key)
+      next[key] = ""
+    }
+  }
+  return next
 }
