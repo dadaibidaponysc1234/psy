@@ -1,0 +1,592 @@
+{
+  "version": 1,
+  "name": "all tools, chr22",
+  "dataset": "perchrom-with-eas (upload)",
+  "savedAt": "2026-09-24T18:31:47.604Z",
+  "job": {
+    "evaluation_type": "both",
+    "tools": [
+      {
+        "tool": "prsice",
+        "populations": [
+          {
+            "id": "f41638ad-c636-4edf-930e-cda35bea3657",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "CHR": "#CHROM",
+              "BP": "POS",
+              "A1": "A1",
+              "A2": "REF",
+              "BETA": "BETA",
+              "P": "P"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          },
+          {
+            "id": "0b2c1315-9c66-4e91-9d86-6963a92b6e31",
+            "name": "EUR",
+            "role": "base",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "CHR": "#CHROM",
+              "BP": "POS",
+              "A1": "A1",
+              "A2": "REF",
+              "BETA": "BETA",
+              "P": "P"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          }
+        ],
+        "names_saved": true,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": [
+            22
+          ]
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {
+            "trait": "y.binary"
+          },
+          "quantitative": {
+            "trait": "y"
+          }
+        }
+      },
+      {
+        "tool": "prscsx",
+        "populations": [
+          {
+            "id": "ca4c9062-782d-4def-b5bd-17929766af9d",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": 10000,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "BETA": "BETA",
+              "P": "P"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          },
+          {
+            "id": "7996fa0a-8ec9-4866-8d64-8dc9d0edc17f",
+            "name": "EUR",
+            "role": "base",
+            "gwas_n": 80000,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat",
+            "covariate_path": "",
+            "included_paths": [
+              "genotype_path",
+              "phenotype_path"
+            ],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "BETA": "BETA",
+              "P": "P"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          }
+        ],
+        "names_saved": false,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": [
+            22
+          ]
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {
+            "trait": "y.binary",
+            "phi": 0.01
+          },
+          "quantitative": {
+            "trait": "y",
+            "phi": 0.01
+          }
+        }
+      },
+      {
+        "tool": "bridgeprs",
+        "populations": [
+          {
+            "id": "9a1409cf-7e4c-4bcf-acb6-b448e90ff07f",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": 10000,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "CHR": "#CHROM",
+              "ID": "ID",
+              "PS": "POS",
+              "A1": "A1",
+              "REF": "REF",
+              "BETA": "BETA",
+              "SE": "SE",
+              "P": "P",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          },
+          {
+            "id": "bb53089b-c7c2-4ca5-8bcc-d5210178dee1",
+            "name": "EUR",
+            "role": "base",
+            "gwas_n": 80000,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "CHR": "#CHROM",
+              "ID": "ID",
+              "PS": "POS",
+              "A1": "A1",
+              "REF": "REF",
+              "BETA": "BETA",
+              "SE": "SE",
+              "P": "P",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          }
+        ],
+        "names_saved": true,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": []
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {
+            "trait": "y.binary",
+            "fst": 0.1
+          },
+          "quantitative": {
+            "trait": "y",
+            "fst": 0.1
+          }
+        }
+      },
+      {
+        "tool": "sdprx",
+        "populations": [
+          {
+            "id": "97a4d9e9-9c2d-4101-bb77-aa5844e400d7",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": 10000,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_AFR/phenotypes/AFR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          },
+          {
+            "id": "75b19949-03cb-45be-b1a8-8259d84077d7",
+            "name": "EUR",
+            "role": "base",
+            "gwas_n": 80000,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "perchrom-data-with-eas/pop_EUR/phenotypes/EUR_test.dat",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [
+                "y.binary"
+              ],
+              "quantitative": [
+                "y"
+              ]
+            }
+          }
+        ],
+        "names_saved": true,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": [
+            22
+          ]
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {
+            "trait": "y.binary",
+            "rho": 0.8,
+            "force_shared": false
+          },
+          "quantitative": {
+            "trait": "y",
+            "rho": 0.8,
+            "force_shared": false
+          }
+        }
+      },
+      {
+        "tool": "xpass",
+        "populations": [
+          {
+            "id": "619a2ced-464f-46d0-952d-12fa1f427fb9",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          },
+          {
+            "id": "a2c744e0-a74b-4f34-b8f0-abcdb5f5df09",
+            "name": "EUR",
+            "role": "auxiliary",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          },
+          {
+            "id": "5a96b26c-5893-4359-868f-0bafbf207e0b",
+            "name": "EAS",
+            "role": "validation",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_EAS/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EAS/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          }
+        ],
+        "names_saved": true,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": [
+            22
+          ]
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {},
+          "quantitative": {}
+        }
+      },
+      {
+        "tool": "xpass+",
+        "populations": [
+          {
+            "id": "619a2ced-464f-46d0-952d-12fa1f427fb9",
+            "name": "AFR",
+            "role": "target",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_AFR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_AFR/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          },
+          {
+            "id": "a2c744e0-a74b-4f34-b8f0-abcdb5f5df09",
+            "name": "EUR",
+            "role": "auxiliary",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_EUR/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EUR/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          },
+          {
+            "id": "5a96b26c-5893-4359-868f-0bafbf207e0b",
+            "name": "EAS",
+            "role": "validation",
+            "gwas_n": null,
+            "sumstats_path": "perchrom-data-with-eas/pop_EAS/sumstats",
+            "sumstats_prefix": "",
+            "genotype_path": "perchrom-data-with-eas/pop_EAS/genotypes",
+            "phenotype_path": "",
+            "covariate_path": "",
+            "included_paths": [],
+            "column_mapping": {
+              "SNP": "ID",
+              "A1": "A1",
+              "A2": "REF",
+              "N": "OBS_CT"
+            },
+            "traits": {
+              "binary": [],
+              "quantitative": []
+            }
+          }
+        ],
+        "names_saved": true,
+        "sumstats_file_type": "multi_chromosome",
+        "genotype": {
+          "file_type": "multi_chromosome",
+          "chrom": [
+            22
+          ]
+        },
+        "options": {
+          "skip_missing_columns": false
+        },
+        "covariates": {
+          "columns": [],
+          "id_mapping": {
+            "fid": "FID",
+            "iid": "IID"
+          }
+        },
+        "params": {
+          "binary": {
+            "compPosMean": true,
+            "use_snps": {
+              "target": true,
+              "auxiliary": true
+            },
+            "clump_params": {
+              "target": {
+                "kb": 1000,
+                "r2": 0.1,
+                "p": 0.05
+              },
+              "auxiliary": {
+                "kb": 1000,
+                "r2": 0.1,
+                "p": 0.05
+              }
+            }
+          },
+          "quantitative": {
+            "compPosMean": true,
+            "use_snps": {
+              "target": true,
+              "auxiliary": true
+            },
+            "clump_params": {
+              "target": {
+                "kb": 1000,
+                "r2": 0.1,
+                "p": 0.05
+              },
+              "auxiliary": {
+                "kb": 1000,
+                "r2": 0.1,
+                "p": 0.05
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
