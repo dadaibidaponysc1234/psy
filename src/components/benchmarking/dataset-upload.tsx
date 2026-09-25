@@ -445,20 +445,27 @@ export function DatasetUpload({
     checkExistingJob()
   }, [jobId])
 
+  // The job is past "created", so the server holds its dataset. The names come from the job
+  // when it lists them; otherwise the names this browser uploaded are kept, marked uploaded.
   const restoreUploadedState = useCallback(
     (data: any) => {
-      const mockFiles =
-        data.processing_details?.uploaded_files?.map((filename: string) => ({
-          id: Math.random().toString(36).substr(2, 9),
-          name: filename,
-          size: 0,
-          type: "application/octet-stream",
-          file: undefined,
-        })) || []
+      const serverNames: string[] = Array.isArray(data.uploaded_files)
+        ? data.uploaded_files
+        : []
+      const restored =
+        serverNames.length > 0
+          ? serverNames.map((filename) => ({
+              id: Math.random().toString(36).substr(2, 9),
+              name: filename,
+              size: 0,
+              type: "application/octet-stream",
+              file: undefined,
+            }))
+          : useBenchmarkingStore.getState().uploadedFiles
 
-      setUploadedFiles(mockFiles)
-      setUploadedFileIds(mockFiles.map((f: any) => f.id))
-      setHasServerUploads(mockFiles.length > 0)
+      setUploadedFiles(restored)
+      setUploadedFileIds(restored.map((f: any) => f.id))
+      setHasServerUploads(true)
       setIsUploading(false)
       setUploadProgress(0)
       toast.success("Uploaded files restored from existing job")
