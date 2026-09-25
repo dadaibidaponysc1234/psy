@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { LogIn, Loader2 } from "lucide-react"
 import { toast } from "react-hot-toast"
 import axios from "axios"
+import { userMessage } from "@/lib/api-errors"
 import { getBenchmarkLoginUrl } from "@/lib/config"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import type { TokenResponse } from "@/types/benchmarking"
@@ -36,13 +37,8 @@ const SignInPage = () => {
       setUser(res.data.user)
       toast.success("Signed in successfully")
       router.push("/benchmarking")
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail
-      const msg =
-        typeof detail === "string" ? detail
-        : Array.isArray(detail) ? detail[0]?.msg || "Validation failed"
-        : err?.message || "Sign in failed"
-      toast.error(msg)
+    } catch (err) {
+      toast.error(userMessage(err, "Sign in failed. Please try again."))
     } finally {
       setIsLoading(false)
     }

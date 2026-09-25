@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import benchmarkApi from "@/lib/benchmark-api"
+import { configRefusalMessage } from "@/lib/api-errors"
 import { getBenchmarkConfigCheckUrl, getBenchmarkConfigUrl } from "@/lib/config"
 import { buildJobConfig, isToolId } from "@/components/benchmarking/job-config"
 import type {
@@ -16,7 +17,10 @@ import type {
   JobConfig,
   ToolId,
 } from "@/components/benchmarking/job-config"
-import { getToolDefinition } from "@/components/benchmarking/tools"
+import {
+  getToolDefinition,
+  TOOL_DEFINITIONS,
+} from "@/components/benchmarking/tools"
 import { useDatasetStructure } from "@/components/benchmarking/mapping-step/use-dataset-structure"
 import {
   fieldId,
@@ -31,6 +35,11 @@ import {
   type FormNav,
 } from "@/components/benchmarking/configure-step/tool-form"
 import { useBenchmarkingStore, useJobDraft } from "@/stores/benchmarking-store"
+
+/** What the page calls each tool, for naming the one a refused config is about. */
+const TOOL_LABELS: Record<string, string> = Object.fromEntries(
+  TOOL_DEFINITIONS.map((definition) => [definition.id, definition.label])
+)
 
 const EVALUATION_TYPES: { value: EvaluationType; label: string }[] = [
   { value: "both", label: "Binary + Quantitative" },
@@ -231,28 +240,23 @@ export function ConfigureStep({
     const body = { config: built.config }
     const json = { headers: { "Content-Type": "application/json" } }
     try {
-      // The backend's own checks first: a refusal names the tool and what to change.
-      try {
-        await benchmarkApi.post(getBenchmarkConfigCheckUrl(jobId), body, json)
-      } catch (error) {
-        // The backend wraps every refusal as {error: {message, status}}.
-        const message = axios.isAxiosError(error)
-          ? error.response?.data?.error?.message
-          : undefined
-        if (typeof message === "string" && message) {
-          toast.error(message, { duration: 10000 })
-          return
-        }
-        throw error
-      }
+      // The backend's own checks first; a refusal is shown and nothing is submitted.
+      await benchmarkApi.post(getBenchmarkConfigCheckUrl(jobId), body, json)
       const response = await benchmarkApi.post(
         getBenchmarkConfigUrl(jobId),
         body,
         json
       )
       toast.success("Configuration submitted! Starting benchmarking...")
+      // The backend warns only when its worker can't be reached yet; the job waits for it.
       if (response.data?.warning) {
-        toast(response.data.warning, { icon: "⚠️", duration: 8000 })
+        toast(
+          "Your job is queued and will start as soon as the server is ready.",
+          {
+            icon: "⚠️",
+            duration: 8000,
+          }
+        )
       }
       onNext({
         config: built.config,
@@ -266,7 +270,7 @@ export function ConfigureStep({
         status: axios.isAxiosError(error) ? error.response?.status : undefined,
         data: axios.isAxiosError(error) ? error.response?.data : undefined,
       })
-      toast.error("Failed to submit configuration. Please try again.")
+      toast.error(configRefusalMessage(error, TOOL_LABELS), { duration: 10000 })
     } finally {
       setSubmitting(false)
     }

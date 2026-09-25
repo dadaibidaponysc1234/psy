@@ -31,7 +31,7 @@ import {
   getBenchmarkChunkedStatusUrl,
   getBenchmarkChunkedCancelUrl,
 } from "@/lib/config"
-import axios from "axios"
+import { userMessage } from "@/lib/api-errors"
 import benchmarkApi from "@/lib/benchmark-api"
 import {
   useBenchmarkMode,
@@ -530,13 +530,9 @@ export function DatasetUpload({
 
       toast.success(res.data.message || "Shared dataset selected")
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        toast.error(
-          `Failed to select dataset: ${err.response?.data?.detail || err.message}`
-        )
-      } else {
-        toast.error("Failed to select shared dataset")
-      }
+      toast.error(
+        userMessage(err, "Couldn't select that shared dataset. Please try again.")
+      )
     } finally {
       setIsSelectingShared(false)
     }
@@ -711,14 +707,9 @@ export function DatasetUpload({
     } catch (error) {
       if (error instanceof Error && error.message === "Upload aborted") {
         toast("Upload cancelled", { icon: "🚫" })
-      } else if (axios.isAxiosError(error)) {
-        toast.error(
-          `Upload failed: ${error.response?.data?.detail || error.message}`
-        )
       } else {
-        toast.error(
-          `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`
-        )
+        console.error("Upload failed:", error)
+        toast.error(userMessage(error, "Upload failed. Please try again."))
       }
     } finally {
       setIsUploading(false)

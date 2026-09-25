@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { getBenchmarkJobsUrl } from "@/lib/config"
 import axios from "axios"
+import { userMessage } from "@/lib/api-errors"
 import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
@@ -92,14 +93,10 @@ export function ToolSelection({ onNext, data }: ToolSelectionProps) {
       if (axios.isAxiosError(error)) {
         console.error("  Response status:", error.response?.status)
         console.error("  Response data:", error.response?.data)
-        toast.error(
-          `Job creation failed: ${error.response?.data?.detail || error.message}`
-        )
-      } else {
-        toast.error(
-          `Job creation failed: ${error instanceof Error ? error.message : "Unknown error"}`
-        )
       }
+      toast.error(
+        userMessage(error, "Couldn't create the job. Please try again.")
+      )
     } finally {
       setIsCreatingJob(false)
     }

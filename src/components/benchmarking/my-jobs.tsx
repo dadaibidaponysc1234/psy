@@ -15,6 +15,7 @@ import {
   ChevronLeft,
 } from "lucide-react"
 import { toast } from "react-hot-toast"
+import { userMessage } from "@/lib/api-errors"
 import benchmarkApi from "@/lib/benchmark-api"
 import { getBenchmarkMyJobsUrl } from "@/lib/config"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
@@ -122,9 +123,8 @@ export function MyJobs() {
     try {
       const res = await benchmarkApi.get<JobSummary[]>(getBenchmarkMyJobsUrl())
       setJobs(res.data)
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail || err?.message || "Failed to fetch jobs"
+    } catch (err) {
+      const msg = userMessage(err, "Couldn't load your jobs. Please try again.")
       setError(msg)
       toast.error(msg)
     } finally {

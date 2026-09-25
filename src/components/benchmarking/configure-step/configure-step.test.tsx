@@ -73,7 +73,7 @@ describe("ConfigureStep", () => {
     expect(screen.queryByText(/Binary run:/)).not.toBeInTheDocument()
   })
 
-  it("checks the config with the backend first; a refusal shows its message and nothing is submitted", async () => {
+  it("checks the config with the backend first; a refusal is shown in the user's terms and nothing is submitted", async () => {
     const store = useBenchmarkingStore.getState()
     store.syncJobTools("job", ["snpnet"])
     store.setJobEvaluationType("job", "quantitative")
@@ -117,7 +117,7 @@ describe("ConfigureStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }))
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
-        "snpnet: the target needs split_config",
+        "snpnet: the server couldn't accept these settings. Check them and try again, or contact the helpdesk if it keeps happening.",
         { duration: 10000 }
       )
     )
