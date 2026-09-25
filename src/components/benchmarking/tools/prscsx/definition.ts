@@ -43,4 +43,6 @@ export const prscsx: ToolDefinition = {
       placeholder: "1e-2",
     },
   ],
+  secondAllele: "A2",
+  ldPanel: true,
 }

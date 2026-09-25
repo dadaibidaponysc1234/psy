@@ -18,9 +18,10 @@ export const jointprs: ToolDefinition = {
       required: ["sumstats_path", "genotype_path", "phenotype_path"],
       help: `The population you want to predict risk for. ${LD_PANEL_HELP}`,
     }),
-    // Only its summary statistics are read.
+    // Only its summary statistics are read, and its genotypes when they must supply its A2.
     roleRule("base", "Base", EXACTLY_ONE, {
       required: ["sumstats_path"],
+      optional: ["genotype_path"],
       help: `The population whose GWAS is modelled jointly with the target's. ${LD_PANEL_HELP}`,
     }),
   ],
@@ -80,4 +81,6 @@ export const jointprs: ToolDefinition = {
       },
     },
   ],
+  secondAllele: "A2",
+  ldPanel: true,
 }

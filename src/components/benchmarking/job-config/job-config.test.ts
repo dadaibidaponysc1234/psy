@@ -720,3 +720,96 @@ describe("validation", () => {
     ])
   })
 })
+
+describe("shared dataset quirks", () => {
+  /** A draft whose summary statistics have no second-allele column, as harvard's don't. */
+  function withoutSecondAllele(tool: ToolId): ToolDraft {
+    const draft = filledDraft(tool)
+    const column = getToolDefinition(tool).secondAllele!
+    draft.populations = draft.populations.map((population) => {
+      const { [column]: _dropped, ...rest } = population.column_mapping
+      return { ...population, column_mapping: rest }
+    })
+    return draft
+  }
+
+  function onHarvard(
+    tools: ToolDraft[],
+    evaluation_type: EvaluationType = "both"
+  ) {
+    return buildJobConfig({
+      evaluation_type,
+      tools,
+      shared_dataset: "harvard_datasets",
+    })
+  }
+
+  it("harvard: an unmapped second allele is filled from each population's genotypes, and IDs are renamed for LD-panel tools", () => {
+    const draft = withoutSecondAllele("prscsx")
+    draft.populations[1].included_paths = ["genotype_path"]
+    const { config, issues } = onHarvard([draft])
+    expect(issues).toEqual([])
+    expect(
+      config.prscsx!.pre_processing.populations.map((population) => [
+        population.name,
+        population.fill_second_allele,
+        population.map_to_rsid,
+      ])
+    ).toEqual([
+      ["AFR", true, true],
+      ["EUR", true, true],
+    ])
+  })
+
+  it("harvard: a population whose second allele is filled must include its genotypes", () => {
+    const { issues } = onHarvard([withoutSecondAllele("jointprs")])
+    expect(issues.map((issue) => [issue.step, issue.message])).toEqual([
+      [
+        "mapping",
+        "Base (EUR): include its genotypes; this dataset's summary statistics have no A2 column, so it's read from them",
+      ],
+    ])
+  })
+
+  it("harvard: BridgePRS fills REF; PRSice, which takes LD from the dataset's genotypes, isn't renamed", () => {
+    const { config, issues } = onHarvard([
+      withoutSecondAllele("bridgeprs"),
+      withoutSecondAllele("prsice"),
+    ])
+    expect(issues).toEqual([])
+    expect(config.bridgeprs!.pre_processing.populations[0]).toMatchObject({
+      fill_second_allele: true,
+      map_to_rsid: true,
+    })
+    const prsice = config.prsice!.pre_processing.populations[0]
+    expect(prsice.fill_second_allele).toBe(true)
+    expect(prsice.map_to_rsid).toBeUndefined()
+  })
+
+  it("harvard: a mapped second allele is used as it is", () => {
+    const population = onHarvard([filledDraft("sdprx")]).config.sdprx!
+      .pre_processing.populations[0]
+    expect(population.fill_second_allele).toBeUndefined()
+    expect(population.map_to_rsid).toBe(true)
+  })
+
+  it("uploads and other shared datasets get none of it: the second allele must be mapped", () => {
+    const draft = withoutSecondAllele("prscsx")
+    for (const shared_dataset of [undefined, "some_other_dataset"]) {
+      const { config, issues } = buildJobConfig({
+        evaluation_type: "both",
+        tools: [draft],
+        shared_dataset,
+      })
+      expect(issues.map((issue) => issue.message)).toEqual([
+        "Target (AFR): map the A2 column",
+        "Base (EUR): map the A2 column",
+      ])
+      expect(
+        allKeys(config).filter((key) =>
+          ["fill_second_allele", "map_to_rsid"].includes(key)
+        )
+      ).toEqual([])
+    }
+  })
+})

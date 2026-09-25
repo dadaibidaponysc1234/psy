@@ -41,4 +41,6 @@ export const bridgeprs: ToolDefinition = {
       placeholder: "0.1",
     },
   ],
+  secondAllele: "REF",
+  ldPanel: true,
 }

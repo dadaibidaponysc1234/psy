@@ -10,7 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import benchmarkApi from "@/lib/benchmark-api"
 import { configRefusalMessage } from "@/lib/api-errors"
 import { getBenchmarkConfigCheckUrl, getBenchmarkConfigUrl } from "@/lib/config"
-import { buildJobConfig, isToolId } from "@/components/benchmarking/job-config"
+import {
+  buildJobConfig,
+  isToolId,
+  quirksFor,
+} from "@/components/benchmarking/job-config"
 import type {
   EvaluationType,
   Issue,
@@ -365,6 +369,7 @@ export function ConfigureStep({
               definition={getToolDefinition(draft.tool)}
               draft={draft}
               evaluationType={job.evaluation_type}
+              quirks={quirksFor(job)}
               structure={structure}
               issues={issuesFor(draft.tool)}
               nav={navFor(draft.tool)}

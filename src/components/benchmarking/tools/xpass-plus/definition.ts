@@ -45,4 +45,5 @@ export const xpassPlus: ToolDefinition = {
   // The old form edited these once; every run uses the same values.
   paramsSharedAcrossRuns: true,
   sharesPreprocessingWith: "xpass",
+  secondAllele: "A2",
 }

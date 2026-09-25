@@ -38,4 +38,6 @@ export const sdprx: ToolDefinition = {
       help: "Treat LD structure as shared between populations",
     },
   ],
+  secondAllele: "A2",
+  ldPanel: true,
 }

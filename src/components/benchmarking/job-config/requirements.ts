@@ -1,3 +1,4 @@
+import type { DatasetQuirks } from "@/components/benchmarking/job-config/datasets"
 import { ruleFor } from "@/components/benchmarking/job-config/defaults"
 import type {
   ColumnRule,
@@ -57,15 +58,37 @@ export function isGwasNRequired(
 }
 
 /**
+ * Whether the backend fills this population's second allele from its genotypes: the dataset
+ * lacks it and the column is left unmapped.
+ */
+export function fillsSecondAllele(
+  definition: ToolDefinition,
+  population: PopulationDraft,
+  quirks: DatasetQuirks | undefined
+): boolean {
+  const column = definition.secondAllele
+  return Boolean(
+    quirks?.fillSecondAllele &&
+      column &&
+      mappableColumns(definition, population.role).includes(column) &&
+      !population.column_mapping[column]?.trim()
+  )
+}
+
+/**
  * Whether a column must be mapped, as things stand. A required N column may be left
  * unmapped once the GWAS sample size is given; where the tool always takes the size, never.
+ * The second allele may be left unmapped where the dataset lacks it.
  */
 export function isColumnRequired(
   definition: ToolDefinition,
   population: PopulationDraft,
-  column: string
+  column: string,
+  quirks?: DatasetQuirks
 ): boolean {
   if (!columnsFor(definition, population.role).required.includes(column))
+    return false
+  if (quirks?.fillSecondAllele && column === definition.secondAllele)
     return false
   if (column !== N_COLUMN) return true
   return (

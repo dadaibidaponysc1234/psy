@@ -1,3 +1,4 @@
+import { quirksFor } from "@/components/benchmarking/job-config/datasets"
 import { buildToolBlock } from "@/components/benchmarking/job-config/serialize"
 import type {
   Issue,
@@ -6,6 +7,10 @@ import type {
 } from "@/components/benchmarking/job-config/types"
 import { validateJob } from "@/components/benchmarking/job-config/validate"
 
+export {
+  quirksFor,
+  type DatasetQuirks,
+} from "@/components/benchmarking/job-config/datasets"
 export {
   defaultDraft,
   newPopulation,
@@ -44,7 +49,8 @@ export function buildJobConfig(job: JobDraft): {
   const config: JobConfig = {
     tools_to_run: job.tools.map((draft) => draft.tool),
   }
+  const quirks = quirksFor(job)
   for (const draft of job.tools)
-    config[draft.tool] = buildToolBlock(draft, job.evaluation_type)
+    config[draft.tool] = buildToolBlock(draft, job.evaluation_type, quirks)
   return { config, issues: validateJob(job) }
 }

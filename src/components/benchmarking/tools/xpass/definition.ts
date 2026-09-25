@@ -47,4 +47,5 @@ export const xpass: ToolDefinition = {
   // The form has never exposed XPASS's method parameters; the backend uses its working values.
   params: [],
   sharesPreprocessingWith: "xpass+",
+  secondAllele: "A2",
 }

@@ -468,6 +468,10 @@ export function DatasetUpload({
       setHasServerUploads(true)
       setIsUploading(false)
       setUploadProgress(0)
+      if (data.job_id)
+        useBenchmarkingStore
+          .getState()
+          .setJobSharedDataset(data.job_id, data.shared_dataset ?? undefined)
       toast.success("Uploaded files restored from existing job")
     },
     [setUploadedFiles, setUploadedFileIds, setHasServerUploads, setIsUploading, setUploadProgress]
@@ -527,6 +531,8 @@ export function DatasetUpload({
       setUploadedFiles(mockFiles)
       setUploadedFileIds(mockFiles.map((f) => f.id))
       setHasServerUploads(true)
+      // Some shared datasets need fixes the form asks the backend for (job-config/datasets.ts).
+      useBenchmarkingStore.getState().setJobSharedDataset(jobId, selectedShared)
 
       toast.success(res.data.message || "Shared dataset selected")
     } catch (err) {

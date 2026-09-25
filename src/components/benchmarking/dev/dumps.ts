@@ -97,7 +97,9 @@ export function applyDump(
   const added = loaded.filter(
     (draft) => !job.tools.some((existing) => existing.tool === draft.tool)
   )
+  // The job keeps its own dataset: the dump's paths are checked against it, not the other way round.
   return {
+    ...job,
     evaluation_type:
       scope === "all" ? dump.job.evaluation_type : job.evaluation_type,
     tools: [...replaced, ...added],

@@ -83,6 +83,8 @@ export interface BenchmarkingState {
   ) => void
   /** Replaces a job's drafts wholesale; the dev drawer loads dumps with it. */
   replaceJobDraft: (jobId: string, job: JobDraft) => void
+  /** Records the shared dataset the job uses, or that it uses an upload (`undefined`). */
+  setJobSharedDataset: (jobId: string, name: string | undefined) => void
 
   // SSE actions
   setSseConnected: (connected: boolean) => void
@@ -312,6 +314,19 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
             set((state) => ({
               jobDrafts: { ...state.jobDrafts, [jobId]: job },
             })),
+
+          setJobSharedDataset: (jobId, name) =>
+            set((state) => {
+              const job = state.jobDrafts[jobId] ?? emptyJobDraft()
+              if (job.shared_dataset === name) return {}
+              const { shared_dataset: _previous, ...rest } = job
+              return {
+                jobDrafts: {
+                  ...state.jobDrafts,
+                  [jobId]: name ? { ...rest, shared_dataset: name } : rest,
+                },
+              }
+            }),
 
           updateToolDraft: (jobId, tool, update) =>
             set((state) => {

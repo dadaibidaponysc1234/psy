@@ -13,6 +13,7 @@ import { ChromosomeMultiSelect } from "@/components/ui/chromosome-multi-select"
 import { Label } from "@/components/ui/label"
 import { normalizeChromosomes } from "@/components/benchmarking/job-config"
 import type {
+  DatasetQuirks,
   EvaluationType,
   Issue,
   ToolDefinition,
@@ -68,6 +69,8 @@ interface ToolFormProps {
   definition: ToolDefinition
   draft: ToolDraft
   evaluationType: EvaluationType
+  /** Fixes the job's shared dataset needs, if any. */
+  quirks?: DatasetQuirks
   structure: DatasetStructure | null
   /** This tool's issues. */
   issues: Issue[]

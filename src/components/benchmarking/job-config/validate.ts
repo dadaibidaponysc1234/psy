@@ -4,8 +4,13 @@ import {
   runKinds,
 } from "@/components/benchmarking/job-config/defaults"
 import {
+  quirksFor,
+  type DatasetQuirks,
+} from "@/components/benchmarking/job-config/datasets"
+import {
   columnsFor,
   describePopulation,
+  fillsSecondAllele,
   gwasNFor,
   isColumnRequired,
   N_COLUMN,
@@ -54,6 +59,7 @@ function checkPopulations(
   definition: ToolDefinition,
   draft: ToolDraft,
   kinds: TraitKind[],
+  quirks: DatasetQuirks | undefined,
   report: Report
 ) {
   for (const rule of definition.populations) {
@@ -97,7 +103,8 @@ function checkPopulations(
       report("mapping", `${at}.name`, `Two populations are named ${name}`)
     seen.add(name.toLowerCase())
 
-    for (const key of providedPaths(definition, population)) {
+    const paths = providedPaths(definition, population)
+    for (const key of paths) {
       if (!population[key].trim())
         report(
           "mapping",
@@ -105,6 +112,16 @@ function checkPopulations(
           `${label}: choose its ${PATH_LABELS[key]}`
         )
     }
+    // The backend reads the missing allele from this population's own genotypes.
+    if (
+      fillsSecondAllele(definition, population, quirks) &&
+      !paths.includes("genotype_path")
+    )
+      report(
+        "mapping",
+        `${at}.genotype_path`,
+        `${label}: include its genotypes; this dataset's summary statistics have no ${definition.secondAllele} column, so it's read from them`
+      )
 
     const gwasN = gwasNFor(definition, population.role)
     const n = population.gwas_n
@@ -131,7 +148,7 @@ function checkPopulations(
     }
 
     for (const column of columnsFor(definition, population.role).required) {
-      if (!isColumnRequired(definition, population, column)) continue
+      if (!isColumnRequired(definition, population, column, quirks)) continue
       // Reported above, with the GWAS sample size that can stand in for it.
       if (column === N_COLUMN && gwasN === "unless_n_column") continue
       if (!population.column_mapping[column]?.trim()) {
@@ -313,7 +330,8 @@ function checkSplit(split: SplitDraft | undefined, report: Report) {
 
 export function validateDraft(
   draft: ToolDraft,
-  evaluationType: EvaluationType
+  evaluationType: EvaluationType,
+  quirks?: DatasetQuirks
 ): Issue[] {
   const definition = getToolDefinition(draft.tool)
   const kinds = runKinds(evaluationType)
@@ -321,7 +339,7 @@ export function validateDraft(
   const report: Report = (step, path, message) =>
     issues.push({ tool: draft.tool, step, path, message })
 
-  checkPopulations(definition, draft, kinds, report)
+  checkPopulations(definition, draft, kinds, quirks, report)
 
   const layouts = [
     ["sumstats_file_type", draft.sumstats_file_type],
@@ -406,8 +424,9 @@ export function validateDraft(
 /** Every tool's issues, plus rules that span tools. */
 export function validateJob(job: JobDraft): Issue[] {
   const drafts = job.tools
+  const quirks = quirksFor(job)
   const issues = drafts.flatMap((draft) =>
-    validateDraft(draft, job.evaluation_type)
+    validateDraft(draft, job.evaluation_type, quirks)
   )
 
   const seen = new Set<string>()
@@ -428,7 +447,9 @@ export function validateJob(job: JobDraft): Issue[] {
     // Report once, on the later of the pair.
     if (partnerDraft && drafts.indexOf(partnerDraft) < drafts.indexOf(draft)) {
       const build = (candidate: ToolDraft) =>
-        JSON.stringify(buildPreProcessing(candidate, job.evaluation_type))
+        JSON.stringify(
+          buildPreProcessing(candidate, job.evaluation_type, quirks)
+        )
       if (build(draft) !== build(partnerDraft)) {
         issues.push({
           tool: draft.tool,

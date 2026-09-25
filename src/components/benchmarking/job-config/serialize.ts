@@ -3,7 +3,11 @@ import {
   ruleFor,
   runKinds,
 } from "@/components/benchmarking/job-config/defaults"
-import { mappableColumns } from "@/components/benchmarking/job-config/requirements"
+import type { DatasetQuirks } from "@/components/benchmarking/job-config/datasets"
+import {
+  fillsSecondAllele,
+  mappableColumns,
+} from "@/components/benchmarking/job-config/requirements"
 import type {
   EvaluationType,
   ParamSpec,
@@ -66,7 +70,8 @@ function buildPopulation(
   definition: ToolDefinition,
   evaluationType: EvaluationType,
   population: PopulationDraft,
-  split: SplitDraft | undefined
+  split: SplitDraft | undefined,
+  quirks: DatasetQuirks | undefined
 ): WirePopulation {
   const paths = providedPaths(definition, population)
   const wire: WirePopulation = {
@@ -101,17 +106,32 @@ function buildPopulation(
   }
   if (definition.trainValidationSplit && split && population.role === "target")
     wire.split_config = buildSplit(split)
+  if (fillsSecondAllele(definition, population, quirks))
+    wire.fill_second_allele = true
+  if (
+    quirks?.mapToRsid &&
+    definition.ldPanel &&
+    paths.includes("sumstats_path")
+  )
+    wire.map_to_rsid = true
   return wire
 }
 
 export function buildPreProcessing(
   draft: ToolDraft,
-  evaluationType: EvaluationType
+  evaluationType: EvaluationType,
+  quirks?: DatasetQuirks
 ): WirePreProcessing {
   const definition = getToolDefinition(draft.tool)
   const preProcessing: WirePreProcessing = {
     populations: draft.populations.map((population) =>
-      buildPopulation(definition, evaluationType, population, draft.split)
+      buildPopulation(
+        definition,
+        evaluationType,
+        population,
+        draft.split,
+        quirks
+      )
     ),
     sumstats_file_type: draft.sumstats_file_type,
     genotype_config: {
@@ -193,7 +213,8 @@ function buildProcessingBlock(
 
 export function buildToolBlock(
   draft: ToolDraft,
-  evaluationType: EvaluationType
+  evaluationType: EvaluationType,
+  quirks?: DatasetQuirks
 ): WireToolBlock {
   const definition = getToolDefinition(draft.tool)
   const processing: Partial<Record<TraitKind, ParamValues>> = {}
@@ -201,7 +222,7 @@ export function buildToolBlock(
     processing[kind] = buildProcessingBlock(definition, draft.params[kind])
   }
   return {
-    pre_processing: buildPreProcessing(draft, evaluationType),
+    pre_processing: buildPreProcessing(draft, evaluationType, quirks),
     processing,
   }
 }

@@ -32,4 +32,5 @@ export const prsice: ToolDefinition = {
   chromosomeSelection: true,
   hasCovariateColumns: true,
   params: [TRAIT_PARAM],
+  secondAllele: "A2",
 }

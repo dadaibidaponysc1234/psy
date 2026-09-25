@@ -28,6 +28,7 @@ import {
   mappableColumns,
 } from "@/components/benchmarking/job-config"
 import type {
+  DatasetQuirks,
   Issue,
   PopulationDraft,
   ToolDefinition,
@@ -91,6 +92,7 @@ interface ColumnMappingProps {
   jobId: string
   definition: ToolDefinition
   draft: ToolDraft
+  quirks?: DatasetQuirks
   structure: DatasetStructure | null
   issues: Issue[]
   activePopulation: string
@@ -167,6 +169,7 @@ function PopulationColumns({
   jobId,
   definition,
   draft,
+  quirks,
   structure,
   issues,
   update,
@@ -448,7 +451,7 @@ function PopulationColumns({
                   >
                     Mapped
                   </Badge>
-                ) : isColumnRequired(definition, population, column) ? (
+                ) : isColumnRequired(definition, population, column, quirks) ? (
                   <Badge variant="outline" className="bg-red-50 text-red-700">
                     Required
                   </Badge>

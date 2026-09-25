@@ -91,6 +91,7 @@ export function withEvaluationType(
   const running = runKinds(evaluationType)
   const dropped = runKinds("both").filter((kind) => !running.includes(kind))
   return {
+    ...job,
     evaluation_type: evaluationType,
     tools: job.tools.map((draft) => {
       if (dropped.length === 0) return draft

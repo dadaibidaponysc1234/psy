@@ -144,6 +144,13 @@ export interface ToolDefinition {
    * and the target ticks exactly one trait.
    */
   singleTrait?: boolean
+  /**
+   * The column holding the allele that isn't A1 (A2, or REF for BridgePRS), which the backend
+   * can fill from a population's genotypes for a dataset whose summary statistics lack it.
+   */
+  secondAllele?: string
+  /** The tool takes LD from a reference panel, so variant IDs must be rsIDs to match it. */
+  ldPanel?: boolean
   /** Preprocessing settings, sent in `pre_processing.options` and edited under Genotype Configuration. */
   preprocessingOptions?: FieldSpec[]
 }
@@ -231,6 +238,8 @@ export interface ToolDraft {
 export interface JobDraft {
   evaluation_type: EvaluationType
   tools: ToolDraft[]
+  /** The shared dataset the job uses, by name; absent for an upload. Never sent. */
+  shared_dataset?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +273,10 @@ export interface WirePopulation {
   covariate_path?: string
   snp_list_path?: string
   base_model_path?: string
+  /** For a dataset with that quirk: fill the second allele from this population's genotypes. */
+  fill_second_allele?: true
+  /** For a dataset with that quirk: rename `rsid:pos:a1:a2` IDs to the rsID. */
+  map_to_rsid?: true
   column_mapping?: Record<string, string>
   traits?: Partial<Record<TraitKind, string[]>>
   /** On the target, for tools with `trainValidationSplit`. */
