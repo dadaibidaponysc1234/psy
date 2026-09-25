@@ -12,56 +12,17 @@ import axios from "axios"
 import benchmarkApi from "@/lib/benchmark-api"
 import { toast } from "react-hot-toast"
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
+import { TOOL_DEFINITIONS } from "@/components/benchmarking/tools"
 import { useJobId, useJobStatus } from "@/stores/benchmarking-store"
 
-const toolOptions = [
-  {
-    id: "prsice",
-    name: "PRSice",
-    description:
-      "Polygenic Risk Score software for calculating and evaluating polygenic risk scores",
-    category: "PRS Tools",
-    supported: true,
-  },
-  {
-    id: "prscsx",
-    name: "PRScsx",
-    description:
-      "Polygenic Risk Score software for cross-population polygenic prediction",
-    category: "PRS Tools",
-    supported: true,
-  },
-  {
-    id: "bridgeprs",
-    name: "BridgePRS",
-    description:
-      "Bridging polygenic risk scores across populations using transfer learning",
-    category: "PRS Tools",
-    supported: true,
-  },
-  {
-    id: "sdprx",
-    name: "SDPRX",
-    description:
-      "Supervised dimensionality reduction for polygenic risk prediction",
-    category: "PRS Tools",
-    supported: true,
-  },
-  {
-    id: "xpass",
-    name: "XPASS",
-    description: "Cross-population PRS leveraging genetic correlation",
-    category: "PRS Tools",
-    supported: true,
-  },
-  {
-    id: "xpass+",
-    name: "XPASS+",
-    description: "XPASS plus variant for cross-population PRS",
-    category: "PRS Tools",
-    supported: true,
-  },
-]
+// Every tool with a definition; disabled ones show as coming soon and can't be ticked.
+const toolOptions = TOOL_DEFINITIONS.map((definition) => ({
+  id: definition.id,
+  name: definition.label,
+  description: definition.description,
+  category: "PRS Tools",
+  supported: definition.status === "live",
+}))
 
 interface ToolSelectionProps {
   onNext: (data: any) => void

@@ -11,6 +11,7 @@ import type {
   ToolDraft,
   ToolId,
 } from "@/components/benchmarking/job-config"
+import { mappableColumns } from "@/components/benchmarking/job-config/requirements"
 import {
   getToolDefinition,
   TOOL_DEFINITIONS,
@@ -34,12 +35,8 @@ function filledDraft(tool: ToolId): ToolDraft {
   const definition = getToolDefinition(tool)
   const draft = defaultDraft(definition, counterIds())
   const used: Partial<Record<Role, number>> = {}
-  const columns = [
-    ...definition.columns.required,
-    ...definition.columns.optional,
-  ]
-
   draft.populations = draft.populations.map((population) => {
+    const columns = mappableColumns(definition, population.role)
     const index = used[population.role] ?? 0
     used[population.role] = index + 1
     const name = NAMES[population.role][index]
@@ -50,15 +47,23 @@ function filledDraft(tool: ToolId): ToolDraft {
       sumstats_path: `data/sumstats/${name}`,
       genotype_path: `data/genotypes/${name}`,
       phenotype_path: `data/phenotypes/${name}.tsv`,
+      snp_list_path: `data/snps/${name}.txt`,
+      base_model_path: `data/models/${name}.txt`,
       column_mapping: Object.fromEntries(
         columns.map((column) => [column, column.toLowerCase()])
       ),
-      traits: { binary: ["case"], quantitative: ["height", "bmi"] },
+      traits: definition.singleTrait
+        ? { binary: ["case"], quantitative: ["height"] }
+        : { binary: ["case"], quantitative: ["height", "bmi"] },
     }
   })
   if (definition.params.some((spec) => spec.kind === "trait")) {
     draft.params.binary.trait = "case"
     draft.params.quantitative.trait = "height"
+  }
+  if (tool === "tlprs") {
+    for (const kind of ["binary", "quantitative"] as const)
+      Object.assign(draft.params[kind], { covar: "age", ldblocks: "AFR.hg19" })
   }
   if (tool === "sdprx") {
     draft.params.binary.rho = 0.8
@@ -106,7 +111,10 @@ describe("every tool", () => {
   it.each(TOOL_DEFINITIONS.map((definition) => definition.id))(
     "%s: a filled draft is valid",
     (tool) => {
-      expect(validate(filledDraft(tool))).toEqual([])
+      const single = getToolDefinition(tool).singleTrait
+      expect(
+        validate(filledDraft(tool), single ? "quantitative" : "both")
+      ).toEqual([])
     }
   )
 
@@ -285,6 +293,151 @@ describe("the wire shape", () => {
     expect(
       block.pre_processing.populations.map((population) => population.role)
     ).toEqual(["target", "auxiliary", "validation"])
+  })
+
+  it("jointprs: a target and one base; the base sends summary statistics only; rho_cons keyed by role", () => {
+    const block = build([filledDraft("jointprs")], "quantitative").config
+      .jointprs!
+    expect(block.pre_processing.populations).toEqual([
+      expect.objectContaining({ name: "AFR", role: "target", gwas_n: 20000 }),
+      {
+        name: "EUR",
+        role: "base",
+        gwas_n: 80000,
+        sumstats_path: "data/sumstats/EUR",
+        column_mapping: {
+          SNP: "snp",
+          A1: "a1",
+          A2: "a2",
+          BETA: "beta",
+          P: "p",
+        },
+      },
+    ])
+    expect(block.processing).toEqual({
+      quantitative: {
+        trait: "height",
+        phi: 0.01,
+        n_iter: 200,
+        n_burnin: 100,
+        seed: 42,
+        rho_cons: { base: 1, target: 1 },
+      },
+    })
+  })
+
+  it("snpnet: the target alone, no summary statistics or mapping, and its split on the target", () => {
+    const draft = filledDraft("snpnet")
+    const block = build([draft], "binary").config.snpnet!
+    expect(block.pre_processing.populations).toEqual([
+      {
+        name: "AFR",
+        role: "target",
+        gwas_n: 20000,
+        genotype_path: "data/genotypes/AFR",
+        phenotype_path: "data/phenotypes/AFR.tsv",
+        traits: { binary: ["case"] },
+        split_config: {
+          split_proportions: { train: 0.7, val: 0.3 },
+          seed: 42,
+        },
+      },
+    ])
+    expect(block.processing).toEqual({
+      binary: { trait: "case", alpha: 1, nCores: 2, mem: 8000 },
+    })
+
+    draft.split = { ...draft.split!, method: "column", column: " fold " }
+    expect(
+      build([draft], "binary").config.snpnet!.pre_processing.populations[0]
+        .split_config
+    ).toEqual({ split_column: "fold" })
+  })
+
+  it("snpnet: the split's share, seed and column are checked", () => {
+    const draft = filledDraft("snpnet")
+    draft.split = { method: "proportions", train: 1, seed: 1.5, column: "" }
+    expect(messages(draft)).toEqual([
+      "Split: the training share must be between 0 and 1",
+      "Split: the seed must be a whole number of 0 or more",
+    ])
+    draft.split = { ...draft.split, method: "column" }
+    expect(messages(draft)).toEqual([
+      "Split: choose the phenotype column that labels people train or val",
+    ])
+  })
+
+  it("tlprs: the base gives its model file; columns differ by role; the chosen covariate is also listed; preprocessing options go in options", () => {
+    const draft = filledDraft("tlprs")
+    draft.populations[1].column_mapping = { SNP: "snp", A1: "a1", BETA: "beta" }
+    draft.populations[1].gwas_n = null
+    const block = build([draft], "binary").config.tlprs!
+    expect(block.pre_processing.populations[1]).toEqual({
+      name: "EUR",
+      role: "base",
+      sumstats_path: "data/sumstats/EUR",
+      base_model_path: "data/models/EUR.txt",
+      column_mapping: { SNP: "snp", A1: "a1", BETA: "beta" },
+    })
+    expect(
+      Object.keys(block.pre_processing.populations[0].column_mapping!)
+    ).toEqual(["SNP", "A1", "BETA", "N", "P"])
+    expect(block.pre_processing.phenotype_config).toEqual({
+      covariates: ["age"],
+    })
+    expect(block.pre_processing.options).toEqual({
+      evaluation_type: "binary",
+      overwrite_existing: true,
+      genotype_missingness: "drop",
+    })
+    expect(block.processing).toEqual({
+      binary: { trait: "case", covar: "age", ldblocks: "AFR.hg19" },
+    })
+    // TL-PRS reads only the target's size.
+    expect(messages(draft)).toEqual([])
+    draft.populations[0].gwas_n = null
+    draft.populations[0].column_mapping.N = ""
+    expect(messages(draft)).toEqual([
+      "Target (AFR): map the N column or enter the GWAS sample size",
+    ])
+  })
+
+  it("tlprs: the covariate and LD blocks must be chosen", () => {
+    const draft = filledDraft("tlprs")
+    draft.params.binary = { ...draft.params.binary, covar: "", ldblocks: "" }
+    expect(messages(draft)).toEqual([
+      "Binary run: choose the covariate column",
+      "Binary run: LD blocks must be one of AFR.hg19, AFR.hg38, EUR.hg19, EUR.hg38, ASN.hg19, ASN.hg38",
+    ])
+  })
+
+  it("xpblup: the target alone, with its genotypes, phenotypes and SNP list", () => {
+    const block = build([filledDraft("xpblup")], "quantitative").config.xpblup!
+    expect(block.pre_processing.populations).toEqual([
+      {
+        name: "AFR",
+        role: "target",
+        gwas_n: 20000,
+        genotype_path: "data/genotypes/AFR",
+        phenotype_path: "data/phenotypes/AFR.tsv",
+        snp_list_path: "data/snps/AFR.txt",
+        traits: { quantitative: ["height"] },
+      },
+    ])
+    expect(block.processing).toEqual({ quantitative: { trait: "height" } })
+  })
+
+  it("xpblup fits one trait: binary or quantitative, never both, and one ticked", () => {
+    const draft = filledDraft("xpblup")
+    draft.populations[0].traits.quantitative = ["height", "bmi"]
+    expect(messages(draft)).toContain(
+      "XP-BLUP fits one trait per job: set the evaluation type to Binary or Quantitative"
+    )
+    expect(
+      validate(draft, "quantitative").map((issue) => issue.message)
+    ).toEqual(["Target (AFR): XP-BLUP fits one trait, so tick only one"])
+    draft.populations[0].traits.quantitative = ["height"]
+    expect(validate(draft, "quantitative")).toEqual([])
   })
 
   it("the job's evaluation type decides the blocks sent and is copied into every tool's options", () => {

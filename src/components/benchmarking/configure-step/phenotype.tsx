@@ -7,6 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   describePopulation,
   runKinds,
 } from "@/components/benchmarking/job-config"
@@ -15,6 +22,7 @@ import type {
   Issue,
   PathKey,
   PopulationDraft,
+  SplitDraft,
   ToolDefinition,
   ToolDraft,
   TraitKind,
@@ -24,7 +32,10 @@ import {
   takesCovariates,
 } from "@/components/benchmarking/job-config/serialize"
 import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
-import { FieldIssues } from "@/components/benchmarking/configure-step/form-parts"
+import {
+  FieldIssues,
+  NumberInput,
+} from "@/components/benchmarking/configure-step/form-parts"
 import { fieldId } from "@/components/benchmarking/configure-step/issues"
 import { previewFiles } from "@/components/benchmarking/configure-step/preview"
 import {
@@ -76,7 +87,7 @@ export function EvaluationNote({
 }
 
 /** Loads a file's headers for picking columns: a folder shows its first file. */
-function useHeaders(
+export function useHeaders(
   jobId: string,
   structure: DatasetStructure | null,
   path: string
@@ -381,6 +392,138 @@ function Covariates(props: PhenotypeProps) {
   )
 }
 
+const SPLIT_METHODS: Record<SplitDraft["method"], string> = {
+  proportions: "By proportion",
+  column: "By a phenotype column",
+}
+
+/** How the target's people are split into the model's training and validation sets. */
+function TrainValidationSplit(props: PhenotypeProps) {
+  const { jobId, definition, draft, structure, issues, update } = props
+  const split = draft.split
+  const target = draft.populations.find(
+    (population) => population.role === "target"
+  )
+  const { headers } = useHeaders(
+    jobId,
+    structure,
+    target?.phenotype_path.trim() ?? ""
+  )
+  if (!split) return null
+  const set = (change: Partial<SplitDraft>) =>
+    update((current) => ({
+      ...current,
+      split: { ...split, ...current.split, ...change } as SplitDraft,
+    }))
+  const id = (path: string) => fieldId(draft.tool, path)
+  const columns = [
+    ...headers,
+    ...(split.column && !headers.includes(split.column) ? [split.column] : []),
+  ]
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <div>
+        <p className="text-sm font-medium">Training and validation split</p>
+        <p className="text-xs text-muted-foreground">
+          {definition.label} trains on one part of{" "}
+          {target ? describePopulation(definition, target) : "the target"} and
+          validates on the rest.
+        </p>
+      </div>
+      <div id={id("split.method")} className="space-y-2">
+        <Label className="text-xs uppercase">Split</Label>
+        <Select
+          value={split.method}
+          onValueChange={(method) =>
+            set({ method: method as SplitDraft["method"] })
+          }
+        >
+          <SelectTrigger className="md:w-72">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(SPLIT_METHODS) as SplitDraft["method"][]).map(
+              (method) => (
+                <SelectItem key={method} value={method}>
+                  {SPLIT_METHODS[method]}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
+        <FieldIssues issues={issues} path="split.method" />
+      </div>
+      {split.method === "proportions" ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div id={id("split.train")} className="space-y-2">
+            <Label htmlFor={`${id("split.train")}-input`} className="text-sm">
+              Training share
+            </Label>
+            <NumberInput
+              id={`${id("split.train")}-input`}
+              placeholder="0.7"
+              value={split.train}
+              onChange={(train) => set({ train })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Between 0 and 1; the rest validate.
+            </p>
+            <FieldIssues issues={issues} path="split.train" />
+          </div>
+          <div id={id("split.seed")} className="space-y-2">
+            <Label htmlFor={`${id("split.seed")}-input`} className="text-sm">
+              Seed
+            </Label>
+            <NumberInput
+              id={`${id("split.seed")}-input`}
+              integer
+              placeholder="42"
+              value={split.seed}
+              onChange={(seed) => set({ seed })}
+            />
+            <p className="text-xs text-muted-foreground">
+              The same seed puts the same people in each set.
+            </p>
+            <FieldIssues issues={issues} path="split.seed" />
+          </div>
+        </div>
+      ) : (
+        <div id={id("split.column")} className="space-y-2">
+          <Label className="text-sm">Split column</Label>
+          {columns.length > 0 ? (
+            <Select
+              value={split.column || undefined}
+              onValueChange={(column) => set({ column })}
+            >
+              <SelectTrigger className="md:w-72">
+                <SelectValue placeholder="Select phenotype column" />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((column) => (
+                  <SelectItem key={column} value={column}>
+                    {column}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Preview the target&apos;s phenotype file above to choose the
+              column.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Each person&apos;s value must be <code>train</code> or{" "}
+            <code>val</code>; people with neither are left out.
+          </p>
+          <FieldIssues issues={issues} path="split.column" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Traits per population, and covariates for tools whose populations can take a covariate file. */
 export function Phenotype(props: PhenotypeProps) {
   const { definition, draft } = props
@@ -391,16 +534,20 @@ export function Phenotype(props: PhenotypeProps) {
   )
   return (
     <div className="space-y-4">
-      <EvaluationNote
-        evaluationType={props.evaluationType}
-        what="select {kind} traits"
-      />
+      <div id={fieldId(draft.tool, "evaluation_type")}>
+        <EvaluationNote
+          evaluationType={props.evaluationType}
+          what="select {kind} traits"
+        />
+        <FieldIssues issues={props.issues} path="evaluation_type" />
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {withPhenotype.map((population) => (
           <TraitCard key={population.id} {...props} population={population} />
         ))}
       </div>
       <Covariates {...props} />
+      {definition.trainValidationSplit && <TrainValidationSplit {...props} />}
     </div>
   )
 }

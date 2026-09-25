@@ -64,6 +64,8 @@ function mappingOnly(saved: ToolDraft): ToolDraft {
       genotype_path: population.genotype_path,
       phenotype_path: population.phenotype_path,
       covariate_path: population.covariate_path,
+      snp_list_path: population.snp_list_path,
+      base_model_path: population.base_model_path,
       included_paths: population.included_paths,
     })),
   }

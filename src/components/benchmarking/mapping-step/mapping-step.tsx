@@ -53,6 +53,7 @@ import {
 } from "@/components/benchmarking/mapping-step/path-checks"
 import { PrscsxPopulations } from "@/components/benchmarking/mapping-step/prscsx-populations"
 import { useDatasetStructure } from "@/components/benchmarking/mapping-step/use-dataset-structure"
+import { takesSumstats } from "@/components/benchmarking/job-config/serialize"
 import { getToolDefinition } from "@/components/benchmarking/tools"
 import { useBenchmarkingStore, useJobDraft } from "@/stores/benchmarking-store"
 
@@ -273,18 +274,20 @@ export function ToolMapping({
                   update((current) => setGenotypeLayout(current, fileType))
                 }
               />
-              <LayoutSelect
-                label="Sumstats file structure"
-                help={SUMSTATS_HELP}
-                placeholder="Select sumstats file type"
-                value={draft.sumstats_file_type}
-                onChange={(fileType) =>
-                  update((current) => ({
-                    ...current,
-                    sumstats_file_type: fileType,
-                  }))
-                }
-              />
+              {takesSumstats(definition) && (
+                <LayoutSelect
+                  label="Sumstats file structure"
+                  help={SUMSTATS_HELP}
+                  placeholder="Select sumstats file type"
+                  value={draft.sumstats_file_type}
+                  onChange={(fileType) =>
+                    update((current) => ({
+                      ...current,
+                      sumstats_file_type: fileType,
+                    }))
+                  }
+                />
+              )}
             </div>
           </CardContent>
         </Card>

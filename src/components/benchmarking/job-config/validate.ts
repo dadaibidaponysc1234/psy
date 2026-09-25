@@ -4,7 +4,9 @@ import {
   runKinds,
 } from "@/components/benchmarking/job-config/defaults"
 import {
+  columnsFor,
   describePopulation,
+  gwasNFor,
   isColumnRequired,
   N_COLUMN,
 } from "@/components/benchmarking/job-config/requirements"
@@ -20,6 +22,7 @@ import type {
   JobDraft,
   NumberField,
   ParamSpec,
+  SplitDraft,
   Step,
   ToolDefinition,
   ToolDraft,
@@ -32,6 +35,8 @@ const PATH_LABELS = {
   genotype_path: "genotypes",
   phenotype_path: "phenotypes",
   covariate_path: "covariates",
+  snp_list_path: "SNP list",
+  base_model_path: "base model",
 } as const
 
 type Report = (step: Step, path: string, message: string) => void
@@ -101,6 +106,7 @@ function checkPopulations(
         )
     }
 
+    const gwasN = gwasNFor(definition, population.role)
     const n = population.gwas_n
     const nMapped = Boolean(population.column_mapping[N_COLUMN]?.trim())
     if (n !== null) {
@@ -110,13 +116,13 @@ function checkPopulations(
           `${at}.gwas_n`,
           `${label}: the GWAS sample size must be a whole number above 0`
         )
-    } else if (definition.gwasN === "required") {
+    } else if (gwasN === "required") {
       report(
         "configure",
         `${at}.gwas_n`,
         `${label}: enter the GWAS sample size`
       )
-    } else if (definition.gwasN === "unless_n_column" && !nMapped) {
+    } else if (gwasN === "unless_n_column" && !nMapped) {
       report(
         "configure",
         `${at}.gwas_n`,
@@ -124,11 +130,10 @@ function checkPopulations(
       )
     }
 
-    for (const column of definition.columns.required) {
+    for (const column of columnsFor(definition, population.role).required) {
       if (!isColumnRequired(definition, population, column)) continue
       // Reported above, with the GWAS sample size that can stand in for it.
-      if (column === N_COLUMN && definition.gwasN === "unless_n_column")
-        continue
+      if (column === N_COLUMN && gwasN === "unless_n_column") continue
       if (!population.column_mapping[column]?.trim()) {
         report(
           "configure",
@@ -141,7 +146,13 @@ function checkPopulations(
     // Every population with a phenotype file picks traits of each evaluated kind, as the old forms required.
     if (definition.hasTraits && population.phenotype_path.trim()) {
       for (const kind of kinds) {
-        if (population.traits[kind].length === 0) {
+        if (definition.singleTrait && population.traits[kind].length > 1) {
+          report(
+            "configure",
+            `${at}.traits.${kind}`,
+            `${label}: ${definition.label} fits one trait, so tick only one`
+          )
+        } else if (population.traits[kind].length === 0) {
           report(
             "configure",
             `${at}.traits.${kind}`,
@@ -229,6 +240,16 @@ function checkParam(
     return
   }
 
+  if (spec.kind === "covariate") {
+    if (typeof value !== "string" || !value.trim())
+      report(
+        "configure",
+        path,
+        capitalize(`${prefix}choose the ${spec.label.toLowerCase()} column`)
+      )
+    return
+  }
+
   if (spec.kind === "per_role") {
     const byRole = (value ?? {}) as Record<string, unknown>
     for (const role of spec.roles) {
@@ -259,6 +280,37 @@ function checkParam(
   checkField(spec, value, path, sayAbout(spec.label))
 }
 
+function checkSplit(split: SplitDraft | undefined, report: Report) {
+  if (!split) {
+    report("configure", "split.method", "Split: choose how to split the target")
+    return
+  }
+  if (split.method === "column") {
+    if (!split.column.trim())
+      report(
+        "configure",
+        "split.column",
+        "Split: choose the phenotype column that labels people train or val"
+      )
+    return
+  }
+  const { train, seed } = split
+  if (train === null || !Number.isFinite(train))
+    report("configure", "split.train", "Split: enter the training share")
+  else if (train <= 0 || train >= 1)
+    report(
+      "configure",
+      "split.train",
+      "Split: the training share must be between 0 and 1"
+    )
+  if (seed === null || !Number.isInteger(seed) || seed < 0)
+    report(
+      "configure",
+      "split.seed",
+      "Split: the seed must be a whole number of 0 or more"
+    )
+}
+
 export function validateDraft(
   draft: ToolDraft,
   evaluationType: EvaluationType
@@ -285,6 +337,13 @@ export function validateDraft(
       )
   }
 
+  if (definition.singleTrait && evaluationType === "both")
+    report(
+      "configure",
+      "evaluation_type",
+      `${definition.label} fits one trait per job: set the evaluation type to Binary or Quantitative`
+    )
+
   const chrom = draft.genotype.chrom
   if (!definition.chromosomeSelection && chrom.length > 0) {
     report(
@@ -310,6 +369,17 @@ export function validateDraft(
         draft,
         report
       )
+  }
+
+  if (definition.trainValidationSplit) checkSplit(draft.split, report)
+
+  for (const field of definition.preprocessingOptions ?? []) {
+    checkField(
+      field,
+      draft.preprocessing?.[field.key],
+      `preprocessing.${field.key}`,
+      (at, problem) => report("configure", at, `${field.label} ${problem}`)
+    )
   }
 
   if (

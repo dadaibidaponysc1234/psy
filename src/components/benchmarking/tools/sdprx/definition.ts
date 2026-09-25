@@ -8,6 +8,8 @@ import {
 export const sdprx: ToolDefinition = {
   id: "sdprx",
   label: "SDPRX",
+  description:
+    "Supervised dimensionality reduction for polygenic risk prediction",
   status: "live",
   populations: [
     roleRule("target", "Target", EXACTLY_ONE, {

@@ -11,6 +11,8 @@ const FILE_LABELS: Record<PathKey, string> = {
   genotype_path: "Genotype Directory",
   phenotype_path: "Phenotype File",
   covariate_path: "Covariate File",
+  snp_list_path: "SNP List",
+  base_model_path: "Base Model",
 }
 
 const FILE_DESCRIPTIONS: Record<PathKey, string> = {
@@ -19,6 +21,8 @@ const FILE_DESCRIPTIONS: Record<PathKey, string> = {
     "Directory containing PLINK format genotype files (.bed, .bim, .fam)",
   phenotype_path: "Phenotype data file",
   covariate_path: "Optional covariate data",
+  snp_list_path: "SNP list file, one variant ID per line,",
+  base_model_path: "Base model weights file (SNP, A1, beta)",
 }
 
 /** One mapping card: a file one population provides. */

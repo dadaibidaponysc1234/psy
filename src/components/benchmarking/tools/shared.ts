@@ -1,5 +1,7 @@
 import type {
+  ColumnRule,
   FieldSpec,
+  GwasNRule,
   ParamSpec,
   PathKey,
   Role,
@@ -11,7 +13,13 @@ export function roleRule(
   role: Role,
   label: string,
   count: { min: number; max: number },
-  files: { required: PathKey[]; optional?: PathKey[]; help?: string }
+  files: {
+    required: PathKey[]
+    optional?: PathKey[]
+    help?: string
+    columns?: ColumnRule
+    gwasN?: GwasNRule
+  }
 ): RoleRule {
   return {
     role,
@@ -20,6 +28,8 @@ export function roleRule(
     requiredPaths: files.required,
     optionalPaths: files.optional ?? [],
     help: files.help,
+    columns: files.columns,
+    gwasN: files.gwasN,
   }
 }
 

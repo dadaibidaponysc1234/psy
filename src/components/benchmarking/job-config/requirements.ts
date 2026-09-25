@@ -1,11 +1,33 @@
 import { ruleFor } from "@/components/benchmarking/job-config/defaults"
 import type {
+  ColumnRule,
+  GwasNRule,
   PopulationDraft,
+  Role,
   ToolDefinition,
 } from "@/components/benchmarking/job-config/types"
 
 /** The summary-statistics column a GWAS sample size can stand in for. */
 export const N_COLUMN = "N"
+
+/** The summary-statistics columns a population of this role maps. */
+export function columnsFor(definition: ToolDefinition, role: Role): ColumnRule {
+  return ruleFor(definition, role)?.columns ?? definition.columns
+}
+
+/** The GWAS sample size rule for a population of this role. */
+export function gwasNFor(definition: ToolDefinition, role: Role): GwasNRule {
+  return ruleFor(definition, role)?.gwasN ?? definition.gwasN
+}
+
+/** Every column a population of this role may map, required first. */
+export function mappableColumns(
+  definition: ToolDefinition,
+  role: Role
+): string[] {
+  const { required, optional } = columnsFor(definition, role)
+  return [...required, ...optional]
+}
 
 /** "Target (AFR)", or "Target" before the population is named. */
 export function describePopulation(
@@ -24,7 +46,7 @@ export function isGwasNRequired(
   definition: ToolDefinition,
   population: PopulationDraft
 ): boolean {
-  switch (definition.gwasN) {
+  switch (gwasNFor(definition, population.role)) {
     case "required":
       return true
     case "unless_n_column":
@@ -43,7 +65,11 @@ export function isColumnRequired(
   population: PopulationDraft,
   column: string
 ): boolean {
-  if (!definition.columns.required.includes(column)) return false
+  if (!columnsFor(definition, population.role).required.includes(column))
+    return false
   if (column !== N_COLUMN) return true
-  return definition.gwasN !== "required" && population.gwas_n === null
+  return (
+    gwasNFor(definition, population.role) !== "required" &&
+    population.gwas_n === null
+  )
 }

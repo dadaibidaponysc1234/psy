@@ -181,6 +181,19 @@ describe("ToolForm", () => {
     expect(latest.params.quantitative.compPosMean).toBe(false)
   })
 
+  it("snpnet has no column mapping, and sets its training split under Phenotype", () => {
+    render(<Harness tool="snpnet" />)
+    expect(screen.queryByText("Column Mapping")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText("Phenotype Configuration"))
+    fireEvent.change(screen.getByLabelText("Training share"), {
+      target: { value: "1.2" },
+    })
+    expect(latest.split?.train).toBe(1.2)
+    expect(
+      screen.getByText("Split: the training share must be between 0 and 1")
+    ).toBeInTheDocument()
+  })
+
   it("sections show what's left to fix", () => {
     render(<Harness tool="sdprx" />)
     expect(screen.getAllByText(/to fix$/).length).toBeGreaterThan(0)

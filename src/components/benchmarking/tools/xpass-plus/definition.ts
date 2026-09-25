@@ -10,6 +10,7 @@ const CLUMPED_ROLES = ["target", "auxiliary"] as const
 export const xpassPlus: ToolDefinition = {
   id: "xpass+",
   label: "XPASS+",
+  description: "XPASS plus variant for cross-population PRS",
   status: "live",
   populations: xpassPopulations("XPASS+"),
   columns: XPASS_COLUMNS,

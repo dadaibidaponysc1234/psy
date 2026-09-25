@@ -34,6 +34,7 @@ export const XPASS_COLUMNS = {
 export const xpass: ToolDefinition = {
   id: "xpass",
   label: "XPASS",
+  description: "Cross-population PRS leveraging genetic correlation",
   status: "live",
   populations: xpassPopulations("XPASS"),
   columns: XPASS_COLUMNS,

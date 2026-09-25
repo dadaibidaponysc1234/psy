@@ -8,6 +8,8 @@ import {
 export const bridgeprs: ToolDefinition = {
   id: "bridgeprs",
   label: "BridgePRS",
+  description:
+    "Bridging polygenic risk scores across populations using transfer learning",
   status: "live",
   populations: [
     roleRule("target", "Target", EXACTLY_ONE, {

@@ -6,6 +6,7 @@ import type {
   ParamValues,
   PopulationDraft,
   Role,
+  SplitDraft,
   RoleRule,
   ToolDefinition,
   ToolDraft,
@@ -25,6 +26,7 @@ const fieldDefault = (field: FieldSpec) => field.default ?? null
 export function defaultParamValue(spec: ParamSpec): ParamValue {
   switch (spec.kind) {
     case "trait":
+    case "covariate":
       return ""
     case "per_role":
       return Object.fromEntries(
@@ -69,6 +71,8 @@ export function newPopulation(
     genotype_path: "",
     phenotype_path: "",
     covariate_path: "",
+    snp_list_path: "",
+    base_model_path: "",
     included_paths: [],
     column_mapping: {},
     traits: { binary: [], quantitative: [] },
@@ -82,11 +86,19 @@ export function runKinds(evaluationType: EvaluationType): TraitKind[] {
     : [evaluationType]
 }
 
+/** 70% of the target's people train the model, assigned by a hash seeded with 42. */
+export const DEFAULT_SPLIT: SplitDraft = {
+  method: "proportions",
+  train: 0.7,
+  seed: 42,
+  column: "",
+}
+
 export function defaultDraft(
   definition: ToolDefinition,
   newId: IdFactory = randomId
 ): ToolDraft {
-  return {
+  const draft: ToolDraft = {
     tool: definition.id,
     populations: definition.populations.flatMap((rule) =>
       Array.from({ length: rule.min }, () => newPopulation(rule.role, newId))
@@ -100,6 +112,15 @@ export function defaultDraft(
       quantitative: defaultParams(definition),
     },
   }
+  if (definition.trainValidationSplit) draft.split = { ...DEFAULT_SPLIT }
+  if (definition.preprocessingOptions)
+    draft.preprocessing = Object.fromEntries(
+      definition.preprocessingOptions.map((field) => [
+        field.key,
+        fieldDefault(field),
+      ])
+    )
+  return draft
 }
 
 /** Sorted, de-duplicated autosomes. `[]` means genome-wide. */

@@ -22,7 +22,9 @@ export {
 export {
   describePopulation,
   isColumnRequired,
+  gwasNFor,
   isGwasNRequired,
+  mappableColumns,
   N_COLUMN,
 } from "@/components/benchmarking/job-config/requirements"
 export {

@@ -32,7 +32,11 @@ import {
 } from "@/components/benchmarking/configure-step/form-parts"
 import { fieldId } from "@/components/benchmarking/configure-step/issues"
 import { withParam } from "@/components/benchmarking/configure-step/params"
-import { EvaluationNote } from "@/components/benchmarking/configure-step/phenotype"
+import {
+  EvaluationNote,
+  useHeaders,
+} from "@/components/benchmarking/configure-step/phenotype"
+import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
 
 type Update = (change: (draft: ToolDraft) => ToolDraft) => void
 
@@ -42,6 +46,8 @@ const KIND_LABELS: Record<TraitKind, string> = {
 }
 
 interface ProcessingProps {
+  jobId: string
+  structure: DatasetStructure | null
   definition: ToolDefinition
   draft: ToolDraft
   evaluationType: EvaluationType
@@ -52,7 +58,7 @@ interface ProcessingProps {
 }
 
 /** One input for a field: a checkbox, a select or a number. */
-function FieldInput({
+export function FieldInput({
   field,
   value,
   path,
@@ -95,7 +101,7 @@ function FieldInput({
       </Label>
       {field.kind === "select" ? (
         <Select
-          value={typeof value === "string" ? value : undefined}
+          value={typeof value === "string" && value ? value : undefined}
           onValueChange={onChange}
         >
           <SelectTrigger id={`${id}-input`}>
@@ -176,6 +182,75 @@ function TraitSelect({
         </p>
       )}
       {spec.help && traits.length > 0 && (
+        <p className="text-xs text-muted-foreground">{spec.help}</p>
+      )}
+      <FieldIssues issues={issues} path={path} />
+    </div>
+  )
+}
+
+/** A column of the target's phenotype file, picked from its previewed headers. */
+function CovariateSelect({
+  spec,
+  jobId,
+  structure,
+  definition,
+  draft,
+  kind,
+  issues,
+  onChange,
+}: {
+  spec: ParamSpec
+  jobId: string
+  structure: DatasetStructure | null
+  definition: ToolDefinition
+  draft: ToolDraft
+  kind: TraitKind
+  issues: Issue[]
+  onChange: (value: string) => void
+}) {
+  const path = `params.${kind}.${spec.key}`
+  const target = draft.populations.find(
+    (population) => population.role === "target"
+  )
+  const { headers } = useHeaders(
+    jobId,
+    structure,
+    target?.phenotype_path.trim() ?? ""
+  )
+  const value = draft.params[kind]?.[spec.key]
+  const chosen = typeof value === "string" ? value : ""
+  const traits = target?.traits[kind] ?? []
+  const columns = [
+    ...headers.filter((header) => !traits.includes(header)),
+    ...(chosen && !headers.includes(chosen) ? [chosen] : []),
+  ]
+  const targetLabel = target
+    ? describePopulation(definition, target)
+    : "the target"
+  return (
+    <div id={fieldId(draft.tool, path)} className="space-y-2">
+      <Label className="text-sm">{spec.label}</Label>
+      {columns.length > 0 ? (
+        <Select value={chosen || undefined} onValueChange={onChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select phenotype column" />
+          </SelectTrigger>
+          <SelectContent>
+            {columns.map((column) => (
+              <SelectItem key={column} value={column}>
+                {column}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Preview {targetLabel}&apos;s phenotype file under Phenotype
+          Configuration to choose this column.
+        </p>
+      )}
+      {spec.help && (
         <p className="text-xs text-muted-foreground">{spec.help}</p>
       )}
       <FieldIssues issues={issues} path={path} />
@@ -271,6 +346,8 @@ function PerRoleBoxes({
 }
 
 function RunFields({
+  jobId,
+  structure,
   definition,
   draft,
   kind,
@@ -290,6 +367,20 @@ function RunFields({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {definition.params.map((spec) => {
           if (spec.kind === "per_role") return null
+          if (spec.kind === "covariate")
+            return (
+              <CovariateSelect
+                key={spec.key}
+                spec={spec}
+                jobId={jobId}
+                structure={structure}
+                definition={definition}
+                draft={draft}
+                kind={kind}
+                issues={issues}
+                onChange={(value) => set(spec.key, value)}
+              />
+            )
           if (spec.kind === "trait")
             return (
               <TraitSelect

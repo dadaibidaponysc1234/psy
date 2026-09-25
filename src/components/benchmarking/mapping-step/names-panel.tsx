@@ -30,6 +30,8 @@ const FILE_NAMES: Record<PathKey, string> = {
   genotype_path: "genotype",
   phenotype_path: "phenotype",
   covariate_path: "covariate",
+  snp_list_path: "SNP list",
+  base_model_path: "base model",
 }
 
 const GRID_COLUMNS: Record<number, string> = {

@@ -19,7 +19,10 @@ import type {
   ToolDraft,
   TraitKind,
 } from "@/components/benchmarking/job-config"
-import { takesCovariates } from "@/components/benchmarking/job-config/serialize"
+import {
+  takesCovariates,
+  takesSumstats,
+} from "@/components/benchmarking/job-config/serialize"
 import type { DatasetStructure } from "@/components/benchmarking/mapping-step/dataset"
 import { ColumnMapping } from "@/components/benchmarking/configure-step/column-mapping"
 import {
@@ -34,7 +37,10 @@ import {
   type SectionId,
 } from "@/components/benchmarking/configure-step/issues"
 import { Phenotype } from "@/components/benchmarking/configure-step/phenotype"
-import { Processing } from "@/components/benchmarking/configure-step/processing"
+import {
+  FieldInput,
+  Processing,
+} from "@/components/benchmarking/configure-step/processing"
 
 /** Which sections are open and which tabs are showing; the page moves these to jump to an issue. */
 export interface FormNav {
@@ -49,6 +55,7 @@ export const INITIAL_NAV: FormNav = { open: { columns: true } }
 /** The sections a tool's form has. */
 export function formSections(definition: ToolDefinition): SectionId[] {
   return SECTION_ORDER.filter((section) => {
+    if (section === "columns") return takesSumstats(definition)
     if (section === "phenotype")
       return definition.hasTraits || takesCovariates(definition)
     if (section === "processing") return definition.params.length > 0
@@ -93,33 +100,59 @@ export function ToolForm(props: ToolFormProps) {
       />
     ),
     phenotype: () => <Phenotype {...props} />,
-    genotype: () =>
-      definition.chromosomeSelection ? (
-        <div id={fieldId(draft.tool, "genotype.chrom")} className="space-y-2">
-          <Label className="text-xs uppercase">Chromosomes</Label>
-          <ChromosomeMultiSelect
-            value={draft.genotype.chrom}
-            onChange={(chrom) =>
-              update((current) => ({
-                ...current,
-                genotype: {
-                  ...current.genotype,
-                  chrom: normalizeChromosomes(chrom),
-                },
-              }))
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            Select one or more chromosomes to process. Leave empty to process
-            all.
+    genotype: () => (
+      <div className="space-y-4">
+        {definition.chromosomeSelection ? (
+          <div id={fieldId(draft.tool, "genotype.chrom")} className="space-y-2">
+            <Label className="text-xs uppercase">Chromosomes</Label>
+            <ChromosomeMultiSelect
+              value={draft.genotype.chrom}
+              onChange={(chrom) =>
+                update((current) => ({
+                  ...current,
+                  genotype: {
+                    ...current.genotype,
+                    chrom: normalizeChromosomes(chrom),
+                  },
+                }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Select one or more chromosomes to process. Leave empty to process
+              all.
+            </p>
+            <FieldIssues issues={issues} path="genotype.chrom" />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {label} always runs on every chromosome.
           </p>
-          <FieldIssues issues={issues} path="genotype.chrom" />
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {label} always runs on every chromosome.
-        </p>
-      ),
+        )}
+        {definition.preprocessingOptions && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {definition.preprocessingOptions.map((field) => (
+              <FieldInput
+                key={field.key}
+                field={field}
+                value={draft.preprocessing?.[field.key] ?? undefined}
+                path={`preprocessing.${field.key}`}
+                tool={draft.tool}
+                issues={issues}
+                onChange={(value) =>
+                  update((current) => ({
+                    ...current,
+                    preprocessing: {
+                      ...current.preprocessing,
+                      [field.key]: value as string | number | boolean | null,
+                    },
+                  }))
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    ),
     processing: () => (
       <Processing
         {...props}

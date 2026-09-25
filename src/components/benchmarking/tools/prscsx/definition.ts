@@ -8,6 +8,8 @@ import {
 export const prscsx: ToolDefinition = {
   id: "prscsx",
   label: "PRScsx",
+  description:
+    "Polygenic Risk Score software for cross-population polygenic prediction",
   status: "live",
   populations: [
     roleRule("target", "Target", EXACTLY_ONE, {

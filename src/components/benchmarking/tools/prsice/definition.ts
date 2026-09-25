@@ -8,6 +8,8 @@ import {
 export const prsice: ToolDefinition = {
   id: "prsice",
   label: "PRSice",
+  description:
+    "Polygenic Risk Score software for calculating and evaluating polygenic risk scores",
   status: "live",
   populations: [
     roleRule("target", "Target", EXACTLY_ONE, {

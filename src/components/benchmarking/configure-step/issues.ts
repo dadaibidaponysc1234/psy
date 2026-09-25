@@ -41,6 +41,8 @@ export function locateIssue(issue: Issue): IssueLocation | null {
         populationId: parts[1],
       }
     case "covariates":
+    case "split":
+    case "evaluation_type":
       return { section: "phenotype" }
     case "params":
       return { section: "processing", kind: parts[1] as TraitKind }

@@ -24,6 +24,8 @@ import {
   describePopulation,
   isColumnRequired,
   isGwasNRequired,
+  gwasNFor,
+  mappableColumns,
 } from "@/components/benchmarking/job-config"
 import type {
   Issue,
@@ -176,10 +178,7 @@ function PopulationColumns({
 }) {
   const { entries, cursors, load, setCursor } = usePreviews()
   const label = describePopulation(definition, population)
-  const columns = [
-    ...definition.columns.required,
-    ...definition.columns.optional,
-  ]
+  const columns = mappableColumns(definition, population.role)
   const mapping = population.column_mapping
 
   const source = population.sumstats_path.trim()
@@ -539,7 +538,7 @@ function PopulationColumns({
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {GWAS_HELP[definition.gwasN](definition.label)}
+          {GWAS_HELP[gwasNFor(definition, population.role)](definition.label)}
         </p>
         <div className="mt-3 max-w-xs">
           <NumberInput

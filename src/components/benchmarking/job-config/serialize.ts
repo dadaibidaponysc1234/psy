@@ -3,6 +3,7 @@ import {
   ruleFor,
   runKinds,
 } from "@/components/benchmarking/job-config/defaults"
+import { mappableColumns } from "@/components/benchmarking/job-config/requirements"
 import type {
   EvaluationType,
   ParamSpec,
@@ -10,11 +11,13 @@ import type {
   ParamValues,
   PathKey,
   PopulationDraft,
+  SplitDraft,
   ToolDefinition,
   ToolDraft,
   TraitKind,
   WirePopulation,
   WirePreProcessing,
+  WireSplitConfig,
   WireToolBlock,
 } from "@/components/benchmarking/job-config/types"
 import { getToolDefinition } from "@/components/benchmarking/tools"
@@ -41,10 +44,29 @@ export function takesCovariates(definition: ToolDefinition): boolean {
   )
 }
 
+/** Whether any population of the tool gives summary statistics; tools fitted on genotypes alone don't. */
+export function takesSumstats(definition: ToolDefinition): boolean {
+  return definition.populations.some((rule) =>
+    [...rule.requiredPaths, ...rule.optionalPaths].includes("sumstats_path")
+  )
+}
+
+/** The split as the backend reads it; validation has already checked its numbers. */
+function buildSplit(split: SplitDraft): WireSplitConfig {
+  if (split.method === "column") return { split_column: split.column.trim() }
+  const train = split.train ?? 0
+  return {
+    // Rounded so the two shares sum to 1 within the backend's tolerance.
+    split_proportions: { train, val: Number((1 - train).toFixed(6)) },
+    seed: split.seed ?? 0,
+  }
+}
+
 function buildPopulation(
   definition: ToolDefinition,
   evaluationType: EvaluationType,
-  population: PopulationDraft
+  population: PopulationDraft,
+  split: SplitDraft | undefined
 ): WirePopulation {
   const paths = providedPaths(definition, population)
   const wire: WirePopulation = {
@@ -60,10 +82,7 @@ function buildPopulation(
   const prefix = population.sumstats_prefix.trim()
   if (prefix && paths.includes("sumstats_path")) wire.sumstats_prefix = prefix
 
-  const columns = [
-    ...definition.columns.required,
-    ...definition.columns.optional,
-  ]
+  const columns = mappableColumns(definition, population.role)
   if (columns.length > 0) {
     wire.column_mapping = Object.fromEntries(
       columns
@@ -80,6 +99,8 @@ function buildPopulation(
       runKinds(evaluationType).map((kind) => [kind, population.traits[kind]])
     )
   }
+  if (definition.trainValidationSplit && split && population.role === "target")
+    wire.split_config = buildSplit(split)
   return wire
 }
 
@@ -90,7 +111,7 @@ export function buildPreProcessing(
   const definition = getToolDefinition(draft.tool)
   const preProcessing: WirePreProcessing = {
     populations: draft.populations.map((population) =>
-      buildPopulation(definition, evaluationType, population)
+      buildPopulation(definition, evaluationType, population, draft.split)
     ),
     sumstats_file_type: draft.sumstats_file_type,
     genotype_config: {
@@ -104,6 +125,13 @@ export function buildPreProcessing(
       overwrite_existing: true,
     },
   }
+  for (const field of definition.preprocessingOptions ?? []) {
+    const value = draft.preprocessing?.[field.key]
+    if (value !== undefined && value !== null)
+      preProcessing.options[field.key] = value
+  }
+  const chosen = chosenCovariates(definition, draft, evaluationType)
+  if (chosen.length > 0) preProcessing.phenotype_config = { covariates: chosen }
   if (takesCovariates(definition)) {
     preProcessing.phenotype_config = {
       covariate_id_mapping: draft.covariates.id_mapping,
@@ -117,6 +145,24 @@ export function buildPreProcessing(
   return preProcessing
 }
 
+/** The phenotype columns a `covariate` parameter chose in the runs sent, each once. */
+function chosenCovariates(
+  definition: ToolDefinition,
+  draft: ToolDraft,
+  evaluationType: EvaluationType
+): string[] {
+  const chosen: string[] = []
+  for (const spec of definition.params) {
+    if (spec.kind !== "covariate") continue
+    for (const kind of runKinds(evaluationType)) {
+      const value = draft.params[kind]?.[spec.key]
+      const column = typeof value === "string" ? value.trim() : ""
+      if (column && !chosen.includes(column)) chosen.push(column)
+    }
+  }
+  return chosen
+}
+
 function buildParam(
   spec: ParamSpec,
   value: ParamValue | undefined
@@ -125,7 +171,11 @@ function buildParam(
   if (spec.kind === "per_role" && value && typeof value === "object") {
     return Object.fromEntries(spec.roles.map((role) => [role, value[role]]))
   }
-  if (spec.kind === "trait" && typeof value === "string") return value.trim()
+  if (
+    (spec.kind === "trait" || spec.kind === "covariate") &&
+    typeof value === "string"
+  )
+    return value.trim()
   return value
 }
 
