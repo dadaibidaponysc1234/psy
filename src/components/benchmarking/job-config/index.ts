@@ -25,6 +25,7 @@ export {
   withEvaluationType,
 } from "@/components/benchmarking/job-config/job-draft"
 export {
+  columnsFor,
   describePopulation,
   isColumnRequired,
   gwasNFor,

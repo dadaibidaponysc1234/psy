@@ -3,7 +3,11 @@ import type {
   RoleRule,
   ToolDefinition,
 } from "@/components/benchmarking/job-config/types"
-import { EXACTLY_ONE, roleRule } from "@/components/benchmarking/tools/shared"
+import {
+  EXACTLY_ONE,
+  roleRule,
+  Z_SCORE_COLUMNS,
+} from "@/components/benchmarking/tools/shared"
 
 const PATHS: PathKey[] = ["sumstats_path", "genotype_path"]
 
@@ -26,18 +30,13 @@ export function xpassPopulations(tool: string): RoleRule[] {
   ]
 }
 
-export const XPASS_COLUMNS = {
-  required: ["SNP", "A1", "A2", "N"],
-  optional: ["Z"],
-}
-
 export const xpass: ToolDefinition = {
   id: "xpass",
   label: "XPASS",
   description: "Cross-population PRS leveraging genetic correlation",
   status: "live",
   populations: xpassPopulations("XPASS"),
-  columns: XPASS_COLUMNS,
+  columns: Z_SCORE_COLUMNS,
   gwasN: "unless_n_column",
   // No phenotype file, so no traits and no trait to score.
   hasTraits: false,

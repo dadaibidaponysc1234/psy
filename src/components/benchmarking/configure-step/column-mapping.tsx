@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  columnsFor,
   describePopulation,
   isColumnRequired,
   isGwasNRequired,
@@ -182,6 +183,7 @@ function PopulationColumns({
   const { entries, cursors, load, setCursor } = usePreviews()
   const label = describePopulation(definition, population)
   const columns = mappableColumns(definition, population.role)
+  const { required } = columnsFor(definition, population.role)
   const mapping = population.column_mapping
 
   const source = population.sumstats_path.trim()
@@ -508,6 +510,10 @@ function PopulationColumns({
                   <p className="text-xs text-muted-foreground">
                     Preview the file to populate headers
                   </p>
+                )}
+                {/* A required column shows its badge; "Z, or both BETA and SE" is said here. */}
+                {!required.includes(column) && (
+                  <FieldIssues issues={issues} path={path} />
                 )}
               </div>
             </div>

@@ -14,6 +14,7 @@ import {
   gwasNFor,
   isColumnRequired,
   N_COLUMN,
+  unmetColumnSets,
 } from "@/components/benchmarking/job-config/requirements"
 import {
   buildPreProcessing,
@@ -158,6 +159,17 @@ function checkPopulations(
           `${label}: map the ${column} column`
         )
       }
+    }
+    const unmet = unmetColumnSets(definition, population)
+    if (unmet) {
+      const choices = unmet.map((set) =>
+        set.length === 1 ? `a ${set[0]} column` : `both ${set.join(" and ")}`
+      )
+      report(
+        "configure",
+        `${at}.column_mapping.${unmet[0][0]}`,
+        `${label}: map ${choices.join(", or ")}`
+      )
     }
 
     // Every population with a phenotype file picks traits of each evaluated kind, as the old forms required.

@@ -3,6 +3,7 @@ import {
   EXACTLY_ONE,
   roleRule,
   TRAIT_PARAM,
+  Z_SCORE_COLUMNS,
 } from "@/components/benchmarking/tools/shared"
 
 export const sdprx: ToolDefinition = {
@@ -21,7 +22,7 @@ export const sdprx: ToolDefinition = {
       help: "Provide the cohort used as the base population for SDPRX",
     }),
   ],
-  columns: { required: ["SNP", "A1", "A2", "N"], optional: [] },
+  columns: Z_SCORE_COLUMNS,
   gwasN: "required",
   hasTraits: true,
   layouts: ["merged", "multi_chromosome"],

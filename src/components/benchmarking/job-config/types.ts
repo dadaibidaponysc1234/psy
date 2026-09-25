@@ -59,6 +59,8 @@ export interface RoleRule {
 export interface ColumnRule {
   required: string[]
   optional: string[]
+  /** Sets of optional columns of which at least one must be fully mapped: Z, or both BETA and SE. */
+  anyOf?: string[][]
 }
 
 interface FieldBase {

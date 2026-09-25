@@ -652,6 +652,34 @@ describe("validation", () => {
     expect(validate(xpass)).toEqual([])
   })
 
+  it.each(["sdprx", "xpass", "xpass+"] as const)(
+    "%s needs Z, or both BETA and SE, from every population",
+    (tool) => {
+      const draft = filledDraft(tool)
+      const target = draft.populations[0].column_mapping
+      delete target.BETA
+      delete target.SE
+      expect(validate(draft)).toEqual([])
+
+      delete target.Z
+      target.BETA = "beta_rep_1"
+      expect(validate(draft)).toMatchObject([
+        {
+          step: "configure",
+          path: `populations.${draft.populations[0].id}.column_mapping.Z`,
+          message: "Target (AFR): map a Z column, or both BETA and SE",
+        },
+      ])
+
+      target.SE = "se_rep_1"
+      expect(validate(draft)).toEqual([])
+      expect(
+        build([draft]).config[tool]!.pre_processing.populations[0]
+          .column_mapping
+      ).toMatchObject({ BETA: "beta_rep_1", SE: "se_rep_1" })
+    }
+  )
+
   it("a tool that takes a typed N needs it from every population, and then N needn't be mapped", () => {
     const draft = filledDraft("sdprx")
     delete draft.populations[1].column_mapping.N

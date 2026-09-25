@@ -35,6 +35,13 @@ export function roleRule(
 
 export const EXACTLY_ONE = { min: 1, max: 1 }
 
+/** SDPRX and XPASS work from a Z score: mapped as is, or computed as BETA / SE. */
+export const Z_SCORE_COLUMNS: ColumnRule = {
+  required: ["SNP", "A1", "A2", "N"],
+  optional: ["Z", "BETA", "SE"],
+  anyOf: [["Z"], ["BETA", "SE"]],
+}
+
 export const TRAIT_PARAM: ParamSpec = {
   key: "trait",
   label: "Phenotype Column",

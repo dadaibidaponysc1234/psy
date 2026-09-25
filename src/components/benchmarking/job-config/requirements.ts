@@ -57,6 +57,18 @@ export function isGwasNRequired(
   }
 }
 
+/** The column sets the population must map one of, when it maps none of them in full; else null. */
+export function unmetColumnSets(
+  definition: ToolDefinition,
+  population: PopulationDraft
+): string[][] | null {
+  const sets = columnsFor(definition, population.role).anyOf
+  if (!sets?.length) return null
+  const mapped = (column: string) =>
+    Boolean(population.column_mapping[column]?.trim())
+  return sets.some((set) => set.every(mapped)) ? null : sets
+}
+
 /**
  * Whether the backend fills this population's second allele from its genotypes: the dataset
  * lacks it and the column is left unmapped.
