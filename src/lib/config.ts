@@ -111,6 +111,11 @@ export const getBenchmarkConfigUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/config`
 }
 
+// Runs submit's checks without submitting: /benchmark/{job_id}/config/check
+export const getBenchmarkConfigCheckUrl = (jobId: string) => {
+  return `${getBenchmarkConfigUrl(jobId)}/check`
+}
+
 // Helper function to get per-tool log history
 export const getBenchmarkLogsUrl = (
   jobId: string,

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import benchmarkApi from "@/lib/benchmark-api"
-import { getBenchmarkConfigUrl } from "@/lib/config"
+import { getBenchmarkConfigCheckUrl, getBenchmarkConfigUrl } from "@/lib/config"
 import { buildJobConfig, isToolId } from "@/components/benchmarking/job-config"
 import type {
   EvaluationType,
@@ -228,11 +228,27 @@ export function ConfigureStep({
       return
     }
     setSubmitting(true)
+    const body = { config: built.config }
+    const json = { headers: { "Content-Type": "application/json" } }
     try {
+      // The backend's own checks first: a refusal names the tool and what to change.
+      try {
+        await benchmarkApi.post(getBenchmarkConfigCheckUrl(jobId), body, json)
+      } catch (error) {
+        // The backend wraps every refusal as {error: {message, status}}.
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.error?.message
+          : undefined
+        if (typeof message === "string" && message) {
+          toast.error(message, { duration: 10000 })
+          return
+        }
+        throw error
+      }
       const response = await benchmarkApi.post(
         getBenchmarkConfigUrl(jobId),
-        { config: built.config },
-        { headers: { "Content-Type": "application/json" } }
+        body,
+        json
       )
       toast.success("Configuration submitted! Starting benchmarking...")
       if (response.data?.warning) {
