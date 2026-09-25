@@ -89,9 +89,11 @@ export const getBenchmarkJobStatusUrl = (jobId: string) => {
   return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}`
 }
 
-// Helper function to get the SSE events URL
-export const getBenchmarkEventsUrl = (jobId: string) => {
-  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/events`
+// Helper function to get the SSE events URL. With `after`, the stream first replays the log
+// events after that seq, then continues live.
+export const getBenchmarkEventsUrl = (jobId: string, after?: number) => {
+  const query = after != null ? `?after=${after}` : ""
+  return `${BENCHMARK_CONFIG.BASE_URL}/${jobId}/events${query}`
 }
 
 // Helper function to get the preview URL: /benchmark/{job_id}/preview/{file_path}

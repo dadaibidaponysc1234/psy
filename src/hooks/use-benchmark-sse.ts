@@ -6,10 +6,12 @@ import { getBenchmarkJobStatusUrl, getBenchmarkEventsUrl, getBenchmarkLogsUrl, g
 import { useBenchmarkingStore } from "@/stores/benchmarking-store"
 import { useBenchmarkAuthStore } from "@/stores/benchmark-auth-store"
 import benchmarkApi from "@/lib/benchmark-api"
-import type { ToolStatusEvent, LogLine, ToolLogsResponse } from "@/types/benchmarking"
+import { MAX_LOG_LINES, parseSSE, toLogLine } from "@/lib/job-log-stream"
+import type { ToolStatusEvent, ToolLogsResponse } from "@/types/benchmarking"
 
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "")
-const MAX_LOG_LINES = 1500
+/** A job in one of these has sent its last events; the stream isn't reopened. */
+const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"])
+const MAX_RETRY_DELAY_MS = 30000
 
 function inferToolStatus(t: Record<string, any>): ToolStatusEvent["status"] {
   if (t.processing_status === "completed" && t.preprocessing_status === "completed") return "completed"
@@ -20,49 +22,23 @@ function inferToolStatus(t: Record<string, any>): ToolStatusEvent["status"] {
   return "running"
 }
 
-/**
- * Parse a raw SSE text stream into individual events.
- * Handles "event:", "data:", and blank-line delimiters.
- */
-function parseSSELine(
-  buffer: string,
-  onEvent: (eventType: string, data: string) => void
-): string {
-  const lines = buffer.split(/\r?\n/)
-  let currentEvent = "message"
-  let currentData = ""
-  let remaining = ""
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-
-    // If this is the last line and buffer doesn't end with a newline, it's incomplete
-    if (i === lines.length - 1 && !/\r?\n$/.test(buffer)) {
-      remaining = line
-      break
-    }
-
-    // SSE comments (keep-alive) — ignore
-    if (line.startsWith(":")) continue
-
-    if (line.startsWith("event:")) {
-      currentEvent = line.slice(6).trim()
-    } else if (line.startsWith("data:")) {
-      currentData += (currentData ? "\n" : "") + line.slice(5).trim()
-    } else if (line === "" && currentData) {
-      onEvent(currentEvent, currentData)
-      currentEvent = "message"
-      currentData = ""
-    }
-  }
-
-  return remaining
-}
+const wait = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
 
 /**
  * Shared hook that manages the SSE connection for a benchmark job.
  * Uses fetch with auth headers instead of EventSource.
  * Writes all state to the zustand store so any component can read it.
+ *
+ * Logs: the history of each view is read first, then the stream opens after the lowest
+ * `last_seq` those reads saw; lines both carry are dropped by seq. A dropped stream reopens
+ * after the newest seq seen, with backoff, until the job has ended.
  */
 export function useBenchmarkSSE(
   jobId: string | null,
@@ -70,7 +46,8 @@ export function useBenchmarkSSE(
 ) {
   const abortRef = useRef<AbortController | null>(null)
   const fetchedLogsForRef = useRef<Set<string>>(new Set())
-  const fetchedJobLogsRef = useRef(false)
+  const lastSeqRef = useRef(0)
+  const statusRef = useRef("")
   const onStatusChangeRef = useRef(onStatusChange)
   onStatusChangeRef.current = onStatusChange
 
@@ -79,71 +56,75 @@ export function useBenchmarkSSE(
     setSseStatus,
     setToolStates,
     updateToolState,
-    appendToolLogs,
-    setToolLogs,
-    appendJobLogs,
-    setJobLogs,
+    addToolLogs,
+    addJobLogs,
     setAggregateProgress,
     setExtractionProgress,
     clearSseState,
   } = useBenchmarkingStore()
 
-  const fetchHistoricalLogs = useCallback(
-    async (tools: string[]) => {
-      if (!jobId) return
-      for (const tool of tools) {
-        try {
-          const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES })
-          const res = await benchmarkApi.get<ToolLogsResponse>(url)
-          if (res.data?.lines?.length) {
-            const lines: LogLine[] = res.data.lines.map((l) => ({
-              level: l.level,
-              line: stripAnsi(l.line),
-              timestamp: l.timestamp,
-              source: l.source,
-            }))
-            setToolLogs(tool, lines)
-          }
-        } catch {
-          // Logs may not be available yet
-        }
-      }
+  const noteStatus = useCallback(
+    (status: string) => {
+      statusRef.current = status
+      setSseStatus(status)
+      onStatusChangeRef.current?.(status)
     },
-    [jobId, setToolLogs]
+    [setSseStatus]
   )
 
-  const fetchHistoricalJobLogs = useCallback(
-    async () => {
-      if (!jobId || fetchedJobLogsRef.current) return
-      fetchedJobLogsRef.current = true
+  const noteSeq = (seq: unknown) => {
+    if (typeof seq === "number" && seq > lastSeqRef.current) lastSeqRef.current = seq
+  }
+
+  /** Reads a tool's log history; returns the log's `last_seq` at the time, or null if unread. */
+  const fetchToolHistory = useCallback(
+    async (tool: string): Promise<number | null> => {
+      if (!jobId) return null
       try {
-        const url = getBenchmarkJobLogsUrl(jobId, { limit: MAX_LOG_LINES })
-        const res = await benchmarkApi.get(url)
-        const lines: any[] = res.data?.lines ?? []
-        if (lines.length) {
-          setJobLogs(
-            lines.map((l: any) => ({
-              level: l.level || "info",
-              line: stripAnsi(l.line || ""),
-              timestamp: l.timestamp || null,
-            }))
-          )
-        }
+        const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES })
+        const res = await benchmarkApi.get<ToolLogsResponse>(url)
+        addToolLogs(tool, (res.data?.lines ?? []).map(toLogLine))
+        return res.data?.last_seq ?? null
       } catch {
-        // Job logs may not be available yet
+        // Logs may not be available yet
+        return null
       }
     },
-    [jobId, setJobLogs]
+    [jobId, addToolLogs]
   )
 
+  const fetchJobHistory = useCallback(async (): Promise<number | null> => {
+    if (!jobId) return null
+    try {
+      const res = await benchmarkApi.get(getBenchmarkJobLogsUrl(jobId, { limit: MAX_LOG_LINES }))
+      addJobLogs((res.data?.lines ?? []).map(toLogLine))
+      return res.data?.last_seq ?? null
+    } catch {
+      // Job logs may not be available yet
+      return null
+    }
+  }, [jobId, addJobLogs])
+
+  /** Reads the overview's and each tool's history; returns the lowest `last_seq` read. */
+  const fetchHistory = useCallback(
+    async (tools: string[]): Promise<number | undefined> => {
+      const seqs = await Promise.all([fetchJobHistory(), ...tools.map(fetchToolHistory)])
+      const read = seqs.filter((seq): seq is number => seq != null)
+      return read.length ? Math.min(...read) : undefined
+    },
+    [fetchJobHistory, fetchToolHistory]
+  )
+
+  // A tool first named by a later status event gets its history read then.
   const ensureHistoricalLogs = useCallback(
     (toolNames: string[]) => {
       const newTools = toolNames.filter((name) => !fetchedLogsForRef.current.has(name))
-      if (newTools.length === 0) return
-      newTools.forEach((name) => fetchedLogsForRef.current.add(name))
-      fetchHistoricalLogs(newTools)
+      newTools.forEach((name) => {
+        fetchedLogsForRef.current.add(name)
+        fetchToolHistory(name)
+      })
     },
-    [fetchHistoricalLogs]
+    [fetchToolHistory]
   )
 
   const processToolsArray = useCallback(
@@ -180,8 +161,7 @@ export function useBenchmarkSSE(
         switch (eventType) {
           case "status": {
             const status = data.status || ""
-            setSseStatus(status)
-            onStatusChangeRef.current?.(status)
+            noteStatus(status)
 
             if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
               processToolsArray(data.tools, status)
@@ -202,14 +182,6 @@ export function useBenchmarkSSE(
                   ? { ...data.progress, percent: 100, message: "Completed" }
                   : { stage: "completed", percent: 100, message: "Completed", timestamp: new Date().toISOString() }
               )
-            }
-
-            if (status === "completed" || status === "failed") {
-              const toolNames = Object.keys(useBenchmarkingStore.getState().toolStates)
-              fetchedLogsForRef.current.clear()
-              fetchedJobLogsRef.current = false
-              ensureHistoricalLogs(toolNames)
-              fetchHistoricalJobLogs()
             }
             break
           }
@@ -246,24 +218,16 @@ export function useBenchmarkSSE(
           }
 
           case "log": {
-            const line: LogLine = {
-              level: data.level || "info",
-              line: stripAnsi(data.line || ""),
-              timestamp: data.timestamp || null,
-            }
+            noteSeq(data.seq)
             if (data.tool) {
-              appendToolLogs(data.tool, [line])
+              addToolLogs(data.tool, [toLogLine(data)])
             }
             break
           }
 
           case "job_log": {
-            const jobLine: LogLine = {
-              level: "info",
-              line: stripAnsi(data.message || ""),
-              timestamp: data.timestamp || null,
-            }
-            appendJobLogs([jobLine])
+            noteSeq(data.seq)
+            addJobLogs([toLogLine(data)])
             break
           }
 
@@ -287,94 +251,76 @@ export function useBenchmarkSSE(
     [jobId]
   )
 
-  const connect = useCallback(
-    async (signal: AbortSignal) => {
-      if (!jobId) return
+  /** Opens the stream with auth; one token refresh on 401. Null means signed out. */
+  const openStream = useCallback(
+    async (after: number | undefined, signal: AbortSignal): Promise<Response | null> => {
+      if (!jobId) return null
+      const tok = useBenchmarkAuthStore.getState().accessToken
+      const hdrs: Record<string, string> = { Accept: "text/event-stream" }
+      if (tok) hdrs.Authorization = `Bearer ${tok}`
 
-      // Fetch current status first (via authenticated client)
-      try {
-        const response = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
-        const data = response.data
-        if (data.status) {
-          setSseStatus(data.status)
-          onStatusChangeRef.current?.(data.status)
-        }
-        if (data.tools) {
-          processToolsArray(data.tools, data.status)
-        }
-        if (data.progress) {
-          setAggregateProgress(data.progress)
-        }
-        // Fetch historical job logs on connect (covers reconnect & completed jobs)
-        fetchHistoricalJobLogs()
-      } catch (error) {
-        console.error("[SSE] Failed to fetch current job status:", error)
-      }
+      const res = await fetch(getBenchmarkEventsUrl(jobId, after), {
+        headers: hdrs,
+        signal,
+      })
 
-      // Open SSE stream with auth header via fetch
-      const openStream = async (): Promise<Response | null> => {
-        const tok = useBenchmarkAuthStore.getState().accessToken
-        const hdrs: Record<string, string> = { Accept: "text/event-stream" }
-        if (tok) hdrs.Authorization = `Bearer ${tok}`
+      if (res.status === 401) {
+        // Try one token refresh and retry
+        const { refreshToken, setTokens, setUser, logout } =
+          useBenchmarkAuthStore.getState()
+        if (!refreshToken) { logout(); return null }
+        try {
+          const refreshRes = await axios.post(getBenchmarkRefreshUrl(), {
+            refresh_token: refreshToken,
+          })
+          setTokens(refreshRes.data.access_token, refreshRes.data.refresh_token)
+          setUser(refreshRes.data.user)
 
-        const res = await fetch(getBenchmarkEventsUrl(jobId), {
-          headers: hdrs,
-          signal,
-        })
-
-        if (res.status === 401) {
-          // Try one token refresh and retry
-          const { refreshToken, setTokens, setUser, logout } =
-            useBenchmarkAuthStore.getState()
-          if (!refreshToken) { logout(); return null }
-          try {
-            const refreshRes = await axios.post(getBenchmarkRefreshUrl(), {
-              refresh_token: refreshToken,
-            })
-            setTokens(refreshRes.data.access_token, refreshRes.data.refresh_token)
-            setUser(refreshRes.data.user)
-
-            const retryHdrs: Record<string, string> = {
-              Accept: "text/event-stream",
-              Authorization: `Bearer ${refreshRes.data.access_token}`,
-            }
-            return fetch(getBenchmarkEventsUrl(jobId), {
-              headers: retryHdrs,
-              signal,
-            })
-          } catch {
-            logout()
-            return null
+          const retryHdrs: Record<string, string> = {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${refreshRes.data.access_token}`,
           }
+          return fetch(getBenchmarkEventsUrl(jobId, after), {
+            headers: retryHdrs,
+            signal,
+          })
+        } catch {
+          logout()
+          return null
         }
-
-        return res
       }
 
-      try {
-        const response = await openStream()
+      return res
+    },
+    [jobId]
+  )
 
-        if (!response || !response.ok) {
-          console.error("[SSE] Connection failed:", response?.status)
-          setSseConnected(false)
-          return
+  /**
+   * Reads the stream until it closes. Returns "retry" when it should be reopened, "stop" when
+   * it shouldn't (signed out, or the server refused the job).
+   */
+  const readStream = useCallback(
+    async (after: number | undefined, signal: AbortSignal): Promise<"retry" | "stop"> => {
+      try {
+        const response = await openStream(after, signal)
+        if (!response) return "stop"
+        if (!response.ok) {
+          console.error("[SSE] Connection failed:", response.status)
+          return response.status >= 400 && response.status < 500 ? "stop" : "retry"
         }
 
         setSseConnected(true)
-
         const reader = response.body?.getReader()
-        if (!reader) return
+        if (!reader) return "retry"
 
         const decoder = new TextDecoder()
         let buffer = ""
-
         try {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
-
             buffer += decoder.decode(value, { stream: true })
-            buffer = parseSSELine(buffer, handleSSEData)
+            buffer = parseSSE(buffer, handleSSEData)
           }
         } finally {
           reader.cancel().catch(() => {})
@@ -386,38 +332,77 @@ export function useBenchmarkSSE(
       } finally {
         setSseConnected(false)
       }
+      return "retry"
+    },
+    [openStream, handleSSEData, setSseConnected]
+  )
+
+  const connect = useCallback(
+    async (signal: AbortSignal) => {
+      if (!jobId) return
+
+      // Fetch current status first (via authenticated client)
+      let tools: string[] = []
+      try {
+        const response = await benchmarkApi.get(getBenchmarkJobStatusUrl(jobId))
+        const data = response.data
+        if (data.status) noteStatus(data.status)
+        if (data.tools) {
+          // Their history is read below, together with the overview's.
+          tools = data.tools.map((t: any) => t.tool_name)
+          tools.forEach((name) => fetchedLogsForRef.current.add(name))
+          processToolsArray(data.tools, data.status)
+        }
+        if (data.progress) {
+          setAggregateProgress(data.progress)
+        }
+      } catch (error) {
+        console.error("[SSE] Failed to fetch current job status:", error)
+      }
+
+      const historySeq = await fetchHistory(tools)
+      if (signal.aborted) return
+      if (historySeq != null) lastSeqRef.current = historySeq
+      let after = historySeq
+
+      for (let attempt = 0; !signal.aborted; attempt++) {
+        const seqBefore = lastSeqRef.current
+        if ((await readStream(after, signal)) === "stop") return
+        if (signal.aborted || TERMINAL_STATUSES.has(statusRef.current)) return
+        // A stream that delivered events was healthy; start the backoff over.
+        if (lastSeqRef.current > seqBefore) attempt = 0
+        await wait(Math.min(MAX_RETRY_DELAY_MS, 1000 * 2 ** attempt), signal)
+        after = lastSeqRef.current
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobId, handleSSEData, processToolsArray]
+    [jobId, processToolsArray, fetchHistory, readStream]
   )
+
+  const start = useCallback(() => {
+    abortRef.current?.abort()
+    fetchedLogsForRef.current.clear()
+    lastSeqRef.current = 0
+    statusRef.current = ""
+    const controller = new AbortController()
+    abortRef.current = controller
+    connect(controller.signal)
+    return controller
+  }, [connect])
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
     if (!jobId) return
 
     clearSseState()
-    fetchedLogsForRef.current.clear()
-    fetchedJobLogsRef.current = false
-
-    const controller = new AbortController()
-    abortRef.current = controller
-    connect(controller.signal)
+    const controller = start()
 
     return () => {
       controller.abort()
       setSseConnected(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, connect])
+  }, [jobId, start])
 
-  const reconnect = useCallback(() => {
-    abortRef.current?.abort()
-    fetchedLogsForRef.current.clear()
-    fetchedJobLogsRef.current = false
-    const controller = new AbortController()
-    abortRef.current = controller
-    connect(controller.signal)
-  }, [connect])
-
-  return { reconnect }
+  return { reconnect: start }
 }

@@ -174,6 +174,8 @@ export interface LogEvent {
 
 /** A stored log line (from SSE or REST history) */
 export interface LogLine {
+  /** The event's number in the job's log: 1, 2, 3 ... never repeated. */
+  seq: number
   level: LogLevel
   line: string
   timestamp: string | null
@@ -190,11 +192,14 @@ export interface ToolLogsResponse {
   total_lines: number
   offset: number
   lines: Array<{
+    seq: number
     level: LogLevel
     line: string
     source: string
     timestamp: string | null
   }>
+  /** The newest seq in the job's log when it was read; the live stream resumes after it. */
+  last_seq: number
 }
 
 // ---------------------------------------------------------------------------

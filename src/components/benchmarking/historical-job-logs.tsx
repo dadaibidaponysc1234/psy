@@ -15,10 +15,8 @@ import {
 import { Loader2 } from "lucide-react"
 import benchmarkApi from "@/lib/benchmark-api"
 import { getBenchmarkJobLogsUrl, getBenchmarkLogsUrl, getBenchmarkJobStatusUrl } from "@/lib/config"
+import { MAX_LOG_LINES, toLogLine } from "@/lib/job-log-stream"
 import type { LogLevel, LogLine } from "@/types/benchmarking"
-
-const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "")
-const MAX_LOG_LINES = 1500
 
 function getLogLineClass(level: LogLevel) {
   switch (level) {
@@ -76,13 +74,7 @@ export function HistoricalJobLogs({ jobId }: HistoricalJobLogsProps) {
         const res = await benchmarkApi.get(url)
         const lines: any[] = res.data?.lines ?? []
         if (lines.length) {
-          setJobLogs(
-            lines.map((l: any) => ({
-              level: l.level || "info",
-              line: stripAnsi(l.line || ""),
-              timestamp: l.timestamp || null,
-            }))
-          )
+          setJobLogs(lines.map(toLogLine))
         }
       } catch {
         // Job logs may not be available
@@ -103,12 +95,7 @@ export function HistoricalJobLogs({ jobId }: HistoricalJobLogsProps) {
               const url = getBenchmarkLogsUrl(jobId, tool, { limit: MAX_LOG_LINES })
               const res = await benchmarkApi.get(url)
               if (res.data?.lines?.length) {
-                allToolLogs[tool] = res.data.lines.map((l: any) => ({
-                  level: l.level,
-                  line: stripAnsi(l.line),
-                  timestamp: l.timestamp,
-                  source: l.source,
-                }))
+                allToolLogs[tool] = res.data.lines.map(toLogLine)
               }
             } catch {
               // Tool logs may not be available

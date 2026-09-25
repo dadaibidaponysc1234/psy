@@ -16,6 +16,7 @@ import {
   updateToolInJob,
   withEvaluationType,
 } from "@/components/benchmarking/job-config"
+import { mergeLogLines } from "@/lib/job-log-stream"
 import type {
   EvaluationType,
   JobDraft,
@@ -91,10 +92,10 @@ export interface BenchmarkingState {
   setSseStatus: (status: string) => void
   setToolStates: (states: Record<string, ToolStatusEvent>) => void
   updateToolState: (tool: string, state: ToolStatusEvent) => void
-  appendToolLogs: (tool: string, lines: LogLine[]) => void
-  setToolLogs: (tool: string, lines: LogLine[]) => void
-  appendJobLogs: (lines: LogLine[]) => void
-  setJobLogs: (lines: LogLine[]) => void
+  /** Adds history or live lines to a tool's log; lines already shown (same seq) are dropped. */
+  addToolLogs: (tool: string, lines: LogLine[]) => void
+  /** Adds history or live lines to the job's overview; lines already shown are dropped. */
+  addJobLogs: (lines: LogLine[]) => void
   setAggregateProgress: (progress: AggregateProgress | null) => void
   setExtractionProgress: (
     progress: { current: number; total: number } | null
@@ -224,35 +225,16 @@ export const useBenchmarkingStore = create<BenchmarkingState>()(
             set((s) => ({
               toolStates: { ...s.toolStates, [tool]: state },
             })),
-          appendToolLogs: (tool, lines) =>
+          addToolLogs: (tool, lines) =>
             set((s) => {
               const existing = s.toolLogs[tool] || []
-              const combined = [...existing, ...lines]
-              const maxLines = 1500
-              return {
-                toolLogs: {
-                  ...s.toolLogs,
-                  [tool]:
-                    combined.length > maxLines
-                      ? combined.slice(-maxLines)
-                      : combined,
-                },
-              }
+              const merged = mergeLogLines(existing, lines)
+              return merged === existing
+                ? {}
+                : { toolLogs: { ...s.toolLogs, [tool]: merged } }
             }),
-          setToolLogs: (tool, lines) =>
-            set((s) => ({ toolLogs: { ...s.toolLogs, [tool]: lines } })),
-          appendJobLogs: (lines) =>
-            set((s) => {
-              const combined = [...s.jobLogs, ...lines]
-              const maxLines = 1500
-              return {
-                jobLogs:
-                  combined.length > maxLines
-                    ? combined.slice(-maxLines)
-                    : combined,
-              }
-            }),
-          setJobLogs: (lines) => set({ jobLogs: lines }),
+          addJobLogs: (lines) =>
+            set((s) => ({ jobLogs: mergeLogLines(s.jobLogs, lines) })),
           setAggregateProgress: (aggregateProgress) =>
             set({ aggregateProgress }),
           setExtractionProgress: (extractionProgress) =>
